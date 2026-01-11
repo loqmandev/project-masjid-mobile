@@ -1,112 +1,431 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+import { BorderRadius, Colors, Spacing, Typography, primary } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useLocation } from '@/hooks/use-location';
+import { useNearbyMasjids } from '@/hooks/use-nearby-masjids';
+import { MasjidResponse } from '@/lib/api';
 
-export default function TabTwoScreen() {
+type FilterType = 'all' | 'checkin' | 'visited';
+
+export default function ExploreScreen() {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Get user's current location
+  const { location, isLoading: isLocationLoading, error: locationError, refresh: refreshLocation } = useLocation();
+
+  // Fetch nearby masjids (5km radius)
+  const {
+    data: nearbyMasjids,
+    isLoading: isMasjidsLoading,
+    error: masjidsError,
+    refetch: refetchMasjids,
+  } = useNearbyMasjids({
+    latitude: location?.latitude ?? null,
+    longitude: location?.longitude ?? null,
+    radius: 5,
+  });
+
+  // Filter masjids based on search query and selected filter
+  const filteredMasjids = useMemo(() => {
+    if (!nearbyMasjids) return [];
+
+    return nearbyMasjids.filter((masjid) => {
+      // Search filter
+      const matchesSearch =
+        masjid.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        masjid.districtName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        masjid.stateName.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Type filter
+      if (selectedFilter === 'checkin') {
+        return matchesSearch && masjid.canCheckin;
+      }
+      // Note: 'visited' filter would require user visit history from API
+      return matchesSearch;
+    });
+  }, [nearbyMasjids, searchQuery, selectedFilter]);
+
+  const handleMasjidPress = (masjidId: string) => {
+    router.push(`/masjid/${masjidId}`);
+  };
+
+  const handleRefresh = async () => {
+    await refreshLocation();
+  };
+
+  const handlePullRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshLocation();
+      await refetchMasjids();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const isLoading = isLocationLoading || isMasjidsLoading;
+  const error = locationError || masjidsError?.message;
+
+  const formatDistance = (distanceM: number): string => {
+    if (distanceM < 1000) {
+      return `${distanceM}m`;
+    }
+    return `${(distanceM / 1000).toFixed(1)}km`;
+  };
+
+  const renderMasjidItem = ({ item: masjid }: { item: MasjidResponse }) => (
+    <TouchableOpacity
+      onPress={() => handleMasjidPress(masjid.masjidId)}
+      activeOpacity={0.7}
+    >
+      <Card variant="outlined" padding="md" style={styles.masjidCard}>
+        <View style={styles.masjidCardContent}>
+          {/* Masjid Image/Icon */}
+          <View style={[styles.masjidImage, { backgroundColor: primary[50] }]}>
+            <Text style={styles.masjidEmoji}>🕌</Text>
+          </View>
+
+          {/* Masjid Info */}
+          <View style={styles.masjidInfo}>
+            <Text style={[styles.masjidName, { color: colors.text }]} numberOfLines={2}>
+              {masjid.name}
+            </Text>
+            <Text style={[styles.masjidMeta, { color: colors.textSecondary }]}>
+              {formatDistance(masjid.distanceM)} away • {masjid.districtName}
+            </Text>
+
+            {/* Status Badges */}
+            <View style={styles.badgeContainer}>
+              {masjid.canCheckin ? (
+                <Badge label="Ready to check in" variant="success" size="sm" />
+              ) : (
+                <Badge label="Not in range" variant="default" size="sm" />
+              )}
+            </View>
+          </View>
+        </View>
+      </Card>
+    </TouchableOpacity>
+  );
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]}>Explore</Text>
+        <View style={styles.headerRight}>
+          <View style={styles.radiusBadge}>
+            <IconSymbol name="location.fill" size={14} color={colors.primary} />
+            <Text style={[styles.radiusText, { color: colors.primary }]}>5km</Text>
+          </View>
+          <TouchableOpacity onPress={handleRefresh}>
+            <IconSymbol name="arrow.clockwise" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Search Bar */}
+      <View style={[styles.searchContainer, { backgroundColor: colors.backgroundSecondary }]}>
+        <IconSymbol name="magnifyingglass" size={20} color={colors.textTertiary} />
+        <TextInput
+          style={[styles.searchInput, { color: colors.text }]}
+          placeholder="Search masjid name..."
+          placeholderTextColor={colors.textTertiary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <IconSymbol name="xmark.circle.fill" size={20} color={colors.textTertiary} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Filter Tabs */}
+      <View style={[styles.tabContainer, { backgroundColor: colors.backgroundSecondary }]}>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            selectedFilter === 'all' && [styles.tabActive, { backgroundColor: colors.card }],
+          ]}
+          onPress={() => setSelectedFilter('all')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              { color: selectedFilter === 'all' ? colors.primary : colors.textSecondary },
+            ]}
+          >
+            All Masjids
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            selectedFilter === 'checkin' && [styles.tabActive, { backgroundColor: colors.card }],
+          ]}
+          onPress={() => setSelectedFilter('checkin')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              { color: selectedFilter === 'checkin' ? colors.primary : colors.textSecondary },
+            ]}
+          >
+            Can Check In
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Results Count */}
+      {!isLoading && !error && (
+        <Text style={[styles.resultsCount, { color: colors.textSecondary }]}>
+          {filteredMasjids.length} masjids within 5km
+        </Text>
+      )}
+
+      {/* Loading State */}
+      {isLoading && (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            {isLocationLoading ? 'Getting your location...' : 'Finding nearby masjids...'}
+          </Text>
+        </View>
+      )}
+
+      {/* Error State */}
+      {error && !isLoading && (
+        <View style={styles.centerContainer}>
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+          <TouchableOpacity
+            onPress={() => refetchMasjids()}
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && !error && filteredMasjids.length === 0 && (
+        <View style={styles.centerContainer}>
+          <Text style={styles.emptyIcon}>🕌</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            No masjids found
+          </Text>
+          <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
+            {searchQuery ? 'Try a different search term' : 'No masjids within 5km of your location'}
+          </Text>
+        </View>
+      )}
+
+      {/* Masjid List */}
+      {!isLoading && !error && filteredMasjids.length > 0 && (
+        <FlatList
+          data={filteredMasjids}
+          renderItem={renderMasjidItem}
+          keyExtractor={(item) => item.masjidId}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handlePullRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
         />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
   },
-  titleContainer: {
+  header: {
     flexDirection: 'row',
-    gap: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  title: {
+    ...Typography.h2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  radiusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  radiusText: {
+    ...Typography.bodySmall,
+    fontWeight: '600',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.lg,
+    gap: Spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    ...Typography.body,
+    padding: 0,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    padding: 4,
+    borderRadius: BorderRadius.lg,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    alignItems: 'center',
+    borderRadius: BorderRadius.md,
+  },
+  tabActive: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tabText: {
+    ...Typography.bodySmall,
+    fontWeight: '600',
+  },
+  resultsCount: {
+    ...Typography.bodySmall,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  listContent: {
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.xxl,
+  },
+  masjidCard: {
+    marginBottom: Spacing.sm,
+  },
+  masjidCardContent: {
+    flexDirection: 'row',
+  },
+  masjidImage: {
+    width: 72,
+    height: 72,
+    borderRadius: BorderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.md,
+  },
+  masjidEmoji: {
+    fontSize: 32,
+  },
+  masjidInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  masjidName: {
+    ...Typography.body,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  masjidMeta: {
+    ...Typography.caption,
+    marginBottom: Spacing.xs,
+  },
+  badgeContainer: {
+    marginTop: Spacing.xs,
+  },
+  firstVisitorBadge: {
+    gap: 2,
+  },
+  firstVisitorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FF9800',
+  },
+  bonusText: {
+    fontSize: 11,
+  },
+  visitedInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  lastVisited: {
+    ...Typography.caption,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  loadingText: {
+    ...Typography.body,
+    marginTop: Spacing.md,
+  },
+  errorText: {
+    ...Typography.body,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  retryButton: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  retryButtonText: {
+    color: '#fff',
+    ...Typography.button,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: Spacing.md,
+  },
+  emptyText: {
+    ...Typography.body,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    ...Typography.caption,
+    textAlign: 'center',
+    marginTop: Spacing.xs,
   },
 });
