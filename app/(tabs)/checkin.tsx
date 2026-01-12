@@ -16,6 +16,7 @@ import Animated, {
   withRepeat,
   withTiming,
   withSequence,
+  cancelAnimation,
 } from 'react-native-reanimated';
 
 import { Card } from '@/components/ui/card';
@@ -39,10 +40,59 @@ interface ActiveVisit {
   minimumDuration: number; // minutes
 }
 
+// Separate component for the animated check-in button to isolate animation lifecycle
+function PulsingCheckInButton({
+  onPress,
+  isLoading,
+}: {
+  onPress: () => void;
+  isLoading: boolean;
+}) {
+  const pulseScale = useSharedValue(1);
+
+  useEffect(() => {
+    pulseScale.value = withRepeat(
+      withSequence(
+        withTiming(1.05, { duration: 1000 }),
+        withTiming(1, { duration: 1000 })
+      ),
+      -1,
+      true
+    );
+
+    return () => {
+      cancelAnimation(pulseScale);
+    };
+  }, []);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }));
+
+  return (
+    <Animated.View style={[styles.checkInButtonContainer, pulseStyle]}>
+      <TouchableOpacity
+        style={[styles.checkInButton, { backgroundColor: primary[500] }]}
+        onPress={onPress}
+        activeOpacity={0.9}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator size="large" color="#fff" />
+        ) : (
+          <>
+            <IconSymbol name="checkmark.circle.fill" size={32} color="#fff" />
+            <Text style={styles.checkInButtonText}>CHECK IN</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 export default function CheckInScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-
   // State
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [activeVisit, setActiveVisit] = useState<ActiveVisit | null>(null);
@@ -73,24 +123,6 @@ export default function CheckInScreen() {
   const visitState = getVisitState();
   const isLoading = isLocationLoading || isMasjidsLoading;
 
-  // Pulse animation for check-in button
-  const pulseScale = useSharedValue(1);
-
-  useEffect(() => {
-    if (visitState === 'nearby') {
-      pulseScale.value = withRepeat(
-        withSequence(
-          withTiming(1.05, { duration: 1000 }),
-          withTiming(1, { duration: 1000 })
-        ),
-        -1,
-        true
-      );
-    } else {
-      pulseScale.value = 1;
-    }
-  }, [visitState]);
-
   useEffect(() => {
     const storedVisit = loadActiveVisit();
     if (!storedVisit) return;
@@ -119,10 +151,6 @@ export default function CheckInScreen() {
       return () => clearInterval(interval);
     }
   }, [activeVisit, timeRemaining]);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseScale.value }],
-  }));
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -202,118 +230,90 @@ export default function CheckInScreen() {
     : 0;
   const canCheckOut = timeRemaining === 0;
 
-  // Loading state
-  if (isLoading && !activeVisit) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.centeredContent}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            {isLocationLoading ? 'Getting your location...' : 'Finding nearby masjids...'}
+  const isLoadingState = isLoading && !activeVisit;
+  let content: React.ReactNode;
+
+  if (isLoadingState) {
+    content = (
+      <View style={styles.centeredContent}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+          {isLocationLoading ? 'Getting your location...' : 'Finding nearby masjids...'}
+        </Text>
+      </View>
+    );
+  } else if (visitState === 'idle') {
+    content = (
+      <View style={styles.centeredContent}>
+        <View style={[styles.iconCircle, { backgroundColor: colors.backgroundSecondary }]}>
+          <Text style={styles.largeEmoji}>🕌</Text>
+        </View>
+        <Text style={[styles.idleTitle, { color: colors.text }]}>
+          No Masjid Nearby
+        </Text>
+        <Text style={[styles.idleSubtitle, { color: colors.textSecondary }]}>
+          Get within 100 meters of a masjid to check in
+        </Text>
+        <View style={styles.idleButtons}>
+          <Button
+            title="Refresh Location"
+            variant="outline"
+            onPress={handleRefresh}
+            style={styles.refreshButton}
+          />
+          <Button
+            title="Explore Nearby Masjids"
+            variant="primary"
+            onPress={handleExplore}
+            style={styles.exploreButton}
+          />
+        </View>
+      </View>
+    );
+  } else if (visitState === 'nearby' && nearbyMasjid) {
+    content = (
+      <View style={styles.centeredContent}>
+        {/* Masjid Image */}
+        <View style={[styles.masjidImageLarge, { backgroundColor: primary[50] }]}>
+          <Text style={styles.veryLargeEmoji}>🕌</Text>
+        </View>
+
+        <Text style={[styles.masjidName, { color: colors.text }]}>
+          {nearbyMasjid.name}
+        </Text>
+        <Text style={[styles.masjidLocation, { color: colors.textSecondary }]}>
+          {nearbyMasjid.districtName}, {nearbyMasjid.stateName}
+        </Text>
+
+        {/* Distance indicator */}
+        <View style={[styles.distanceBadge, { backgroundColor: colors.success + '20' }]}>
+          <IconSymbol name="location.fill" size={14} color={colors.success} />
+          <Text style={[styles.distanceText, { color: colors.success }]}>
+            {nearbyMasjid.distanceM}m away • Within range
           </Text>
         </View>
-      </SafeAreaView>
-    );
-  }
 
-  // Idle state - no masjid nearby
-  if (visitState === 'idle') {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.centeredContent}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.backgroundSecondary }]}>
-            <Text style={styles.largeEmoji}>🕌</Text>
-          </View>
-          <Text style={[styles.idleTitle, { color: colors.text }]}>
-            No Masjid Nearby
+        {/* Check-in Button */}
+        <PulsingCheckInButton
+          onPress={handleCheckIn}
+          isLoading={isCheckingIn}
+        />
+
+        {/* Points Preview */}
+        <Card variant="outlined" padding="md" style={styles.pointsPreview}>
+          <Text style={[styles.pointsTitle, { color: colors.textSecondary }]}>
+            Points Preview
           </Text>
-          <Text style={[styles.idleSubtitle, { color: colors.textSecondary }]}>
-            Get within 100 meters of a masjid to check in
-          </Text>
-          <View style={styles.idleButtons}>
-            <Button
-              title="Refresh Location"
-              variant="outline"
-              onPress={handleRefresh}
-              style={styles.refreshButton}
-            />
-            <Button
-              title="Explore Nearby Masjids"
-              variant="primary"
-              onPress={handleExplore}
-              style={styles.exploreButton}
-            />
+          <View style={styles.pointsRow}>
+            <Text style={[styles.pointsLabel, { color: colors.text }]}>Base Visit</Text>
+            <Text style={[styles.pointsValue, { color: colors.text }]}>10 pts</Text>
           </View>
-        </View>
-      </SafeAreaView>
+        </Card>
+      </View>
     );
-  }
-
-  // Nearby state - masjid in range, can check in
-  if (visitState === 'nearby' && nearbyMasjid) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.centeredContent}>
-            {/* Masjid Image */}
-            <View style={[styles.masjidImageLarge, { backgroundColor: primary[50] }]}>
-              <Text style={styles.veryLargeEmoji}>🕌</Text>
-            </View>
-
-            <Text style={[styles.masjidName, { color: colors.text }]}>
-              {nearbyMasjid.name}
-            </Text>
-            <Text style={[styles.masjidLocation, { color: colors.textSecondary }]}>
-              {nearbyMasjid.districtName}, {nearbyMasjid.stateName}
-            </Text>
-
-            {/* Distance indicator */}
-            <View style={[styles.distanceBadge, { backgroundColor: colors.success + '20' }]}>
-              <IconSymbol name="location.fill" size={14} color={colors.success} />
-              <Text style={[styles.distanceText, { color: colors.success }]}>
-                {nearbyMasjid.distanceM}m away • Within range
-              </Text>
-            </View>
-
-            {/* Check-in Button */}
-            <Animated.View style={[styles.checkInButtonContainer, pulseStyle]}>
-              <TouchableOpacity
-                style={[styles.checkInButton, { backgroundColor: primary[500] }]}
-                onPress={handleCheckIn}
-                activeOpacity={0.9}
-                disabled={isCheckingIn}
-              >
-                {isCheckingIn ? (
-                  <ActivityIndicator size="large" color="#fff" />
-                ) : (
-                  <>
-                    <IconSymbol name="checkmark.circle.fill" size={32} color="#fff" />
-                    <Text style={styles.checkInButtonText}>CHECK IN</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </Animated.View>
-
-            {/* Points Preview */}
-            <Card variant="outlined" padding="md" style={styles.pointsPreview}>
-              <Text style={[styles.pointsTitle, { color: colors.textSecondary }]}>
-                Points Preview
-              </Text>
-              <View style={styles.pointsRow}>
-                <Text style={[styles.pointsLabel, { color: colors.text }]}>Base Visit</Text>
-                <Text style={[styles.pointsValue, { color: colors.text }]}>10 pts</Text>
-              </View>
-            </Card>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  // Checked in state - active visit
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+  } else {
+    content = (
+      <>
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Active Visit</Text>
@@ -392,6 +392,14 @@ export default function CheckInScreen() {
         >
           <Text style={{ color: colors.textTertiary }}>Refresh nearby masjids</Text>
         </TouchableOpacity>
+      </>
+    );
+  }
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {content}
       </ScrollView>
     </SafeAreaView>
   );
@@ -404,6 +412,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: Spacing.md,
     paddingBottom: Spacing.xxl,
+    flexGrow: 1,
   },
   centeredContent: {
     flex: 1,

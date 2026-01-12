@@ -1,18 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   TouchableOpacity,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 
 import { Button } from '@/components/ui/button';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Spacing, Typography, primary, BorderRadius } from '@/constants/theme';
+import { Colors, Spacing, Typography, primary } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { authClient, useSession } from '@/lib/auth-client';
 
 const { width } = Dimensions.get('window');
 
@@ -20,16 +21,56 @@ export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [loading, setLoading] = useState(false);
+  const { data: session, isPending } = useSession();
+  const params = useLocalSearchParams<{ returnTo?: string }>();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (session && !isPending) {
+      const returnTo = params.returnTo || '/(tabs)';
+      router.replace(returnTo as any);
+    }
+  }, [session, isPending, params.returnTo]);
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    // TODO: Implement actual Google Sign In with Firebase
-    // For now, simulate login and navigate to main app
-    setTimeout(() => {
+    try {
+      const result = await authClient.signIn.social({
+        provider: 'google',
+        callbackURL: params.returnTo || '/(tabs)',
+      });
+
+      if (result.error) {
+        Alert.alert('Sign In Failed', result.error.message || 'Unable to sign in with Google');
+      }
+      // Success case: the OAuth flow will redirect via deep link
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+    } finally {
       setLoading(false);
-      router.replace('/(tabs)');
-    }, 1500);
+    }
   };
+
+  const handleSkip = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(tabs)');
+  };
+
+  // Show loading while checking session
+  if (isPending) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            Loading...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <>
@@ -117,13 +158,13 @@ export default function LoginScreen() {
             </Text>
           </View>
 
-          {/* Skip for Demo */}
+          {/* Skip to browse without signing in */}
           <TouchableOpacity
             style={styles.skipButton}
-            onPress={() => router.replace('/(tabs)')}
+            onPress={handleSkip}
           >
             <Text style={[styles.skipText, { color: colors.textTertiary }]}>
-              Skip for now (Demo mode)
+              Browse without signing in
             </Text>
           </TouchableOpacity>
         </View>
@@ -135,6 +176,14 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    ...Typography.body,
   },
   content: {
     flex: 1,

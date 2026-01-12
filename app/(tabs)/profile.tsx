@@ -5,6 +5,7 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -13,8 +14,9 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Spacing, Typography, primary, gold, BorderRadius } from '@/constants/theme';
+import { Colors, Spacing, Typography, primary, BorderRadius } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useSession, authClient } from '@/lib/auth-client';
 
 // Mock data
 const mockUser = {
@@ -49,14 +51,25 @@ const menuItems = [
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { data: session } = useSession();
+
+  // Get user data from session or fall back to mock data
+  const user = session?.user;
+  const displayName = user?.name || mockUser.displayName;
+  const email = user?.email || mockUser.email;
+  const avatarUrl = user?.image || null;
 
   const handleMenuPress = (route: string) => {
     router.push(route as any);
   };
 
-  const handleSignOut = () => {
-    // TODO: Implement sign out
-    console.log('Sign out');
+  const handleSignOut = async () => {
+    try {
+      await authClient.signOut();
+      router.replace('/(tabs)');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
   };
 
   return (
@@ -69,13 +82,17 @@ export default function ProfileScreen() {
         {/* Profile Header */}
         <View style={styles.profileHeader}>
           <View style={[styles.avatar, { backgroundColor: primary[100] }]}>
-            <Text style={styles.avatarText}>👤</Text>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>👤</Text>
+            )}
           </View>
           <Text style={[styles.displayName, { color: colors.text }]}>
-            {mockUser.displayName}
+            {displayName}
           </Text>
           <Text style={[styles.email, { color: colors.textSecondary }]}>
-            {mockUser.email}
+            {email}
           </Text>
           <Text style={[styles.joinedDate, { color: colors.textTertiary }]}>
             Member since {mockUser.joinedDate}
@@ -276,6 +293,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.md,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
   },
   avatarText: {
     fontSize: 40,

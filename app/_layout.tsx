@@ -2,6 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -49,41 +50,43 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider value={colorScheme === 'dark' ? MasjidGoDarkTheme : MasjidGoLightTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="auth/login"
-            options={{
-              headerShown: false,
-              presentation: 'fullScreenModal',
-            }}
-          />
-          <Stack.Screen
-            name="masjid/[id]"
-            options={{
-              title: 'Masjid Details',
-              headerBackTitle: 'Back',
-            }}
-          />
-          <Stack.Screen
-            name="achievements"
-            options={{
-              title: 'Achievements',
-              headerBackTitle: 'Back',
-            }}
-          />
-          <Stack.Screen
-            name="modal"
-            options={{
-              presentation: 'modal',
-              title: 'Modal',
-            }}
-          />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </QueryClientProvider>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider value={colorScheme === 'dark' ? MasjidGoDarkTheme : MasjidGoLightTheme}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="auth/login"
+              options={{
+                headerShown: false,
+                presentation: 'fullScreenModal',
+              }}
+            />
+            <Stack.Screen
+              name="masjid/[id]"
+              options={{
+                title: 'Masjid Details',
+                headerBackTitle: 'Back',
+              }}
+            />
+            <Stack.Screen
+              name="achievements"
+              options={{
+                title: 'Achievements',
+                headerBackTitle: 'Back',
+              }}
+            />
+            <Stack.Screen
+              name="modal"
+              options={{
+                presentation: 'modal',
+                title: 'Modal',
+              }}
+            />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }

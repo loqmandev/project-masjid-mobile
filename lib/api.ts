@@ -4,6 +4,37 @@
  */
 
 import { API_BASE_URL } from '@/constants/api';
+import { authClient } from '@/lib/auth-client';
+
+/**
+ * Creates fetch options with authentication headers
+ */
+function createAuthenticatedFetchOptions(
+  options: RequestInit = {}
+): RequestInit {
+  const cookie = authClient.getCookie();
+
+  return {
+    ...options,
+    headers: {
+      ...options.headers,
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
+    // 'include' can interfere with cookies set manually in headers
+    credentials: 'omit' as RequestCredentials,
+  };
+}
+
+/**
+ * Authenticated fetch wrapper for protected endpoints
+ */
+function authenticatedFetch(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const authOptions = createAuthenticatedFetchOptions(options);
+  return fetch(url, authOptions);
+}
 
 /**
  * Masjid data from nearby/checkin API
@@ -129,23 +160,34 @@ export interface CheckinResponse {
 
 /**
  * Check in to a masjid
+ * REQUIRES AUTHENTICATION - uses authenticated fetch
  */
 export async function checkinToMasjid(
   masjidId: string,
   lat: number,
   lng: number
 ): Promise<CheckinResponse> {
-  const response = await fetch(`${API_BASE_URL}/masjids/${masjidId}/checkin`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ lat, lng }),
-  });
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/masjids/${masjidId}/checkin`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ lat, lng }),
+    }
+  );
 
   const data = await response.json();
 
   if (!response.ok) {
+    // Handle 401 specifically for auth errors
+    if (response.status === 401) {
+      return {
+        success: false,
+        message: 'Please sign in to check in',
+      };
+    }
     return {
       success: false,
       message: data.message || `Check-in failed: ${response.status}`,
