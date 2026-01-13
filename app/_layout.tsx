@@ -2,11 +2,11 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { primary } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,8 +17,8 @@ const queryClient = new QueryClient({
   },
 });
 
-// Custom theme with Masjid Go colors
-const MasjidGoLightTheme = {
+// Custom theme with Jejak Masjid colors
+const JejakMasjidLightTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
@@ -30,7 +30,7 @@ const MasjidGoLightTheme = {
   },
 };
 
-const MasjidGoDarkTheme = {
+const JejakMasjidDarkTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
@@ -52,7 +52,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider value={colorScheme === 'dark' ? MasjidGoDarkTheme : MasjidGoLightTheme}>
+        <ThemeProvider value={colorScheme === 'dark' ? JejakMasjidDarkTheme : JejakMasjidLightTheme}>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen

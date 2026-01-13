@@ -1,4 +1,4 @@
-# Masjid Go - Product Requirements Document (PRD)
+# Jejak Masjid - Product Requirements Document (PRD)
 
 ## Document Information
 - **Version**: 1.0
@@ -10,7 +10,7 @@
 ## 1. Executive Summary
 
 ### 1.1 Product Overview
-Masjid Go is a location-based mobile application inspired by Pokemon Go, designed to encourage Muslims in Malaysia to visit and engage with masjids (mosques) across the country. Users physically visit masjids, check in at the location, and earn points and achievements for their visits and contributions.
+Jejak Masjid is a location-based mobile application inspired by Pokemon Go, designed to encourage Muslims in Malaysia to visit and engage with masjids (mosques) across the country. Users physically visit masjids, check in at the location, and earn points and achievements for their visits and contributions.
 
 ### 1.2 Vision Statement
 To create an engaging, gamified experience that strengthens the connection between Muslims and their local masjids while building a comprehensive community-driven database of masjid information across Malaysia.
@@ -321,4 +321,4 @@ Users can update/add:
 | Salam Planet | Global | Social network focus |
 | HalalTrip | Global | Travel/tourism focus |
 
-**Masjid Go Differentiator**: Location-based gamification specifically for masjid visits in Malaysia.
+**Jejak Masjid Differentiator**: Location-based gamification specifically for masjid visits in Malaysia.

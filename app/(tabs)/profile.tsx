@@ -1,22 +1,22 @@
+import { router } from 'expo-router';
 import React from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
   Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ProgressBar } from '@/components/ui/progress-bar';
+import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Spacing, Typography, primary, BorderRadius } from '@/constants/theme';
+import { ProgressBar } from '@/components/ui/progress-bar';
+import { BorderRadius, Colors, Spacing, Typography, primary } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useSession, authClient } from '@/lib/auth-client';
+import { authClient, useSession } from '@/lib/auth-client';
 
 // Mock data
 const mockUser = {
@@ -264,7 +264,7 @@ export default function ProfileScreen() {
 
         {/* App Version */}
         <Text style={[styles.versionText, { color: colors.textTertiary }]}>
-          Masjid Go v1.0.0
+          Jejak Masjid v1.0.0
         </Text>
       </ScrollView>
     </SafeAreaView>

@@ -19,7 +19,7 @@ npm run lint       # Run ESLint via expo lint
 
 ## Project Overview
 
-**Masjid Go** - A gamified mobile app that encourages Muslims in Malaysia to visit masjids, check in, and earn points and achievements. Inspired by Pokemon Go but for mosque visits.
+**Jejak Masjid** - A gamified mobile app that encourages Muslims in Malaysia to visit masjids, check in, and earn points and achievements. Inspired by Pokemon Go but for mosque visits.
 
 See `docs/PRD.md` for product requirements and `docs/TECHNICAL_SPEC.md` for technical architecture.
 

@@ -1,9 +1,10 @@
 {
-  "name": "project-masjid-mobile",
+  "name": "jejak-masjid-mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "prebuild": "expo prebuild",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",

@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "project-masjid-mobile",
-    "slug": "project-masjid-mobile",
+    "name": "jejak-masjid-mobile",
+    "slug": "jejak-masjid-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "projectmasjidmobile",
+    "scheme": "jejakmasjidmobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.projectmasjidmobile"
+      "bundleIdentifier": "my.lonasoft.jejakmasjidmobile"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.projectmasjidmobile"
+      "package": "my.lonasoft.jejakmasjidmobile"
     },
     "web": {
       "output": "static",

@@ -86,7 +86,7 @@ export default function LoginScreen() {
             <View style={[styles.logoContainer, { backgroundColor: primary[100] }]}>
               <Text style={styles.logoEmoji}>🕌</Text>
             </View>
-            <Text style={[styles.appName, { color: colors.text }]}>Masjid Go</Text>
+            <Text style={[styles.appName, { color: colors.text }]}>Jejak Masjid</Text>
             <Text style={[styles.tagline, { color: colors.textSecondary }]}>
               Explore • Visit • Earn Rewards
             </Text>

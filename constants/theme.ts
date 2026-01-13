@@ -1,5 +1,5 @@
 /**
- * Masjid Go Theme
+ * Jejak Masjid Theme
  * Islamic-inspired color palette with gamification elements
  */
 

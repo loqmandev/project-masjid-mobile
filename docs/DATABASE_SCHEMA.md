@@ -1,6 +1,6 @@
-# Database Schema - Masjid Go
+# Database Schema - Jejak Masjid
 
-PostgreSQL database schema using Drizzle ORM for the Masjid Go gamification features.
+PostgreSQL database schema using Drizzle ORM for the Jejak Masjid gamification features.
 
 ## Overview
 

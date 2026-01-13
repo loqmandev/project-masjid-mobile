@@ -1,4 +1,4 @@
-# Masjid Go - Technical Specification Document
+# Jejak Masjid - Technical Specification Document
 
 ## Document Information
 - **Version**: 2.0
@@ -116,7 +116,7 @@ DynamoDB uses a single-table design with composite keys for efficient access pat
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                        MASJIDGO TABLE                                    │
+│                        JEJAKMASJID TABLE                                    │
 ├─────────────────────────────────────────────────────────────────────────┤
 │  PK (Partition Key)    │  SK (Sort Key)           │  Attributes...      │
 ├────────────────────────┼──────────────────────────┼─────────────────────┤
@@ -1417,7 +1417,7 @@ src/
 # template.yaml
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Masjid Go Backend API
+Description: Jejak Masjid Backend API
 
 Globals:
   Function:
@@ -1426,16 +1426,16 @@ Globals:
     MemorySize: 256
     Environment:
       Variables:
-        TABLE_NAME: !Ref MasjidGoTable
+        TABLE_NAME: !Ref JejakMasjidTable
         ACHIEVEMENT_QUEUE_URL: !Ref AchievementQueue
         PHOTO_BUCKET: !Ref PhotoBucket
 
 Resources:
   # API Gateway
-  MasjidGoApi:
+  JejakMasjidApi:
     Type: AWS::Serverless::Api
     Properties:
-      Name: masjidgo-api
+      Name: jejakmasjid-api
       StageName: prod
       Cors:
         AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
@@ -1448,10 +1448,10 @@ Resources:
             FunctionArn: !GetAtt AuthorizerFunction.Arn
 
   # DynamoDB Table
-  MasjidGoTable:
+  JejakMasjidTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: masjidgo
+      TableName: jejakmasjid
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: PK
@@ -1517,7 +1517,7 @@ Resources:
   PhotoBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: masjidgo-photos
+      BucketName: jejakmasjid-photos
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders: ['*']
@@ -1528,7 +1528,7 @@ Resources:
   AchievementQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: masjidgo-achievements
+      QueueName: jejakmasjid-achievements
       VisibilityTimeout: 60
 
   # Lambda Functions
@@ -1547,12 +1547,12 @@ Resources:
         Api:
           Type: Api
           Properties:
-            RestApiId: !Ref MasjidGoApi
+            RestApiId: !Ref JejakMasjidApi
             Path: /api/v1/visits/check-in
             Method: POST
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref MasjidGoTable
+            TableName: !Ref JejakMasjidTable
         - SQSSendMessagePolicy:
             QueueName: !GetAtt AchievementQueue.QueueName
 
@@ -1565,12 +1565,12 @@ Resources:
         Api:
           Type: Api
           Properties:
-            RestApiId: !Ref MasjidGoApi
+            RestApiId: !Ref JejakMasjidApi
             Path: /api/v1/visits/{id}/check-out
             Method: POST
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref MasjidGoTable
+            TableName: !Ref JejakMasjidTable
         - SQSSendMessagePolicy:
             QueueName: !GetAtt AchievementQueue.QueueName
 
@@ -1583,12 +1583,12 @@ Resources:
         Api:
           Type: Api
           Properties:
-            RestApiId: !Ref MasjidGoApi
+            RestApiId: !Ref JejakMasjidApi
             Path: /api/v1/masjids/nearby
             Method: GET
       Policies:
         - DynamoDBReadPolicy:
-            TableName: !Ref MasjidGoTable
+            TableName: !Ref JejakMasjidTable
 
   AchievementWorker:
     Type: AWS::Serverless::Function
@@ -1603,12 +1603,12 @@ Resources:
             BatchSize: 10
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref MasjidGoTable
+            TableName: !Ref JejakMasjidTable
 
 Outputs:
   ApiEndpoint:
     Description: API Gateway endpoint URL
-    Value: !Sub "https://${MasjidGoApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+    Value: !Sub "https://${JejakMasjidApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
 ```
 
 ### 5.2 Cost Estimation (MVP Scale)
@@ -1819,7 +1819,7 @@ const getLeaderboard = async (period: 'monthly' | 'alltime') => {
 WebSocketApi:
   Type: AWS::ApiGatewayV2::Api
   Properties:
-    Name: masjidgo-websocket
+    Name: jejakmasjid-websocket
     ProtocolType: WEBSOCKET
     RouteSelectionExpression: "$request.body.action"
 
