@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import * as Linking from 'expo-linking';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
+  Alert,
+  Dimensions,
   StyleSheet,
-  View,
   Text,
   TouchableOpacity,
-  Dimensions,
-  Alert,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
 
 import { Button } from '@/components/ui/button';
-import { Colors, Spacing, Typography, primary } from '@/constants/theme';
+import { Colors, primary, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { authClient, useSession } from '@/lib/auth-client';
 
@@ -35,9 +36,12 @@ export default function LoginScreen() {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
+      // Build proper deep link URL for OAuth callback
+      const callbackURL = Linking.createURL(params.returnTo || '/(tabs)');
+
       const result = await authClient.signIn.social({
         provider: 'google',
-        callbackURL: params.returnTo || '/(tabs)',
+        callbackURL,
       });
 
       if (result.error) {
