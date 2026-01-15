@@ -1,41 +1,42 @@
+import { router } from 'expo-router';
 import React from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 
+import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { ProgressBar } from '@/components/ui/progress-bar';
-import { Badge } from '@/components/ui/badge';
 import { Colors, Spacing, Typography, primary } from '@/constants/theme';
+import { useCheckinMasjids } from '@/hooks/use-checkin-masjids';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLocation } from '@/hooks/use-location';
-import { useCheckinMasjids } from '@/hooks/use-checkin-masjids';
-
-// Mock data - will be replaced with real data from API
-const mockUserStats = {
-  displayName: 'Ahmad',
-  totalMasjidsVisited: 12,
-  totalPoints: 350,
-  totalAchievements: 3,
-};
-
-const mockNextAchievement = {
-  name: 'Pengembara Hebat',
-  current: 12,
-  required: 20,
-};
+import { useUserProfile } from '@/hooks/use-user-profile';
+import { useUserAchievements, getNextAchievement } from '@/hooks/use-user-achievements';
+import { useSession } from '@/lib/auth-client';
 
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { data: session } = useSession();
+
+  // Get display name from session or fallback for guests
+  const displayName = session?.user?.name?.split(' ')[0] || 'Guest';
+  const isAuthenticated = !!session?.user;
+
+  // Fetch user profile and achievements (only when authenticated)
+  const { data: userProfile, isLoading: isProfileLoading } = useUserProfile();
+  const { data: achievements } = useUserAchievements();
+
+  // Get the next achievement to unlock
+  const nextAchievement = getNextAchievement(achievements);
 
   // Get user's current location
   const { location, isLoading: isLocationLoading, error: locationError, refresh: refreshLocation } = useLocation();
@@ -60,7 +61,8 @@ export default function HomeScreen() {
   };
 
   const handleRefreshLocation = async () => {
-    await refreshLocation();
+    // Force refresh to bypass cache and get fresh location
+    await refreshLocation(true);
     // Masjids will automatically refetch when location changes due to query key dependency
   };
 
@@ -77,7 +79,7 @@ export default function HomeScreen() {
             Assalamualaikum,
           </Text>
           <Text style={[styles.userName, { color: colors.text }]}>
-            {mockUserStats.displayName}!
+            {displayName}
           </Text>
         </View>
 
@@ -86,55 +88,71 @@ export default function HomeScreen() {
           <View style={[styles.journeyCardInner, { backgroundColor: primary[500] }]}>
             <Text style={styles.journeyTitle}>YOUR JOURNEY</Text>
 
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text style={styles.statIcon}>🕌</Text>
-                <Text style={styles.statValue}>{mockUserStats.totalMasjidsVisited}</Text>
-                <Text style={styles.statLabel}>Masjids Visited</Text>
+            {isProfileLoading && isAuthenticated ? (
+              <View style={styles.statsLoadingContainer}>
+                <ActivityIndicator size="small" color="rgba(255,255,255,0.8)" />
               </View>
+            ) : (
+              <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statIcon}>🕌</Text>
+                  <Text style={styles.statValue}>
+                    {userProfile?.profile?.uniqueMasjidsVisited ?? 0}
+                  </Text>
+                  <Text style={styles.statLabel}>Masjids Visited</Text>
+                </View>
 
-              <View style={styles.statDivider} />
+                <View style={styles.statDivider} />
 
-              <View style={styles.statItem}>
-                <Text style={styles.statIcon}>⭐</Text>
-                <Text style={styles.statValue}>{mockUserStats.totalPoints}</Text>
-                <Text style={styles.statLabel}>Points</Text>
+                <View style={styles.statItem}>
+                  <Text style={styles.statIcon}>⭐</Text>
+                  <Text style={styles.statValue}>
+                    {userProfile?.profile?.totalPoints ?? 0}
+                  </Text>
+                  <Text style={styles.statLabel}>Points</Text>
+                </View>
+
+                <View style={styles.statDivider} />
+
+                <View style={styles.statItem}>
+                  <Text style={styles.statIcon}>🏆</Text>
+                  <Text style={styles.statValue}>
+                    {userProfile?.profile?.achievementCount ?? 0}
+                  </Text>
+                  <Text style={styles.statLabel}>Achievements</Text>
+                </View>
               </View>
-
-              <View style={styles.statDivider} />
-
-              <View style={styles.statItem}>
-                <Text style={styles.statIcon}>🏆</Text>
-                <Text style={styles.statValue}>{mockUserStats.totalAchievements}</Text>
-                <Text style={styles.statLabel}>Achievements</Text>
-              </View>
-            </View>
+            )}
           </View>
         </Card>
 
         {/* Next Achievement Card */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Next Achievement
-          </Text>
-          <Card variant="outlined" padding="md">
-            <View style={styles.achievementHeader}>
-              <Text style={styles.achievementIcon}>🎯</Text>
-              <Text style={[styles.achievementName, { color: colors.text }]}>
-                {mockNextAchievement.name}
-              </Text>
-            </View>
-            <ProgressBar
-              progress={(mockNextAchievement.current / mockNextAchievement.required) * 100}
-              variant="gold"
-              size="md"
-            />
-            <Text style={[styles.achievementProgress, { color: colors.textSecondary }]}>
-              {mockNextAchievement.current}/{mockNextAchievement.required} masjids •{' '}
-              Visit {mockNextAchievement.required - mockNextAchievement.current} more to unlock!
+        {nextAchievement && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Next Achievement
             </Text>
-          </Card>
-        </View>
+            <Card variant="outlined" padding="md">
+              <View style={styles.achievementHeader}>
+                <Text style={styles.achievementIcon}>🎯</Text>
+                <Text style={[styles.achievementName, { color: colors.text }]}>
+                  {nextAchievement.achievement.name}
+                </Text>
+              </View>
+              <ProgressBar
+                progress={
+                  (nextAchievement.currentCount / nextAchievement.achievement.requiredCount) * 100
+                }
+                variant="gold"
+                size="md"
+              />
+              <Text style={[styles.achievementProgress, { color: colors.textSecondary }]}>
+                {nextAchievement.currentCount}/{nextAchievement.achievement.requiredCount} •{' '}
+                {nextAchievement.achievement.requiredCount - nextAchievement.currentCount} more to unlock!
+              </Text>
+            </Card>
+          </View>
+        )}
 
         {/* Available for Check-in (within 100m) */}
         <View style={styles.section}>
@@ -282,6 +300,11 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  statsLoadingContainer: {
+    height: 80,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   statItem: {

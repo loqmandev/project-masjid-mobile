@@ -83,6 +83,14 @@ export default function RootLayout() {
                 title: 'Modal',
               }}
             />
+            <Stack.Screen
+              name="checkout-celebration"
+              options={{
+                headerShown: false,
+                presentation: 'transparentModal',
+                animation: 'fade',
+              }}
+            />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

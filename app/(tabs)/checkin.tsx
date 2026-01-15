@@ -1,34 +1,36 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
   cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ProgressBar } from '@/components/ui/progress-bar';
+import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Spacing, Typography, primary, BorderRadius } from '@/constants/theme';
+import { ProgressBar } from '@/components/ui/progress-bar';
+import { BorderRadius, Colors, Spacing, Typography, primary } from '@/constants/theme';
+import { useActiveCheckin } from '@/hooks/use-active-checkin';
+import { useCheckinMasjids } from '@/hooks/use-checkin-masjids';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLocation } from '@/hooks/use-location';
-import { useCheckinMasjids } from '@/hooks/use-checkin-masjids';
-import { checkinToMasjid } from '@/lib/api';
-import { loadActiveVisit, saveActiveVisit, clearActiveVisit } from '@/lib/storage';
+import { checkinToMasjid, checkoutFromMasjid } from '@/lib/api';
+import { useSession } from '@/lib/auth-client';
+import { useQueryClient } from '@tanstack/react-query';
 
 type VisitState = 'idle' | 'nearby' | 'checked_in';
 
@@ -93,13 +95,37 @@ function PulsingCheckInButton({
 export default function CheckInScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const queryClient = useQueryClient();
+  const { data: session } = useSession();
+
   // State
   const [isCheckingIn, setIsCheckingIn] = useState(false);
-  const [activeVisit, setActiveVisit] = useState<ActiveVisit | null>(null);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
 
+  // Fetch active check-in from backend
+  const {
+    data: activeCheckin,
+    isLoading: isActiveCheckinLoading,
+    invalidate: invalidateActiveCheckin,
+  } = useActiveCheckin();
+
+  // Minimum duration for check-in (0 for testing, change to 5 for production)
+  const MINIMUM_DURATION_MINUTES = 0;
+
+  // Convert backend active checkin to local format
+  const activeVisit: ActiveVisit | null = activeCheckin
+    ? {
+        masjidId: activeCheckin.masjidId,
+        masjidName: activeCheckin.masjidName,
+        location: '', // Location not provided by backend
+        checkInTime: new Date(activeCheckin.checkInAt),
+        minimumDuration: MINIMUM_DURATION_MINUTES,
+      }
+    : null;
+
   // Location and nearby masjids
-  const { location, isLoading: isLocationLoading, error: locationError, refresh: refreshLocation } = useLocation();
+  const { location, isLoading: isLocationLoading, refresh: refreshLocation } = useLocation();
   const {
     data: checkinMasjids,
     isLoading: isMasjidsLoading,
@@ -121,28 +147,25 @@ export default function CheckInScreen() {
   };
 
   const visitState = getVisitState();
-  const isLoading = isLocationLoading || isMasjidsLoading;
+  const isLoading = isLocationLoading || isMasjidsLoading || isActiveCheckinLoading;
 
+  // Calculate time remaining when active visit changes
   useEffect(() => {
-    const storedVisit = loadActiveVisit();
-    if (!storedVisit) return;
+    if (activeVisit) {
+      const elapsedSeconds = Math.floor(
+        (Date.now() - activeVisit.checkInTime.getTime()) / 1000
+      );
+      const remainingSeconds = Math.max(
+        0,
+        activeVisit.minimumDuration * 60 - elapsedSeconds
+      );
+      setTimeRemaining(remainingSeconds);
+    } else {
+      setTimeRemaining(0);
+    }
+  }, [activeVisit]);
 
-    const checkInTime = new Date(storedVisit.checkInTime);
-    const minimumDuration = storedVisit.minimumDuration ?? 5;
-    const elapsedSeconds = Math.floor((Date.now() - checkInTime.getTime()) / 1000);
-    const remainingSeconds = Math.max(0, minimumDuration * 60 - elapsedSeconds);
-
-    setActiveVisit({
-      masjidId: storedVisit.masjidId,
-      masjidName: storedVisit.masjidName,
-      location: storedVisit.location,
-      checkInTime,
-      minimumDuration,
-    });
-    setTimeRemaining(remainingSeconds);
-  }, []);
-
-  // Timer for active visit
+  // Timer countdown for active visit
   useEffect(() => {
     if (activeVisit && timeRemaining > 0) {
       const interval = setInterval(() => {
@@ -160,6 +183,12 @@ export default function CheckInScreen() {
 
   // Handle check-in
   const handleCheckIn = useCallback(async () => {
+    if (!session?.user) {
+      Alert.alert('Sign In Required', 'Please sign in to check in to masjids.');
+      router.push('/auth/login');
+      return;
+    }
+
     if (activeVisit) {
       Alert.alert('Already Checked In', 'You have an active visit. Check out to start a new one.');
       return;
@@ -175,25 +204,11 @@ export default function CheckInScreen() {
         location.longitude
       );
 
-      if (result.success && result.masjid) {
-        const minimumDuration = 5; // 5 minutes minimum stay
-        const checkInTime = new Date();
-        const visit = {
-          masjidId: result.masjid.masjidId,
-          masjidName: result.masjid.name,
-          location: `${result.masjid.districtName}, ${result.masjid.stateName}`,
-          checkInTime,
-          minimumDuration,
-        };
-        setActiveVisit(visit);
-        setTimeRemaining(minimumDuration * 60);
-        saveActiveVisit({
-          masjidId: visit.masjidId,
-          masjidName: visit.masjidName,
-          location: visit.location,
-          checkInTime: checkInTime.toISOString(),
-          minimumDuration: visit.minimumDuration,
-        });
+      if (result.success) {
+        // Invalidate and refetch active checkin from backend
+        invalidateActiveCheckin();
+        // Also invalidate user profile to update points
+        queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       } else {
         Alert.alert('Check-in Failed', result.message);
       }
@@ -202,16 +217,48 @@ export default function CheckInScreen() {
     } finally {
       setIsCheckingIn(false);
     }
-  }, [activeVisit, nearbyMasjid, location]);
+  }, [session, activeVisit, nearbyMasjid, location, invalidateActiveCheckin, queryClient]);
 
   // Handle check-out
-  const handleCheckOut = useCallback(() => {
-    setActiveVisit(null);
-    setTimeRemaining(0);
-    clearActiveVisit();
-    // Refetch to update the list
-    refetchMasjids();
-  }, [refetchMasjids]);
+  const handleCheckOut = useCallback(async () => {
+    if (!activeVisit || !location || !activeCheckin) return;
+
+    setIsCheckingOut(true);
+    try {
+      const result = await checkoutFromMasjid(
+        activeVisit.masjidId,
+        location.latitude,
+        location.longitude
+      );
+
+      if (result.success) {
+        // Invalidate queries to refresh data
+        invalidateActiveCheckin();
+        queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+        queryClient.invalidateQueries({ queryKey: ['user-achievements'] });
+        refetchMasjids();
+
+        // Navigate to celebration screen with checkout result
+        router.push({
+          pathname: '/checkout-celebration',
+          params: {
+            pointsEarned: String(result.pointsEarned ?? activeCheckin.actualPointsEarned ?? 10),
+            basePoints: String(activeCheckin.basePoints ?? 10),
+            bonusPoints: String(activeCheckin.bonusPoints ?? 0),
+            isPrayerTime: String(activeCheckin.isPrayerTime ?? false),
+            isFirstVisit: String(activeCheckin.isFirstVisitToMasjid ?? false),
+            masjidName: activeVisit.masjidName,
+          },
+        });
+      } else {
+        Alert.alert('Check-out Failed', result.message);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to check out. Please try again.');
+    } finally {
+      setIsCheckingOut(false);
+    }
+  }, [activeVisit, activeCheckin, location, invalidateActiveCheckin, queryClient, refetchMasjids]);
 
   // Handle explore
   const handleExplore = useCallback(() => {
@@ -328,9 +375,11 @@ export default function CheckInScreen() {
           <Text style={[styles.masjidName, { color: colors.text }]}>
             {activeVisit?.masjidName}
           </Text>
-          <Text style={[styles.masjidLocation, { color: colors.textSecondary }]}>
-            {activeVisit?.location}
-          </Text>
+          {activeCheckin?.isPrayerTime && activeCheckin?.prayerName && (
+            <Text style={[styles.masjidLocation, { color: colors.success }]}>
+              {activeCheckin.prayerName} time • 2x points!
+            </Text>
+          )}
         </View>
 
         {/* Timer Card */}
@@ -355,43 +404,32 @@ export default function CheckInScreen() {
           </Text>
           <View style={styles.pointsRow}>
             <Text style={[styles.pointsLabel, { color: colors.text }]}>Base Visit</Text>
-            <Text style={[styles.pointsValue, { color: colors.text }]}>10 pts</Text>
-          </View>
-          <View style={styles.pointsRow}>
-            <Text style={[styles.pointsLabel, { color: colors.text, fontWeight: '600' }]}>Total</Text>
-            <Text style={[styles.pointsValue, { color: colors.primary, fontWeight: '700' }]}>
-              10 pts
+            <Text style={[styles.pointsValue, { color: colors.text }]}>
+              {activeCheckin?.basePoints ?? 10} pts
             </Text>
           </View>
+          {activeCheckin?.bonusPoints ? (
+            <View style={styles.pointsRow}>
+              <Text style={[styles.pointsLabel, { color: colors.text }]}>
+                Bonus {activeCheckin.isPrayerTime ? '(Prayer time)' : ''}
+                {activeCheckin.isFirstVisitToMasjid ? '(First visit)' : ''}
+              </Text>
+              <Text style={[styles.pointsValue, { color: colors.success }]}>
+                +{activeCheckin.bonusPoints} pts
+              </Text>
+            </View>
+          ) : null}
         </Card>
 
         {/* Check Out Button */}
         <Button
-          title={canCheckOut ? 'CHECK OUT' : `CHECK OUT (${formatTime(timeRemaining)})`}
+          title={isCheckingOut ? 'Checking out...' : (canCheckOut ? 'CHECK OUT' : `CHECK OUT (${formatTime(timeRemaining)})`)}
           variant={canCheckOut ? 'primary' : 'secondary'}
-          disabled={!canCheckOut}
+          disabled={!canCheckOut || isCheckingOut}
+          loading={isCheckingOut}
           onPress={handleCheckOut}
           style={styles.checkOutButton}
         />
-
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.backgroundSecondary }]}>
-            <Text style={styles.actionButtonIcon}>📷</Text>
-            <Text style={[styles.actionButtonText, { color: colors.text }]}>Add Photo</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.backgroundSecondary }]}>
-            <Text style={styles.actionButtonIcon}>ℹ️</Text>
-            <Text style={[styles.actionButtonText, { color: colors.text }]}>Update Info</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          style={styles.demoToggle}
-          onPress={handleRefresh}
-        >
-          <Text style={{ color: colors.textTertiary }}>Refresh nearby masjids</Text>
-        </TouchableOpacity>
       </>
     );
   }

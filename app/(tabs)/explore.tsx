@@ -71,13 +71,15 @@ export default function ExploreScreen() {
   };
 
   const handleRefresh = async () => {
-    await refreshLocation();
+    // Force refresh to bypass cache when user explicitly requests it
+    await refreshLocation(true);
   };
 
   const handlePullRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refreshLocation();
+      // Force refresh to bypass cache on pull-to-refresh
+      await refreshLocation(true);
       await refetchMasjids();
     } finally {
       setIsRefreshing(false);

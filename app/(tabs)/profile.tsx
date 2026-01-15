@@ -17,6 +17,7 @@ import { ProgressBar } from '@/components/ui/progress-bar';
 import { BorderRadius, Colors, Spacing, Typography, primary } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { authClient, useSession } from '@/lib/auth-client';
+import { clearCachedUserProfile } from '@/lib/storage';
 
 // Mock data
 const mockUser = {
@@ -65,6 +66,8 @@ export default function ProfileScreen() {
 
   const handleSignOut = async () => {
     try {
+      // Clear cached user profile before signing out
+      clearCachedUserProfile();
       await authClient.signOut();
       router.replace('/(tabs)');
     } catch (error) {

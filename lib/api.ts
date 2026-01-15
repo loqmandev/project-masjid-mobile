@@ -196,3 +196,211 @@ export async function checkinToMasjid(
 
   return data;
 }
+
+/**
+ * Check-out response from API
+ */
+export interface CheckoutResponse {
+  success: boolean;
+  message: string;
+  pointsEarned?: number;
+  checkIn?: ActiveCheckin;
+}
+
+/**
+ * Check out from a masjid
+ * REQUIRES AUTHENTICATION
+ */
+export async function checkoutFromMasjid(
+  masjidId: string,
+  lat: number,
+  lng: number
+): Promise<CheckoutResponse> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/masjids/${masjidId}/checkout`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ lat, lng }),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      return {
+        success: false,
+        message: 'Please sign in to check out',
+      };
+    }
+    return {
+      success: false,
+      message: data.message || `Check-out failed: ${response.status}`,
+    };
+  }
+
+  return data;
+}
+
+/**
+ * Active check-in from API
+ */
+export interface ActiveCheckin {
+  id: string;
+  userProfileId: string;
+  masjidId: string;
+  masjidName: string;
+  checkInAt: string;
+  checkInLat: number;
+  checkInLng: number;
+  checkOutAt: string | null;
+  checkOutLat: number | null;
+  checkOutLng: number | null;
+  status: 'checked_in' | 'completed' | 'incomplete';
+  basePoints: number;
+  bonusPoints: number;
+  actualPointsEarned: number;
+  checkoutInProximity: boolean | null;
+  durationMinutes: number | null;
+  isPrayerTime: boolean;
+  prayerName: string | null;
+  isFirstVisitToMasjid: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Response from active check-in endpoint
+ */
+interface ActiveCheckinResponse {
+  active: boolean;
+  checkIn: ActiveCheckin | null;
+}
+
+/**
+ * Get user's active check-in (if any)
+ * REQUIRES AUTHENTICATION
+ */
+export async function getActiveCheckin(): Promise<ActiveCheckin | null> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/user/checkins/active`
+  );
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Please sign in to view active check-in');
+    }
+    throw new Error(`Failed to fetch active check-in: ${response.status}`);
+  }
+
+  const data: ActiveCheckinResponse = await response.json();
+
+  if (!data.active || !data.checkIn) {
+    return null;
+  }
+
+  return data.checkIn;
+}
+
+/**
+ * User profile data from backend
+ */
+export interface UserProfileData {
+  id: string;
+  userId: string;
+  totalPoints: number;
+  monthlyPoints: number;
+  uniqueMasjidsVisited: number;
+  totalCheckIns: number;
+  globalRank: number | null;
+  monthlyRank: number | null;
+  achievementCount: number;
+  showFullNameInLeaderboard: boolean;
+  leaderboardAlias: string | null;
+  currentStreak: number;
+  longestStreak: number;
+  lastVisitDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * User info from backend
+ */
+export interface UserInfo {
+  id: string;
+  name: string;
+  email: string;
+  image: string | null;
+}
+
+/**
+ * User gamification profile response (nested structure from backend)
+ */
+export interface UserProfileResponse {
+  profile: UserProfileData;
+  user: UserInfo;
+}
+
+/**
+ * Achievement definition
+ */
+export interface Achievement {
+  code: string;
+  name: string;
+  description: string;
+  category: string;
+  tier: string;
+  requiredCount: number;
+  pointsReward: number;
+  iconUrl: string | null;
+}
+
+/**
+ * User's achievement progress
+ */
+export interface UserAchievementProgress {
+  odwsnerId: string;
+  odwsnerCode: string;
+  currentCount: number;
+  isUnlocked: boolean;
+  unlockedAt: string | null;
+  achievement: Achievement;
+}
+
+/**
+ * Fetch current user's gamification profile
+ * REQUIRES AUTHENTICATION
+ */
+export async function getUserProfile(): Promise<UserProfileResponse> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/user/profile`);
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Please sign in to view your profile');
+    }
+    throw new Error(`Failed to fetch user profile: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch user's achievement progress
+ * REQUIRES AUTHENTICATION
+ */
+export async function getUserAchievements(): Promise<UserAchievementProgress[]> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/user/achievements`);
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Please sign in to view achievements');
+    }
+    throw new Error(`Failed to fetch achievements: ${response.status}`);
+  }
+
+  return response.json();
+}

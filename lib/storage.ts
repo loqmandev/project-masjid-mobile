@@ -1,7 +1,20 @@
 import { Platform } from 'react-native';
 
 const ACTIVE_VISIT_KEY = 'active-visit';
+const LOCATION_CACHE_KEY = 'cached-location';
+const USER_PROFILE_CACHE_KEY = 'user-profile-cache';
+
 let nativeStorage: any | null = null;
+
+// Location cache configuration
+const LOCATION_CACHE_MAX_AGE_MS = 2 * 60 * 1000; // 2 minutes
+const LOCATION_CACHE_MAX_DISTANCE_M = 50; // 50 meters
+
+export type CachedLocation = {
+  latitude: number;
+  longitude: number;
+  timestamp: number;
+};
 
 type StoredActiveVisit = {
   masjidId: string;
@@ -62,4 +75,185 @@ export function clearActiveVisit() {
   const storage = getNativeStorage();
   if (!storage) return;
   storage.delete(ACTIVE_VISIT_KEY);
+}
+
+// ============ Location Caching ============
+
+/**
+ * Calculate distance between two coordinates using Haversine formula
+ * Returns distance in meters
+ */
+function getDistanceInMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371000; // Earth's radius in meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Load cached location from storage
+ */
+export function loadCachedLocation(): CachedLocation | null {
+  if (Platform.OS === 'web') {
+    const raw = globalThis?.localStorage?.getItem(LOCATION_CACHE_KEY);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as CachedLocation;
+    } catch {
+      return null;
+    }
+  }
+
+  const storage = getNativeStorage();
+  if (!storage) return null;
+  const raw = storage.getString(LOCATION_CACHE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as CachedLocation;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save location to cache with current timestamp
+ */
+export function saveCachedLocation(latitude: number, longitude: number): void {
+  const cached: CachedLocation = {
+    latitude,
+    longitude,
+    timestamp: Date.now(),
+  };
+
+  if (Platform.OS === 'web') {
+    globalThis?.localStorage?.setItem(LOCATION_CACHE_KEY, JSON.stringify(cached));
+    return;
+  }
+
+  const storage = getNativeStorage();
+  if (!storage) return;
+  storage.set(LOCATION_CACHE_KEY, JSON.stringify(cached));
+}
+
+/**
+ * Check if cached location is still valid
+ * Valid if: within max age AND within max distance from new location (if provided)
+ */
+export function isCachedLocationValid(
+  cached: CachedLocation,
+  newLocation?: { latitude: number; longitude: number }
+): boolean {
+  const age = Date.now() - cached.timestamp;
+
+  // Check if cache is too old
+  if (age > LOCATION_CACHE_MAX_AGE_MS) {
+    return false;
+  }
+
+  // If new location provided, check distance
+  if (newLocation) {
+    const distance = getDistanceInMeters(
+      cached.latitude,
+      cached.longitude,
+      newLocation.latitude,
+      newLocation.longitude
+    );
+    return distance <= LOCATION_CACHE_MAX_DISTANCE_M;
+  }
+
+  return true;
+}
+
+/**
+ * Round coordinates to a grid for cache key stability
+ * Uses ~50m precision (roughly 0.0005 degrees at equator)
+ */
+export function roundCoordinatesForCacheKey(
+  latitude: number,
+  longitude: number
+): { lat: number; lng: number } {
+  const precision = 0.0005; // ~50m at equator
+  return {
+    lat: Math.round(latitude / precision) * precision,
+    lng: Math.round(longitude / precision) * precision,
+  };
+}
+
+// ============ User Profile Caching ============
+
+export type CachedUserProfile<T> = {
+  data: T;
+  userId: string;
+  timestamp: number;
+};
+
+/**
+ * Load cached user profile from storage
+ */
+export function loadCachedUserProfile<T>(): CachedUserProfile<T> | null {
+  if (Platform.OS === 'web') {
+    const raw = globalThis?.localStorage?.getItem(USER_PROFILE_CACHE_KEY);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as CachedUserProfile<T>;
+    } catch {
+      return null;
+    }
+  }
+
+  const storage = getNativeStorage();
+  if (!storage) return null;
+  const raw = storage.getString(USER_PROFILE_CACHE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as CachedUserProfile<T>;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save user profile to cache
+ */
+export function saveCachedUserProfile<T>(data: T, userId: string): void {
+  const cached: CachedUserProfile<T> = {
+    data,
+    userId,
+    timestamp: Date.now(),
+  };
+
+  if (Platform.OS === 'web') {
+    globalThis?.localStorage?.setItem(USER_PROFILE_CACHE_KEY, JSON.stringify(cached));
+    return;
+  }
+
+  const storage = getNativeStorage();
+  if (!storage) return;
+  storage.set(USER_PROFILE_CACHE_KEY, JSON.stringify(cached));
+}
+
+/**
+ * Clear cached user profile (call on logout or user change)
+ */
+export function clearCachedUserProfile(): void {
+  if (Platform.OS === 'web') {
+    globalThis?.localStorage?.removeItem(USER_PROFILE_CACHE_KEY);
+    return;
+  }
+
+  const storage = getNativeStorage();
+  if (!storage) return;
+  storage.delete(USER_PROFILE_CACHE_KEY);
 }
