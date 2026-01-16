@@ -404,3 +404,35 @@ export async function getUserAchievements(): Promise<UserAchievementProgress[]> 
 
   return response.json();
 }
+
+/**
+ * User check-in history item
+ */
+export interface UserCheckin {
+  id: string;
+  masjidName: string;
+  checkInAt: string;
+  checkOutAt: string | null;
+  actualPointsEarned: number;
+  isFirstVisitToMasjid: boolean;
+  status: 'checked_in' | 'completed' | 'incomplete';
+}
+
+/**
+ * Fetch user's check-in history
+ * REQUIRES AUTHENTICATION
+ */
+export async function getUserCheckins(limit: number = 10): Promise<UserCheckin[]> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/user/checkins?limit=${limit}`
+  );
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Please sign in to view check-in history');
+    }
+    throw new Error(`Failed to fetch check-in history: ${response.status}`);
+  }
+
+  return response.json();
+}
