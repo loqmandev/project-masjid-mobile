@@ -3,15 +3,23 @@
  * Fetches the authenticated user's gamification profile with MMKV caching
  */
 
-import { getUserProfile, UserProfileResponse } from '@/lib/api';
-import { useSession } from '@/lib/auth-client';
 import {
-  clearCachedUserProfile,
-  loadCachedUserProfile,
-  saveCachedUserProfile,
-} from '@/lib/storage';
+  getUserProfile,
+  UserAchievementProgress,
+  UserCheckin,
+  UserProfileResponse,
+} from '@/lib/api';
+import { useSession } from '@/lib/auth-client';
+import { clearCachedUserProfile, loadCachedUserProfile } from '@/lib/storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+
+// Must match the interface used in profile.tsx for cache consistency
+interface CachedProfileData {
+  profile: UserProfileResponse;
+  achievements: UserAchievementProgress[];
+  checkins: UserCheckin[];
+}
 
 export function useUserProfile() {
   const { data: session } = useSession();
@@ -22,11 +30,11 @@ export function useUserProfile() {
   useEffect(() => {
     if (!userId) return;
 
-    const cached = loadCachedUserProfile<UserProfileResponse>();
+    const cached = loadCachedUserProfile<CachedProfileData>();
     // Only use cache if it belongs to current user
-    if (cached && cached.userId === userId) {
-      // Pre-populate React Query cache with stored data
-      queryClient.setQueryData(['user-profile'], cached.data);
+    if (cached && cached.userId === userId && cached.data?.profile) {
+      // Pre-populate React Query cache with stored profile data
+      queryClient.setQueryData(['user-profile'], cached.data.profile);
     } else if (cached && cached.userId !== userId) {
       // Different user, clear stale cache
       clearCachedUserProfile();
@@ -37,14 +45,11 @@ export function useUserProfile() {
     queryKey: ['user-profile'],
     queryFn: async () => {
       const data = await getUserProfile();
-      // Save to MMKV cache on successful fetch
-      if (userId) {
-        saveCachedUserProfile(data, userId);
-      }
+      // Note: Cache saving is handled by profile.tsx which fetches all data together
       return data;
     },
     enabled: !!session?.user,
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes (increased since we have persistent cache)
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
     refetchOnWindowFocus: false, // Don't refetch on every focus, only when invalidated
   });
 

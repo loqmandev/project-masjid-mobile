@@ -257,3 +257,26 @@ export function clearCachedUserProfile(): void {
   if (!storage) return;
   storage.delete(USER_PROFILE_CACHE_KEY);
 }
+
+/**
+ * Clear cached location
+ */
+export function clearCachedLocation(): void {
+  if (Platform.OS === 'web') {
+    globalThis?.localStorage?.removeItem(LOCATION_CACHE_KEY);
+    return;
+  }
+
+  const storage = getNativeStorage();
+  if (!storage) return;
+  storage.delete(LOCATION_CACHE_KEY);
+}
+
+/**
+ * Clear all app cache (preserves active visit data)
+ * Clears: location cache, user profile cache
+ */
+export function clearAppCache(): void {
+  clearCachedLocation();
+  clearCachedUserProfile();
+}
