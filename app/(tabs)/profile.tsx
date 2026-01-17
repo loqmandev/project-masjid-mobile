@@ -200,7 +200,7 @@ export default function ProfileScreen() {
   const globalRank = profileData?.profile?.globalRank ?? null;
 
   // Get first 4 achievements for display
-  const displayAchievements = achievements.slice(0, 4);
+  const displayAchievements = (achievements ?? []).slice(0, 4);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
