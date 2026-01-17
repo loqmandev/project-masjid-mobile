@@ -3,9 +3,9 @@ import {
   StyleSheet,
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,99 +13,8 @@ import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Spacing, Typography, primary, gold, BorderRadius } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-
-// Mock data
-const mockLeaderboard = [
-  {
-    rank: 1,
-    userId: '1',
-    displayName: 'MasjidHero',
-    points: 1250,
-    masjidsVisited: 42,
-    isAnonymous: false,
-  },
-  {
-    rank: 2,
-    userId: '2',
-    displayName: 'ExplorerAhmad',
-    points: 980,
-    masjidsVisited: 35,
-    isAnonymous: false,
-  },
-  {
-    rank: 3,
-    userId: '3',
-    displayName: 'PengembaraKL',
-    points: 875,
-    masjidsVisited: 30,
-    isAnonymous: false,
-  },
-  {
-    rank: 4,
-    userId: '4',
-    displayName: 'SarahVisitor',
-    points: 720,
-    masjidsVisited: 25,
-    isAnonymous: false,
-  },
-  {
-    rank: 5,
-    userId: '5',
-    displayName: 'AdamMasjid',
-    points: 685,
-    masjidsVisited: 23,
-    isAnonymous: false,
-  },
-  {
-    rank: 6,
-    userId: '6',
-    displayName: 'FatimahExplore',
-    points: 640,
-    masjidsVisited: 22,
-    isAnonymous: false,
-  },
-  {
-    rank: 7,
-    userId: '7',
-    displayName: 'Anonymous',
-    points: 615,
-    masjidsVisited: 21,
-    isAnonymous: true,
-  },
-  {
-    rank: 8,
-    userId: '8',
-    displayName: 'ZainalSeeker',
-    points: 590,
-    masjidsVisited: 20,
-    isAnonymous: false,
-  },
-  {
-    rank: 9,
-    userId: '9',
-    displayName: 'AisyahPrayer',
-    points: 565,
-    masjidsVisited: 19,
-    isAnonymous: false,
-  },
-  {
-    rank: 10,
-    userId: '10',
-    displayName: 'HafizWanderer',
-    points: 530,
-    masjidsVisited: 18,
-    isAnonymous: false,
-  },
-];
-
-const mockCurrentUser = {
-  rank: 42,
-  userId: 'current',
-  displayName: 'You',
-  points: 350,
-  masjidsVisited: 12,
-  pointsToNextRank: 8,
-};
+import { useLeaderboard } from '@/hooks/use-leaderboard';
+import { LeaderboardEntry } from '@/lib/api';
 
 type TabType = 'monthly' | 'alltime';
 
@@ -114,35 +23,12 @@ export default function LeaderboardScreen() {
   const colors = Colors[colorScheme ?? 'light'];
 
   const [activeTab, setActiveTab] = useState<TabType>('monthly');
-
-  const getRankEmoji = (rank: number) => {
-    switch (rank) {
-      case 1:
-        return '🥇';
-      case 2:
-        return '🥈';
-      case 3:
-        return '🥉';
-      default:
-        return null;
-    }
-  };
-
-  const getRankStyle = (rank: number) => {
-    switch (rank) {
-      case 1:
-        return { backgroundColor: gold[100], borderColor: gold[400] };
-      case 2:
-        return { backgroundColor: '#F5F5F5', borderColor: '#BDBDBD' };
-      case 3:
-        return { backgroundColor: '#FBE9E7', borderColor: '#BCAAA4' };
-      default:
-        return { backgroundColor: colors.backgroundSecondary, borderColor: 'transparent' };
-    }
-  };
+  const { data: leaderboardData, currentUser, isLoading, isError, refetch, isRefetching } = useLeaderboard(activeTab);
 
   const renderTopThree = () => {
-    const topThree = mockLeaderboard.slice(0, 3);
+    if (!leaderboardData || leaderboardData.length < 3) return null;
+
+    const topThree = leaderboardData.slice(0, 3);
 
     return (
       <View style={styles.topThreeContainer}>
@@ -191,16 +77,15 @@ export default function LeaderboardScreen() {
     );
   };
 
-  const renderLeaderboardItem = ({ item, index }: { item: typeof mockLeaderboard[0]; index: number }) => {
+  const renderLeaderboardItem = ({ item, index }: { item: LeaderboardEntry; index: number }) => {
     if (index < 3) return null; // Skip top 3, rendered separately
-
-    const rankStyle = getRankStyle(item.rank);
 
     return (
       <View
         style={[
           styles.leaderboardItem,
           { backgroundColor: colors.card, borderBottomColor: colors.border },
+          item.isCurrentUser && { backgroundColor: primary[50] },
         ]}
       >
         <Text style={[styles.rankText, { color: colors.textSecondary }]}>
@@ -211,7 +96,8 @@ export default function LeaderboardScreen() {
         </View>
         <View style={styles.itemInfo}>
           <Text style={[styles.itemName, { color: colors.text }]}>
-            {item.isAnonymous ? 'Anonymous' : item.displayName}
+            {item.displayName}
+            {item.isCurrentUser && ' (You)'}
           </Text>
         </View>
         <Text style={[styles.itemPoints, { color: colors.text }]}>
@@ -221,13 +107,48 @@ export default function LeaderboardScreen() {
     );
   };
 
+  const renderEmptyState = () => (
+    <View style={styles.emptyState}>
+      <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+        No leaderboard data available
+      </Text>
+    </View>
+  );
+
+  const renderLoadingState = () => (
+    <View style={styles.loadingState}>
+      <ActivityIndicator size="large" color={colors.primary} />
+      <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+        Loading leaderboard...
+      </Text>
+    </View>
+  );
+
+  const renderErrorState = () => (
+    <View style={styles.errorState}>
+      <Text style={[styles.errorText, { color: colors.error }]}>
+        Failed to load leaderboard
+      </Text>
+      <TouchableOpacity
+        style={[styles.retryButton, { backgroundColor: colors.primary }]}
+        onPress={() => refetch()}
+      >
+        <Text style={styles.retryButtonText}>Retry</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Leaderboard</Text>
-        <TouchableOpacity>
-          <IconSymbol name="arrow.clockwise" size={20} color={colors.textSecondary} />
+        <TouchableOpacity onPress={() => refetch()} disabled={isRefetching}>
+          <IconSymbol
+            name="arrow.clockwise"
+            size={20}
+            color={isRefetching ? colors.textTertiary : colors.textSecondary}
+          />
         </TouchableOpacity>
       </View>
 
@@ -267,52 +188,61 @@ export default function LeaderboardScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Top 3 Podium */}
-      {renderTopThree()}
+      {isLoading ? (
+        renderLoadingState()
+      ) : isError ? (
+        renderErrorState()
+      ) : !leaderboardData || leaderboardData.length === 0 ? (
+        renderEmptyState()
+      ) : (
+        <>
+          {/* Top 3 Podium */}
+          {renderTopThree()}
 
-      {/* Rest of Leaderboard */}
-      <FlatList
-        data={mockLeaderboard}
-        renderItem={renderLeaderboardItem}
-        keyExtractor={(item) => item.userId}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListFooterComponent={
-          <View style={styles.listFooter}>
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          </View>
-        }
-      />
+          {/* Rest of Leaderboard */}
+          <FlatList
+            data={leaderboardData}
+            renderItem={renderLeaderboardItem}
+            keyExtractor={(item) => `${item.rank}-${item.displayName}`}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListFooterComponent={
+              <View style={styles.listFooter}>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              </View>
+            }
+          />
+        </>
+      )}
 
-      {/* Current User Card */}
-      <Card variant="elevated" padding="md" style={styles.currentUserCard}>
-        <View style={styles.currentUserContent}>
-          <View style={styles.currentUserLeft}>
-            <Text style={[styles.currentUserRank, { color: colors.primary }]}>
-              #{mockCurrentUser.rank}
-            </Text>
-            <View style={[styles.currentUserAvatar, { backgroundColor: primary[100] }]}>
-              <Text style={styles.currentUserAvatarText}>👤</Text>
-            </View>
-            <View>
-              <Text style={[styles.currentUserName, { color: colors.text }]}>
-                {mockCurrentUser.displayName}
+      {/* Current User Card - only show if user is found in leaderboard */}
+      {currentUser && (
+        <Card variant="elevated" padding="md" style={styles.currentUserCard}>
+          <View style={styles.currentUserContent}>
+            <View style={styles.currentUserLeft}>
+              <Text style={[styles.currentUserRank, { color: colors.primary }]}>
+                #{currentUser.rank}
               </Text>
-              <Text style={[styles.currentUserMasjids, { color: colors.textTertiary }]}>
-                {mockCurrentUser.masjidsVisited} masjids visited
+              <View style={[styles.currentUserAvatar, { backgroundColor: primary[100] }]}>
+                <Text style={styles.currentUserAvatarText}>👤</Text>
+              </View>
+              <View>
+                <Text style={[styles.currentUserName, { color: colors.text }]}>
+                  {currentUser.displayName}
+                </Text>
+                <Text style={[styles.currentUserMasjids, { color: colors.textTertiary }]}>
+                  {currentUser.masjidsVisited} masjids visited
+                </Text>
+              </View>
+            </View>
+            <View style={styles.currentUserRight}>
+              <Text style={[styles.currentUserPoints, { color: colors.text }]}>
+                {currentUser.points} pts
               </Text>
             </View>
           </View>
-          <View style={styles.currentUserRight}>
-            <Text style={[styles.currentUserPoints, { color: colors.text }]}>
-              {mockCurrentUser.points} pts
-            </Text>
-            <Text style={[styles.nextRankText, { color: colors.success }]}>
-              {mockCurrentUser.pointsToNextRank} pts to #{mockCurrentUser.rank - 1}!
-            </Text>
-          </View>
-        </View>
-      </Card>
+        </Card>
+      )}
     </SafeAreaView>
   );
 }
@@ -491,5 +421,45 @@ const styles = StyleSheet.create({
   nextRankText: {
     ...Typography.caption,
     fontWeight: '500',
+  },
+  loadingState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  loadingText: {
+    ...Typography.body,
+  },
+  errorState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  errorText: {
+    ...Typography.body,
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  retryButtonText: {
+    ...Typography.body,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  emptyStateText: {
+    ...Typography.body,
+    textAlign: 'center',
   },
 });

@@ -456,3 +456,61 @@ export async function getUserCheckins(limit: number = 10): Promise<UserCheckin[]
 
   return response.json();
 }
+
+/**
+ * Leaderboard entry from API
+ */
+export interface LeaderboardEntry {
+  rank: number;
+  displayName: string;
+  points: number;
+  masjidsVisited: number;
+  isCurrentUser?: boolean;
+}
+
+/**
+ * Global leaderboard response with pagination
+ */
+export interface GlobalLeaderboardResponse {
+  entries: LeaderboardEntry[];
+  total: number;
+}
+
+/**
+ * Fetch monthly leaderboard
+ * Public endpoint - optionally includes current user context if authenticated
+ */
+export async function getMonthlyLeaderboard(
+  limit: number = 10
+): Promise<LeaderboardEntry[]> {
+  // Use authenticated fetch to get current user context if logged in
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/leaderboard/monthly?limit=${limit}`
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch monthly leaderboard: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch global (all-time) leaderboard with pagination
+ * Public endpoint - optionally includes current user context if authenticated
+ */
+export async function getGlobalLeaderboard(
+  limit: number = 20,
+  offset: number = 0
+): Promise<GlobalLeaderboardResponse> {
+  // Use authenticated fetch to get current user context if logged in
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/leaderboard/global?limit=${limit}&offset=${offset}`
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch global leaderboard: ${response.status}`);
+  }
+
+  return response.json();
+}
