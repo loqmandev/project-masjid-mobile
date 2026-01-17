@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "jejak-masjid-mobile",
+    "name": "Jejak Masjid",
     "slug": "jejak-masjid-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "my.lonasoft.jejakmasjidmobile"
+      "bundleIdentifier": "my.lonasoft.jejakmasjidmobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -52,6 +55,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "109eab53-81a4-4339-80ca-35191637d8d7"
+      }
     }
   }
 }
