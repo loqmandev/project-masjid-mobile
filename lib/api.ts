@@ -346,29 +346,49 @@ export interface UserProfileResponse {
 }
 
 /**
- * Achievement definition
+ * Achievement definition from backend
  */
-export interface Achievement {
-  code: string;
+export interface AchievementDefinition {
+  id: string;
   name: string;
+  code: string;
+  nameEn: string | null;
   description: string;
-  category: string;
-  tier: string;
-  requiredCount: number;
-  pointsReward: number;
+  descriptionEn: string | null;
+  type: 'explorer' | 'prayer_warrior' | 'streak' | 'geographic' | 'special';
+  badgeTier: 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond';
+  requiredCount: number | null;
+  bonusPoints: number;
+  sortOrder: number;
   iconUrl: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
- * User's achievement progress
+ * User's achievement progress from backend
  */
-export interface UserAchievementProgress {
-  odwsnerId: string;
-  odwsnerCode: string;
-  currentCount: number;
+export interface UserAchievement {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  userProfileId: string;
+  achievementDefinitionId: string;
+  currentProgress: number;
+  requiredProgress: number;
+  progressPercentage: number;
   isUnlocked: boolean;
   unlockedAt: string | null;
-  achievement: Achievement;
+  progressMetadata: string | null;
+}
+
+/**
+ * Combined achievement with progress (API response structure)
+ */
+export interface UserAchievementProgress {
+  achievement: AchievementDefinition;
+  progress: UserAchievement | null;
 }
 
 /**

@@ -25,15 +25,19 @@ export function useUserAchievements() {
 export function getNextAchievement(achievements: UserAchievementProgress[] | undefined) {
   if (!achievements || achievements.length === 0) return null;
 
-  // Filter out already unlocked achievements
-  const lockedAchievements = achievements.filter((a) => !a.isUnlocked);
+  // Filter out already unlocked achievements and those without required count
+  const lockedAchievements = achievements.filter(
+    (a) => !a.progress?.isUnlocked && a.achievement.requiredCount !== null
+  );
 
   if (lockedAchievements.length === 0) return null;
 
   // Sort by progress percentage (closest to completion first)
   const sorted = lockedAchievements.sort((a, b) => {
-    const progressA = a.currentCount / a.achievement.requiredCount;
-    const progressB = b.currentCount / b.achievement.requiredCount;
+    const requiredA = a.achievement.requiredCount ?? 1;
+    const requiredB = b.achievement.requiredCount ?? 1;
+    const progressA = (a.progress?.currentProgress ?? 0) / requiredA;
+    const progressB = (b.progress?.currentProgress ?? 0) / requiredB;
     return progressB - progressA;
   });
 

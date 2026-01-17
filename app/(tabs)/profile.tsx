@@ -294,8 +294,11 @@ export default function ProfileScreen() {
               contentContainerStyle={styles.achievementsScroll}
             >
               {displayAchievements.map((item) => {
-                const progressPercent = item.achievement.requiredCount > 0
-                  ? Math.round((item.currentCount / item.achievement.requiredCount) * 100)
+                const currentProgress = item.progress?.currentProgress ?? 0;
+                const requiredCount = item.achievement.requiredCount ?? 1;
+                const isUnlocked = item.progress?.isUnlocked ?? false;
+                const progressPercent = requiredCount > 0
+                  ? Math.round((currentProgress / requiredCount) * 100)
                   : 0;
 
                 return (
@@ -305,27 +308,27 @@ export default function ProfileScreen() {
                     padding="sm"
                     style={[
                       styles.achievementCard,
-                      !item.isUnlocked && styles.achievementCardLocked,
+                      !isUnlocked && styles.achievementCardLocked,
                     ]}
                   >
                     <View style={styles.achievementBadge}>
                       <Text style={styles.achievementEmoji}>
-                        {item.isUnlocked ? '🏅' : '🔒'}
+                        {isUnlocked ? '🏅' : '🔒'}
                       </Text>
                     </View>
                     <Text
                       style={[
                         styles.achievementName,
-                        { color: item.isUnlocked ? colors.text : colors.textTertiary },
+                        { color: isUnlocked ? colors.text : colors.textTertiary },
                       ]}
                       numberOfLines={2}
                     >
                       {item.achievement.name}
                     </Text>
-                    {item.isUnlocked ? (
+                    {isUnlocked ? (
                       <Badge
-                        label={item.achievement.tier.charAt(0).toUpperCase() + item.achievement.tier.slice(1)}
-                        variant={getTierBadgeVariant(item.achievement.tier)}
+                        label={item.achievement.badgeTier.charAt(0).toUpperCase() + item.achievement.badgeTier.slice(1)}
+                        variant={getTierBadgeVariant(item.achievement.badgeTier)}
                         size="sm"
                       />
                     ) : (
@@ -336,7 +339,7 @@ export default function ProfileScreen() {
                           size="sm"
                         />
                         <Text style={[styles.progressText, { color: colors.textTertiary }]}>
-                          {item.currentCount}/{item.achievement.requiredCount}
+                          {currentProgress}/{requiredCount}
                         </Text>
                       </View>
                     )}

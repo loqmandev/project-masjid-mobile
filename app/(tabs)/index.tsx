@@ -17,8 +17,8 @@ import { Colors, Spacing, Typography, primary } from '@/constants/theme';
 import { useCheckinMasjids } from '@/hooks/use-checkin-masjids';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLocation } from '@/hooks/use-location';
+import { getNextAchievement, useUserAchievements } from '@/hooks/use-user-achievements';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { useUserAchievements, getNextAchievement } from '@/hooks/use-user-achievements';
 import { useSession } from '@/lib/auth-client';
 
 
@@ -127,7 +127,7 @@ export default function HomeScreen() {
         </Card>
 
         {/* Next Achievement Card */}
-        {nextAchievement && (
+        {nextAchievement && nextAchievement.achievement.requiredCount && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Next Achievement
@@ -141,14 +141,14 @@ export default function HomeScreen() {
               </View>
               <ProgressBar
                 progress={
-                  (nextAchievement.currentCount / nextAchievement.achievement.requiredCount) * 100
+                  (Number(nextAchievement.progress?.currentProgress ?? 0) / Number(nextAchievement.achievement.requiredCount)) * 100
                 }
                 variant="gold"
                 size="md"
               />
               <Text style={[styles.achievementProgress, { color: colors.textSecondary }]}>
-                {nextAchievement.currentCount}/{nextAchievement.achievement.requiredCount} •{' '}
-                {nextAchievement.achievement.requiredCount - nextAchievement.currentCount} more to unlock!
+                {nextAchievement.progress?.currentProgress ?? 0}/{nextAchievement.achievement.requiredCount} •{' '}
+                {nextAchievement.achievement.requiredCount - (nextAchievement.progress?.currentProgress ?? 0)} more to unlock!
               </Text>
             </Card>
           </View>

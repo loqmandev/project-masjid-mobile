@@ -3,15 +3,15 @@
  * Fetches the authenticated user's gamification profile with MMKV caching
  */
 
-import { useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getUserProfile, UserProfileResponse } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
 import {
+  clearCachedUserProfile,
   loadCachedUserProfile,
   saveCachedUserProfile,
-  clearCachedUserProfile,
 } from '@/lib/storage';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 export function useUserProfile() {
   const { data: session } = useSession();
