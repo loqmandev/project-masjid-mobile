@@ -79,7 +79,7 @@ export default function HomeScreen() {
             Assalamualaikum,
           </Text>
           <Text style={[styles.userName, { color: colors.text }]}>
-            {displayName}
+            {userProfile?.profile.leaderboardAlias || displayName}
           </Text>
         </View>
 

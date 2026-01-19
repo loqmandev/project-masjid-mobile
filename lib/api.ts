@@ -514,3 +514,39 @@ export async function getGlobalLeaderboard(
 
   return response.json();
 }
+
+/**
+ * Update user profile settings request
+ */
+export interface UpdateUserProfileRequest {
+  showFullNameInLeaderboard?: boolean;
+  leaderboardAlias?: string;
+}
+
+/**
+ * Update user profile settings
+ * REQUIRES AUTHENTICATION
+ */
+export async function updateUserProfile(
+  data: UpdateUserProfileRequest
+): Promise<UserProfileResponse> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/user/profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Please sign in to update your profile');
+    }
+    if (response.status === 404) {
+      throw new Error('Profile not found');
+    }
+    throw new Error(`Failed to update profile: ${response.status}`);
+  }
+
+  return response.json();
+}

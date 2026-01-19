@@ -237,10 +237,7 @@ export default function ProfileScreen() {
             )}
           </View>
           <Text style={[styles.displayName, { color: colors.text }]}>
-            {displayName}
-          </Text>
-          <Text style={[styles.email, { color: colors.textSecondary }]}>
-            {email}
+            {profileData?.profile.leaderboardAlias || displayName}
           </Text>
         </View>
 

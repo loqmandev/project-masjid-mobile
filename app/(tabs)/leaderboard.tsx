@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
+  FlatList,
   StyleSheet,
-  View,
   Text,
   TouchableOpacity,
-  FlatList,
-  ActivityIndicator,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Spacing, Typography, primary, gold, BorderRadius } from '@/constants/theme';
+import { BorderRadius, Colors, Spacing, Typography, gold, primary } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLeaderboard } from '@/hooks/use-leaderboard';
 import { LeaderboardEntry } from '@/lib/api';
@@ -85,7 +85,7 @@ export default function LeaderboardScreen() {
         style={[
           styles.leaderboardItem,
           { backgroundColor: colors.card, borderBottomColor: colors.border },
-          item.isCurrentUser && { backgroundColor: primary[50] },
+          item.isCurrentUser && { backgroundColor: colors.primaryLight },
         ]}
       >
         <Text style={[styles.rankText, { color: colors.textSecondary }]}>
