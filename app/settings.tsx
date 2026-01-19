@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -15,29 +15,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { clearAppCache } from '@/lib/storage';
-
-type ThemeOption = 'light' | 'dark' | 'system';
+import { useTheme } from '@/hooks/use-color-scheme';
+import { clearAppCache, ThemePreference } from '@/lib/storage';
 
 export default function SettingsScreen() {
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useTheme();
   const colors = Colors[colorScheme ?? 'light'];
 
   // Settings state (UI only for now)
   const [pushNotifications, setPushNotifications] = useState(true);
   const [checkoutReminders, setCheckoutReminders] = useState(true);
   const [profileVisibility, setProfileVisibility] = useState(true);
-  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>('system');
-
-  const handleBack = () => {
-    router.back();
-  };
-
-  const handleThemeSelect = (theme: ThemeOption) => {
-    setSelectedTheme(theme);
-    // TODO: Implement theme switching
-  };
 
   const handleClearCache = () => {
     Alert.alert(
@@ -127,41 +115,42 @@ export default function SettingsScreen() {
     </View>
   );
 
-  const renderThemeOption = (theme: ThemeOption, label: string) => (
+  const renderThemeOption = (theme: ThemePreference, label: string) => (
     <TouchableOpacity
       style={[
         styles.themeOption,
-        { borderColor: selectedTheme === theme ? colors.primary : colors.border },
-        selectedTheme === theme && { backgroundColor: colors.primary + '10' },
+        { borderColor: themePreference === theme ? colors.primary : colors.border },
+        themePreference === theme && { backgroundColor: colors.primary + '10' },
       ]}
-      onPress={() => handleThemeSelect(theme)}
+      onPress={() => setThemePreference(theme)}
     >
       <Text
         style={[
           styles.themeOptionText,
-          { color: selectedTheme === theme ? colors.primary : colors.text },
+          { color: themePreference === theme ? colors.primary : colors.text },
         ]}
       >
         {label}
       </Text>
-      {selectedTheme === theme && (
+      {themePreference === theme && (
         <IconSymbol name="checkmark" size={16} color={colors.primary} />
       )}
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <IconSymbol name="chevron.left" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
-        <View style={styles.headerRight} />
-      </View>
-
-      <ScrollView
+    <>
+      <Stack.Screen
+        options={{
+          title: 'Settings',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['bottom']}
+      >
+        <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -170,7 +159,7 @@ export default function SettingsScreen() {
         {renderSectionHeader('ACCOUNT')}
         <Card variant="outlined" padding="xs" style={styles.sectionCard}>
           {renderMenuItem('person.fill', 'Edit Profile', () => {
-            // TODO: Navigate to edit profile
+            router.push('/edit-profile');
           })}
           {renderMenuItem('link', 'Linked Accounts', () => {
             // TODO: Navigate to linked accounts
@@ -262,31 +251,14 @@ export default function SettingsScreen() {
         {/* Bottom Spacing */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-  },
-  backButton: {
-    padding: Spacing.xs,
-    marginLeft: -Spacing.xs,
-  },
-  headerTitle: {
-    ...Typography.h3,
-  },
-  headerRight: {
-    width: 32,
   },
   scrollView: {
     flex: 1,

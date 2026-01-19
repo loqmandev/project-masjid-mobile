@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 const ACTIVE_VISIT_KEY = 'active-visit';
 const LOCATION_CACHE_KEY = 'cached-location';
 const USER_PROFILE_CACHE_KEY = 'user-profile-cache';
+const THEME_PREFERENCE_KEY = 'theme-preference';
 
 let nativeStorage: any | null = null;
 
@@ -273,10 +274,49 @@ export function clearCachedLocation(): void {
 }
 
 /**
- * Clear all app cache (preserves active visit data)
+ * Clear all app cache (preserves active visit data and theme preference)
  * Clears: location cache, user profile cache
  */
 export function clearAppCache(): void {
   clearCachedLocation();
   clearCachedUserProfile();
+}
+
+// ============ Theme Preference ============
+
+export type ThemePreference = 'light' | 'dark' | 'system';
+
+/**
+ * Load theme preference from storage
+ */
+export function loadThemePreference(): ThemePreference {
+  if (Platform.OS === 'web') {
+    const raw = globalThis?.localStorage?.getItem(THEME_PREFERENCE_KEY);
+    if (raw === 'light' || raw === 'dark' || raw === 'system') {
+      return raw;
+    }
+    return 'system';
+  }
+
+  const storage = getNativeStorage();
+  if (!storage) return 'system';
+  const raw = storage.getString(THEME_PREFERENCE_KEY);
+  if (raw === 'light' || raw === 'dark' || raw === 'system') {
+    return raw;
+  }
+  return 'system';
+}
+
+/**
+ * Save theme preference to storage
+ */
+export function saveThemePreference(preference: ThemePreference): void {
+  if (Platform.OS === 'web') {
+    globalThis?.localStorage?.setItem(THEME_PREFERENCE_KEY, preference);
+    return;
+  }
+
+  const storage = getNativeStorage();
+  if (!storage) return;
+  storage.set(THEME_PREFERENCE_KEY, preference);
 }
