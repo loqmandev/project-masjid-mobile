@@ -4,6 +4,7 @@ const ACTIVE_VISIT_KEY = 'active-visit';
 const LOCATION_CACHE_KEY = 'cached-location';
 const USER_PROFILE_CACHE_KEY = 'user-profile-cache';
 const THEME_PREFERENCE_KEY = 'theme-preference';
+const ONBOARDING_COMPLETED_KEY = 'onboarding-completed';
 
 let nativeStorage: any | null = null;
 
@@ -319,4 +320,38 @@ export function saveThemePreference(preference: ThemePreference): void {
   const storage = getNativeStorage();
   if (!storage) return;
   storage.set(THEME_PREFERENCE_KEY, preference);
+}
+
+// ============ Onboarding ============
+
+export function loadOnboardingCompleted(): boolean {
+  if (Platform.OS === 'web') {
+    return globalThis?.localStorage?.getItem(ONBOARDING_COMPLETED_KEY) === 'true';
+  }
+
+  const storage = getNativeStorage();
+  if (!storage) return false;
+  return storage.getString(ONBOARDING_COMPLETED_KEY) === 'true';
+}
+
+export function saveOnboardingCompleted(): void {
+  if (Platform.OS === 'web') {
+    globalThis?.localStorage?.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+    return;
+  }
+
+  const storage = getNativeStorage();
+  if (!storage) return;
+  storage.set(ONBOARDING_COMPLETED_KEY, 'true');
+}
+
+export function clearOnboardingCompleted(): void {
+  if (Platform.OS === 'web') {
+    globalThis?.localStorage?.removeItem(ONBOARDING_COMPLETED_KEY);
+    return;
+  }
+
+  const storage = getNativeStorage();
+  if (!storage) return;
+  storage.delete(ONBOARDING_COMPLETED_KEY);
 }
