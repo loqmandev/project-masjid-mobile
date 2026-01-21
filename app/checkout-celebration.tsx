@@ -215,7 +215,9 @@ export default function CheckoutCelebrationScreen() {
       />
 
       {/* Content */}
-      <Animated.View style={[styles.content, containerStyle]}>
+      <Animated.View
+        style={[styles.content, { backgroundColor: colors.card }, containerStyle]}
+      >
         {/* Main celebration text */}
         <Text style={[styles.celebrationTitle, { color: gold[500] }]}>
           {getMessage()}
