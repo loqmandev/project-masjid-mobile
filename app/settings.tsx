@@ -225,10 +225,10 @@ export default function SettingsScreen() {
             false
           )}
           {renderMenuItem('doc.text.fill', 'Terms of Service', () => {
-            handleOpenLink('https://jejakmasjid.com/terms');
+            handleOpenLink('https://jejakmasjid.my/tos');
           })}
           {renderMenuItem('lock.shield.fill', 'Privacy Policy', () => {
-            handleOpenLink('https://jejakmasjid.com/privacy');
+            handleOpenLink('https://jejakmasjid.my/privacy');
           })}
           {renderMenuItem('star.fill', 'Rate the App', handleRateApp)}
           {renderMenuItem('envelope.fill', 'Contact Support', handleContactSupport)}
