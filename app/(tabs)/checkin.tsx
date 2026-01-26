@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -28,6 +28,7 @@ import { useActiveCheckin } from '@/hooks/use-active-checkin';
 import { useCheckinMasjids } from '@/hooks/use-checkin-masjids';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLocation } from '@/hooks/use-location';
+import { useAnalytics } from '@/lib/analytics';
 import { checkinToMasjid, checkoutFromMasjid } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -97,6 +98,8 @@ export default function CheckInScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const queryClient = useQueryClient();
   const { data: session } = useSession();
+  const { track, screen } = useAnalytics();
+  const hasTrackedView = useRef(false);
 
   // State
   const [isCheckingIn, setIsCheckingIn] = useState(false);
@@ -148,6 +151,24 @@ export default function CheckInScreen() {
 
   const visitState = getVisitState();
   const isLoading = isLocationLoading || isMasjidsLoading || isActiveCheckinLoading;
+  const lastVisitState = useRef<VisitState | null>(null);
+
+  useEffect(() => {
+    if (hasTrackedView.current) return;
+    screen('checkin');
+    track('checkin_screen_viewed');
+    hasTrackedView.current = true;
+  }, [screen, track]);
+
+  useEffect(() => {
+    if (lastVisitState.current === visitState) return;
+    track('checkin_state_changed', {
+      state: visitState,
+      has_nearby: Boolean(nearbyMasjid),
+      has_active_visit: Boolean(activeVisit),
+    });
+    lastVisitState.current = visitState;
+  }, [activeVisit, nearbyMasjid, track, visitState]);
 
   // Calculate time remaining when active visit changes
   useEffect(() => {
@@ -184,20 +205,29 @@ export default function CheckInScreen() {
   // Handle check-in
   const handleCheckIn = useCallback(async () => {
     if (!session?.user) {
+      track('checkin_auth_required');
       Alert.alert('Sign In Required', 'Please sign in to check in to masjids.');
       router.push('/auth/login');
       return;
     }
 
     if (activeVisit) {
+      track('checkin_blocked', { reason: 'active_visit' });
       Alert.alert('Already Checked In', 'You have an active visit. Check out to start a new one.');
       return;
     }
 
-    if (!nearbyMasjid || !location) return;
+    if (!nearbyMasjid || !location) {
+      track('checkin_blocked', { reason: 'no_nearby_or_location' });
+      return;
+    }
 
     setIsCheckingIn(true);
     try {
+      track('checkin_attempted', {
+        masjid_id: nearbyMasjid.masjidId,
+        distance_m: nearbyMasjid.distanceM,
+      });
       const result = await checkinToMasjid(
         nearbyMasjid.masjidId,
         location.latitude,
@@ -205,19 +235,25 @@ export default function CheckInScreen() {
       );
 
       if (result.success) {
+        track('checkin_success', {
+          masjid_id: nearbyMasjid.masjidId,
+          distance_m: nearbyMasjid.distanceM,
+        });
         // Invalidate and refetch active checkin from backend
         invalidateActiveCheckin();
         // Also invalidate user profile to update points
         queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       } else {
+        track('checkin_failed', { reason: result.message ?? 'unknown' });
         Alert.alert('Check-in Failed', result.message);
       }
     } catch (error) {
+      track('checkin_failed', { reason: 'exception' });
       Alert.alert('Error', 'Failed to check in. Please try again.');
     } finally {
       setIsCheckingIn(false);
     }
-  }, [session, activeVisit, nearbyMasjid, location, invalidateActiveCheckin, queryClient]);
+  }, [session, activeVisit, nearbyMasjid, location, invalidateActiveCheckin, queryClient, track]);
 
   // Handle check-out
   const handleCheckOut = useCallback(async () => {
@@ -225,6 +261,9 @@ export default function CheckInScreen() {
 
     setIsCheckingOut(true);
     try {
+      track('checkout_attempted', {
+        masjid_id: activeVisit.masjidId,
+      });
       const result = await checkoutFromMasjid(
         activeVisit.masjidId,
         location.latitude,
@@ -232,6 +271,12 @@ export default function CheckInScreen() {
       );
 
       if (result.success) {
+        track('checkout_success', {
+          masjid_id: activeVisit.masjidId,
+          points_earned: result.pointsEarned ?? activeCheckin.actualPointsEarned ?? 10,
+          is_prayer_time: activeCheckin.isPrayerTime ?? false,
+          is_first_visit: activeCheckin.isFirstVisitToMasjid ?? false,
+        });
         // Invalidate queries to refresh data
         invalidateActiveCheckin();
         queryClient.invalidateQueries({ queryKey: ['user-profile'] });
@@ -251,25 +296,29 @@ export default function CheckInScreen() {
           },
         });
       } else {
+        track('checkout_failed', { reason: result.message ?? 'unknown' });
         Alert.alert('Check-out Failed', result.message);
       }
     } catch (error) {
+      track('checkout_failed', { reason: 'exception' });
       Alert.alert('Error', 'Failed to check out. Please try again.');
     } finally {
       setIsCheckingOut(false);
     }
-  }, [activeVisit, activeCheckin, location, invalidateActiveCheckin, queryClient, refetchMasjids]);
+  }, [activeVisit, activeCheckin, location, invalidateActiveCheckin, queryClient, refetchMasjids, track]);
 
   // Handle explore
   const handleExplore = useCallback(() => {
+    track('explore_from_checkin');
     router.push('/(tabs)/explore');
-  }, []);
+  }, [track]);
 
   // Handle refresh
   const handleRefresh = useCallback(async () => {
+    track('checkin_refresh_location');
     await refreshLocation();
     await refetchMasjids();
-  }, [refreshLocation, refetchMasjids]);
+  }, [refreshLocation, refetchMasjids, track]);
 
   const minimumDuration = activeVisit?.minimumDuration ?? 5;
   const progressPercentage = activeVisit

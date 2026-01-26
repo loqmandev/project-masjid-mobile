@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,6 +14,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BorderRadius, Colors, Spacing, Typography, gold, primary } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLeaderboard } from '@/hooks/use-leaderboard';
+import { useAnalytics } from '@/lib/analytics';
 import { LeaderboardEntry } from '@/lib/api';
 
 type TabType = 'monthly' | 'alltime';
@@ -21,9 +22,27 @@ type TabType = 'monthly' | 'alltime';
 export default function LeaderboardScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { track, screen } = useAnalytics();
+  const hasTrackedView = useRef(false);
 
   const [activeTab, setActiveTab] = useState<TabType>('monthly');
   const { data: leaderboardData, currentUser, isLoading, isError, refetch, isRefetching } = useLeaderboard(activeTab);
+
+  const handleRefetch = () => {
+    track('leaderboard_refetch', { tab: activeTab });
+    refetch();
+  };
+
+  useEffect(() => {
+    if (hasTrackedView.current) return;
+    screen('leaderboard');
+    track('leaderboard_viewed', { tab: activeTab });
+    hasTrackedView.current = true;
+  }, [activeTab, screen, track]);
+
+  useEffect(() => {
+    track('leaderboard_tab_switched', { tab: activeTab });
+  }, [activeTab, track]);
 
   const renderTopThree = () => {
     if (!leaderboardData || leaderboardData.length < 3) return null;
@@ -31,47 +50,49 @@ export default function LeaderboardScreen() {
     const topThree = leaderboardData.slice(0, 3);
 
     return (
-      <View style={styles.topThreeContainer}>
-        {/* Second Place */}
-        <View style={styles.topThreeItem}>
-          <View style={[styles.avatar, styles.avatarSecond, { backgroundColor: '#E0E0E0' }]}>
-            <Text style={styles.avatarText}>🥈</Text>
+      <View style={[styles.topThreeCard, { backgroundColor: colors.backgroundSecondary }]}>
+        <View style={styles.topThreeContainer}>
+          {/* Second Place */}
+          <View style={styles.topThreeItem}>
+            <View style={[styles.avatar, styles.avatarSecond, { backgroundColor: '#E0E0E0' }]}>
+              <Text style={styles.avatarText}>🥈</Text>
+            </View>
+            <Text style={[styles.topThreeName, { color: colors.text }]} numberOfLines={1}>
+              {topThree[1].displayName}
+            </Text>
+            <Text style={[styles.topThreePoints, { color: colors.textSecondary }]}>
+              {topThree[1].points} pts
+            </Text>
           </View>
-          <Text style={[styles.topThreeName, { color: colors.text }]} numberOfLines={1}>
-            {topThree[1].displayName}
-          </Text>
-          <Text style={[styles.topThreePoints, { color: colors.textSecondary }]}>
-            {topThree[1].points} pts
-          </Text>
-        </View>
 
-        {/* First Place */}
-        <View style={[styles.topThreeItem, styles.topThreeFirst]}>
-          <View style={[styles.avatar, styles.avatarFirst, { backgroundColor: gold[200] }]}>
-            <Text style={[styles.avatarText, styles.avatarTextFirst]}>🥇</Text>
+          {/* First Place */}
+          <View style={[styles.topThreeItem, styles.topThreeFirst]}>
+            <View style={[styles.avatar, styles.avatarFirst, { backgroundColor: gold[200] }]}>
+              <Text style={[styles.avatarText, styles.avatarTextFirst]}>🥇</Text>
+            </View>
+            <Text style={[styles.topThreeName, { color: colors.text }]} numberOfLines={1}>
+              {topThree[0].displayName}
+            </Text>
+            <Text style={[styles.topThreePoints, { color: colors.textSecondary }]}>
+              {topThree[0].points} pts
+            </Text>
+            <Text style={[styles.topThreeMasjids, { color: colors.textTertiary }]}>
+              {topThree[0].masjidsVisited} masjids
+            </Text>
           </View>
-          <Text style={[styles.topThreeName, { color: colors.text }]} numberOfLines={1}>
-            {topThree[0].displayName}
-          </Text>
-          <Text style={[styles.topThreePoints, { color: colors.textSecondary }]}>
-            {topThree[0].points} pts
-          </Text>
-          <Text style={[styles.topThreeMasjids, { color: colors.textTertiary }]}>
-            {topThree[0].masjidsVisited} masjids
-          </Text>
-        </View>
 
-        {/* Third Place */}
-        <View style={styles.topThreeItem}>
-          <View style={[styles.avatar, styles.avatarThird, { backgroundColor: '#FFCCBC' }]}>
-            <Text style={styles.avatarText}>🥉</Text>
+          {/* Third Place */}
+          <View style={styles.topThreeItem}>
+            <View style={[styles.avatar, styles.avatarThird, { backgroundColor: '#FFCCBC' }]}>
+              <Text style={styles.avatarText}>🥉</Text>
+            </View>
+            <Text style={[styles.topThreeName, { color: colors.text }]} numberOfLines={1}>
+              {topThree[2].displayName}
+            </Text>
+            <Text style={[styles.topThreePoints, { color: colors.textSecondary }]}>
+              {topThree[2].points} pts
+            </Text>
           </View>
-          <Text style={[styles.topThreeName, { color: colors.text }]} numberOfLines={1}>
-            {topThree[2].displayName}
-          </Text>
-          <Text style={[styles.topThreePoints, { color: colors.textSecondary }]}>
-            {topThree[2].points} pts
-          </Text>
         </View>
       </View>
     );
@@ -84,13 +105,15 @@ export default function LeaderboardScreen() {
       <View
         style={[
           styles.leaderboardItem,
-          { backgroundColor: colors.card, borderBottomColor: colors.border },
-          item.isCurrentUser && { backgroundColor: colors.primaryLight },
+          { backgroundColor: colors.card, borderColor: colors.border },
+          item.isCurrentUser && { backgroundColor: colors.primaryLight, borderColor: colors.primary },
         ]}
       >
-        <Text style={[styles.rankText, { color: colors.textSecondary }]}>
-          {item.rank}
-        </Text>
+        <View style={[styles.rankBadge, { backgroundColor: colors.backgroundSecondary }]}>
+          <Text style={[styles.rankText, { color: colors.textSecondary }]}>
+            #{item.rank}
+          </Text>
+        </View>
         <View style={[styles.itemAvatar, { backgroundColor: colors.backgroundSecondary }]}>
           <Text style={styles.itemAvatarText}>👤</Text>
         </View>
@@ -99,10 +122,15 @@ export default function LeaderboardScreen() {
             {item.displayName}
             {item.isCurrentUser && ' (You)'}
           </Text>
+          <Text style={[styles.itemMeta, { color: colors.textTertiary }]}>
+            {item.masjidsVisited} masjids
+          </Text>
         </View>
-        <Text style={[styles.itemPoints, { color: colors.text }]}>
-          {item.points} pts
-        </Text>
+        <View style={[styles.pointsPill, { backgroundColor: colors.backgroundSecondary }]}>
+          <Text style={[styles.itemPoints, { color: colors.text }]}>
+            {item.points} pts
+          </Text>
+        </View>
       </View>
     );
   };
@@ -131,7 +159,7 @@ export default function LeaderboardScreen() {
       </Text>
       <TouchableOpacity
         style={[styles.retryButton, { backgroundColor: colors.primary }]}
-        onPress={() => refetch()}
+        onPress={handleRefetch}
       >
         <Text style={styles.retryButtonText}>Retry</Text>
       </TouchableOpacity>
@@ -143,7 +171,7 @@ export default function LeaderboardScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Leaderboard</Text>
-        <TouchableOpacity onPress={() => refetch()} disabled={isRefetching}>
+        <TouchableOpacity onPress={handleRefetch} disabled={isRefetching}>
           <IconSymbol
             name="arrow.clockwise"
             size={20}
@@ -206,10 +234,9 @@ export default function LeaderboardScreen() {
             keyExtractor={(item) => `${item.rank}-${item.displayName}`}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
             ListFooterComponent={
-              <View style={styles.listFooter}>
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-              </View>
+              <View style={styles.listFooter} />
             }
           />
         </>
@@ -289,9 +316,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'flex-end',
-    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.lg,
     gap: Spacing.md,
+  },
+  topThreeCard: {
+    marginHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+  },
+  topThreeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  topThreeTitle: {
+    ...Typography.body,
+    fontWeight: '700',
+  },
+  topThreeEmoji: {
+    fontSize: 18,
   },
   topThreeItem: {
     alignItems: 'center',
@@ -335,16 +380,32 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   listContent: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: 0,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.lg,
   },
   leaderboardItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
+    paddingHorizontal: Spacing.md,
+    marginHorizontal: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+  },
+  listSeparator: {
+    height: Spacing.sm,
+  },
+  rankBadge: {
+    minWidth: 44,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.sm,
   },
   rankText: {
-    width: 32,
     ...Typography.body,
     fontWeight: '600',
   },
@@ -366,15 +427,21 @@ const styles = StyleSheet.create({
     ...Typography.body,
     fontWeight: '500',
   },
+  itemMeta: {
+    ...Typography.caption,
+    marginTop: 2,
+  },
+  pointsPill: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.md,
+  },
   itemPoints: {
     ...Typography.body,
     fontWeight: '600',
   },
   listFooter: {
     paddingVertical: Spacing.md,
-  },
-  divider: {
-    height: 1,
   },
   currentUserCard: {
     margin: Spacing.md,

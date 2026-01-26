@@ -1,23 +1,24 @@
-import React from 'react';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useRef } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   Linking,
   Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router, Stack } from 'expo-router';
 
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Spacing, Typography, primary, BorderRadius } from '@/constants/theme';
+import { BorderRadius, Colors, primary, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMasjidDetails } from '@/hooks/use-masjid-details';
+import { useAnalytics } from '@/lib/analytics';
 import { MasjidFacilities } from '@/lib/api';
 
 // Facility configuration for display
@@ -36,6 +37,8 @@ export default function MasjidDetailScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { track, screen } = useAnalytics();
+  const hasTrackedView = useRef(false);
 
   // Fetch masjid details
   const {
@@ -45,12 +48,21 @@ export default function MasjidDetailScreen() {
     refetch,
   } = useMasjidDetails({ masjidId: id });
 
+  useEffect(() => {
+    if (!masjid || hasTrackedView.current) return;
+    screen('masjid_detail', { masjid_id: masjid.id ?? id });
+    track('masjid_detail_viewed', { masjid_id: masjid.id ?? id });
+    hasTrackedView.current = true;
+  }, [id, masjid, screen, track]);
+
   const handleCheckIn = () => {
+    track('masjid_checkin_clicked', { masjid_id: masjid?.id ?? id });
     router.push('/(tabs)/checkin');
   };
 
   const handleDirections = () => {
     if (!masjid) return;
+    track('masjid_directions_clicked', { masjid_id: masjid.id });
 
     const { lat, lng, name } = masjid;
     const encodedName = encodeURIComponent(name);
@@ -68,11 +80,6 @@ export default function MasjidDetailScreen() {
         `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
       );
     });
-  };
-
-  const handleShare = () => {
-    // TODO: Implement share
-    console.log('Sharing masjid');
   };
 
   // Get available facilities
@@ -106,14 +113,17 @@ export default function MasjidDetailScreen() {
   if (error || !masjid) {
     return (
       <>
-        <Stack.Screen options={{ title: '', headerTransparent: true }} />
+        <Stack.Screen options={{ title: '', headerTransparent: true,  headerBackButtonDisplayMode: 'minimal' }} />
         <SafeAreaView style={[styles.container, styles.centerContent, { backgroundColor: colors.background }]}>
           <Text style={styles.errorIcon}>😕</Text>
           <Text style={[styles.errorText, { color: colors.error }]}>
             {error?.message || 'Masjid not found'}
           </Text>
           <TouchableOpacity
-            onPress={() => refetch()}
+            onPress={() => {
+              track('masjid_detail_refetch', { masjid_id: id });
+              refetch();
+            }}
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
           >
             <Text style={styles.retryButtonText}>Retry</Text>
@@ -132,11 +142,6 @@ export default function MasjidDetailScreen() {
           title: '',
           headerTransparent: true,
           headerBackTitle: 'Back',
-          headerRight: () => (
-            <TouchableOpacity onPress={handleShare} style={styles.headerButton}>
-              <IconSymbol name="square.and.arrow.up" size={20} color={colors.primary} />
-            </TouchableOpacity>
-          ),
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>

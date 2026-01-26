@@ -8,6 +8,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { primary } from '@/constants/theme';
 import { ThemeProvider as AppThemeProvider, useColorScheme } from '@/hooks/use-color-scheme';
 
+import { PostHogProvider } from 'posthog-react-native';
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -29,7 +31,6 @@ const JejakMasjidLightTheme = {
     border: '#EEEEEE',
   },
 };
-
 const JejakMasjidDarkTheme = {
   ...DarkTheme,
   colors: {
@@ -55,6 +56,13 @@ function RootLayoutContent() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="auth/login"
+          options={{
+            headerShown: false,
+            presentation: 'fullScreenModal',
+          }}
+        />
+        <Stack.Screen
+          name="auth/enter-name"
           options={{
             headerShown: false,
             presentation: 'fullScreenModal',
@@ -98,11 +106,18 @@ function RootLayoutContent() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <AppThemeProvider>
-          <RootLayoutContent />
-        </AppThemeProvider>
-      </QueryClientProvider>
+      <PostHogProvider
+        apiKey="phc_x63Shbm7JoWNomcnVXQLbwT1yfVBTzwIhp6UAn9DV04"
+        options={{
+          host: "https://us.i.posthog.com",
+        }}
+      >
+        <QueryClientProvider client={queryClient}>
+          <AppThemeProvider>
+            <RootLayoutContent />
+          </AppThemeProvider>
+        </QueryClientProvider>
+      </PostHogProvider>
     </SafeAreaProvider>
   );
 }

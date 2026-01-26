@@ -1,6 +1,6 @@
 import * as Linking from 'expo-linking';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/button';
 import { Colors, primary, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAnalytics } from '@/lib/analytics';
 import { authClient, useSession } from '@/lib/auth-client';
 
 const { width } = Dimensions.get('window');
@@ -24,20 +25,32 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const { data: session, isPending } = useSession();
   const params = useLocalSearchParams<{ returnTo?: string }>();
+  const { track, screen } = useAnalytics();
+  const hasTrackedView = useRef(false);
+
+  useEffect(() => {
+    if (hasTrackedView.current) return;
+    screen('login');
+    track('login_screen_viewed', { return_to: params.returnTo ?? '/(tabs)' });
+    hasTrackedView.current = true;
+  }, [params.returnTo, screen, track]);
 
   // Redirect if already authenticated
   useEffect(() => {
     if (session && !isPending) {
       const returnTo = params.returnTo || '/(tabs)';
-      router.replace(returnTo as any);
+      router.replace(`/auth/enter-name?returnTo=${encodeURIComponent(returnTo)}` as any);
     }
   }, [session, isPending, params.returnTo]);
 
   const handleGoogleSignIn = async () => {
+    track('login_google_clicked', { return_to: params.returnTo ?? '/(tabs)' });
     setLoading(true);
     try {
       // Build proper deep link URL for OAuth callback
-      const callbackURL = Linking.createURL(params.returnTo || '/(tabs)');
+      const callbackURL = Linking.createURL('/auth/enter-name', {
+        queryParams: { returnTo: params.returnTo || '/(tabs)' },
+      });
 
       const result = await authClient.signIn.social({
         provider: 'google',
@@ -45,10 +58,12 @@ export default function LoginScreen() {
       });
 
       if (result.error) {
+        track('login_failed', { reason: result.error.message ?? 'unknown' });
         Alert.alert('Sign In Failed', result.error.message || 'Unable to sign in with Google');
       }
       // Success case: the OAuth flow will redirect via deep link
     } catch (error) {
+      track('login_failed', { reason: 'exception' });
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -56,6 +71,7 @@ export default function LoginScreen() {
   };
 
   const handleSkip = () => {
+    track('login_skipped', { return_to: params.returnTo ?? '/(tabs)' });
     if (router.canGoBack()) {
       router.back();
       return;

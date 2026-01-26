@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/button';
 import { Colors, primary, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAnalytics } from '@/lib/analytics';
 import { loadOnboardingCompleted, saveOnboardingCompleted } from '@/lib/storage';
 
 const { width } = Dimensions.get('window');
@@ -40,6 +41,8 @@ export default function OnboardingScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const scrollRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const { track, screen } = useAnalytics();
+  const hasTrackedStart = useRef(false);
 
   useEffect(() => {
     if (loadOnboardingCompleted()) {
@@ -47,14 +50,22 @@ export default function OnboardingScreen() {
     }
   }, []);
 
-  const handleComplete = () => {
+  useEffect(() => {
+    if (hasTrackedStart.current) return;
+    screen('onboarding');
+    track('onboarding_started');
+    hasTrackedStart.current = true;
+  }, [screen, track]);
+
+  const handleComplete = (reason: 'finished' | 'skipped') => {
     saveOnboardingCompleted();
+    track('onboarding_completed', { reason });
     router.replace('/(tabs)');
   };
 
   const handleNext = () => {
     if (currentIndex === SLIDES.length - 1) {
-      handleComplete();
+      handleComplete('finished');
       return;
     }
 
@@ -88,7 +99,7 @@ export default function OnboardingScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}> 
         <View style={styles.topBar}>
           <Text style={[styles.brand, { color: colors.text }]}>Jejak Masjid</Text>
-          <TouchableOpacity onPress={handleComplete} accessibilityRole="button">
+          <TouchableOpacity onPress={() => handleComplete('skipped')} accessibilityRole="button">
             <Text style={[styles.skipText, { color: colors.textTertiary }]}>Skip</Text>
           </TouchableOpacity>
         </View>
@@ -101,6 +112,7 @@ export default function OnboardingScreen() {
           onMomentumScrollEnd={(event) => {
             const index = Math.round(event.nativeEvent.contentOffset.x / width);
             setCurrentIndex(index);
+            track('onboarding_slide_changed', { index });
           }}
           contentContainerStyle={styles.scrollContent}
         >
@@ -135,7 +147,7 @@ export default function OnboardingScreen() {
             style={styles.primaryButton}
           />
           <TouchableOpacity
-            onPress={handleComplete}
+            onPress={() => handleComplete('skipped')}
             accessibilityRole="button"
           >
             <Text style={[styles.secondaryAction, { color: colors.textSecondary }]}> 

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -18,6 +18,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { BorderRadius, Colors, primary, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAnalytics } from '@/lib/analytics';
 import {
   getUserAchievements,
   getUserCheckins,
@@ -33,10 +34,6 @@ import {
   saveCachedUserProfile,
 } from '@/lib/storage';
 
-const menuItems = [
-  { icon: 'gearshape.fill', label: 'Settings', route: '/settings' },
-  { icon: 'questionmark.circle.fill', label: 'Help & Support', route: '/help' },
-];
 
 // Cache validity duration (5 minutes)
 const PROFILE_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
@@ -86,6 +83,8 @@ export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { data: session } = useSession();
+  const { track, screen } = useAnalytics();
+  const hasTrackedView = useRef(false);
 
   // State for API data
   const [profileData, setProfileData] = useState<UserProfileResponse | null>(null);
@@ -159,18 +158,28 @@ export default function ProfileScreen() {
     }
   }, [session?.user, loadProfileData]);
 
+  useEffect(() => {
+    if (hasTrackedView.current) return;
+    screen('profile');
+    track('profile_viewed');
+    hasTrackedView.current = true;
+  }, [screen, track]);
+
   // Pull-to-refresh handler
   const handleRefresh = useCallback(() => {
+    track('profile_refreshed');
     setIsRefreshing(true);
     loadProfileData(false); // Skip cache on refresh
-  }, [loadProfileData]);
+  }, [loadProfileData, track]);
 
   const handleMenuPress = (route: string) => {
+    track('profile_menu_selected', { route });
     router.push(route as any);
   };
 
   const handleSignOut = async () => {
     try {
+      track('profile_signout');
       // Clear cached user profile before signing out
       clearCachedUserProfile();
       await authClient.signOut();
@@ -204,6 +213,13 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]}></Text>
+        <TouchableOpacity onPress={() => handleMenuPress('/settings')}>
+          <IconSymbol name="gearshape.fill" size={28} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -396,30 +412,6 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Menu Items */}
-        <View style={styles.section}>
-          <Card variant="outlined" padding="xs">
-            {menuItems.map((item, index) => (
-              <TouchableOpacity
-                key={item.route}
-                style={[
-                  styles.menuItem,
-                  index < menuItems.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: 1 },
-                ]}
-                onPress={() => handleMenuPress(item.route)}
-              >
-                <View style={styles.menuItemLeft}>
-                  <IconSymbol name={item.icon as any} size={20} color={colors.textSecondary} />
-                  <Text style={[styles.menuItemLabel, { color: colors.text }]}>
-                    {item.label}
-                  </Text>
-                </View>
-                <IconSymbol name="chevron.right" size={16} color={colors.textTertiary} />
-              </TouchableOpacity>
-            ))}
-          </Card>
-        </View>
-
         {/* Sign Out Button */}
         <TouchableOpacity
           style={[styles.signOutButton, { backgroundColor: colors.error + '15' }]}
@@ -441,6 +433,16 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  title: {
+    ...Typography.h2,
   },
   scrollView: {
     flex: 1,

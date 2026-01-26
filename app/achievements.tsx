@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { Colors, Spacing, Typography, badges, BorderRadius } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAnalytics } from '@/lib/analytics';
 import { useUserAchievements } from '@/hooks/use-user-achievements';
 import { UserAchievementProgress } from '@/lib/api';
 
@@ -98,6 +99,8 @@ const getBadgeColor = (badge: string) => {
 export default function AchievementsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { track, screen } = useAnalytics();
+  const hasTrackedView = useRef(false);
 
   // Fetch achievements from API
   const { data: achievements, isLoading, error, refetch } = useUserAchievements();
@@ -131,6 +134,18 @@ export default function AchievementsScreen() {
 
     return { unlocked, inProgress, locked };
   }, [achievements]);
+
+  useEffect(() => {
+    if (hasTrackedView.current) return;
+    screen('achievements');
+    track('achievements_viewed');
+    hasTrackedView.current = true;
+  }, [screen, track]);
+
+  const handleRefetch = () => {
+    track('achievements_refetch');
+    refetch();
+  };
 
   const renderAchievementCard = (item: UserAchievementProgress) => {
     const { achievement, progress } = item;
@@ -279,7 +294,7 @@ export default function AchievementsScreen() {
           refreshControl={
             <RefreshControl
               refreshing={false}
-              onRefresh={() => refetch()}
+              onRefresh={handleRefetch}
               colors={[colors.primary]}
               tintColor={colors.primary}
             />

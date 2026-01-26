@@ -6,18 +6,21 @@ import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, primary } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAnalytics } from '@/lib/analytics';
 import { useSession } from '@/lib/auth-client';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { data: session, isPending } = useSession();
+  const { track } = useAnalytics();
 
   const requireAuth = (route: string) => ({
     tabPress: (e: any) => {
       if (!isPending && session) return;
       e.preventDefault();
       if (!isPending && !session) {
+        track('auth_gate_triggered', { route });
         router.push({
           pathname: '/auth/login',
           params: { returnTo: `/(tabs)/${route}` },
@@ -67,7 +70,6 @@ export default function TabLayout() {
         name="checkin"
         options={{
           title: 'Check In',
-          unmountOnBlur: true,
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.checkInButton, focused && styles.checkInButtonActive]}>
               <IconSymbol size={28} name="checkmark.circle.fill" color={focused ? '#fff' : colors.primary} />
@@ -90,7 +92,6 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          unmountOnBlur: true,
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol size={24} name="person.fill" color={color} />
           ),
