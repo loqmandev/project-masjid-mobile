@@ -1,7 +1,8 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Linking,
   Platform,
   ScrollView,
@@ -14,24 +15,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BorderRadius, Colors, primary, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMasjidDetails } from '@/hooks/use-masjid-details';
+import { useMasjidPhotos } from '@/hooks/use-masjid-photos';
 import { useAnalytics } from '@/lib/analytics';
-import { MasjidFacilities } from '@/lib/api';
 
-// Facility configuration for display
-const FACILITY_CONFIG: Record<keyof MasjidFacilities, { name: string; icon: string }> = {
-  parking: { name: 'Parking', icon: '🅿️' },
-  wudhuArea: { name: 'Wudhu Area', icon: '💧' },
-  airConditioning: { name: 'Air Conditioning', icon: '❄️' },
-  wheelchairAccess: { name: 'Wheelchair Access', icon: '♿' },
-  womenSection: { name: 'Women Section', icon: '👩' },
-  funeralServices: { name: 'Funeral Services', icon: '🕊️' },
-  library: { name: 'Library', icon: '📚' },
-  conferenceRoom: { name: 'Conference Room', icon: '🏢' },
-};
+type TabType = 'facilities' | 'photos' | 'events';
 
 export default function MasjidDetailScreen() {
   const colorScheme = useColorScheme();
@@ -39,6 +31,7 @@ export default function MasjidDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { track, screen } = useAnalytics();
   const hasTrackedView = useRef(false);
+  const [activeTab, setActiveTab] = useState<TabType>('facilities');
 
   // Fetch masjid details
   const {
@@ -47,6 +40,12 @@ export default function MasjidDetailScreen() {
     error,
     refetch,
   } = useMasjidDetails({ masjidId: id });
+  const {
+    data: masjidPhotos,
+    isLoading: isPhotosLoading,
+    isError: isPhotosError,
+    refetch: refetchPhotos,
+  } = useMasjidPhotos({ masjidId: id, limit: 100 });
 
   useEffect(() => {
     if (!masjid || hasTrackedView.current) return;
@@ -86,12 +85,35 @@ export default function MasjidDetailScreen() {
   const getAvailableFacilities = () => {
     if (!masjid?.facilities) return [];
 
-    return Object.entries(masjid.facilities)
-      .filter(([_, available]) => available)
-      .map(([key]) => ({
-        key,
-        ...FACILITY_CONFIG[key as keyof MasjidFacilities],
-      }));
+    const iconByCode: Record<string, string> = {
+      PRAYER_MALE: '🕌',
+      PRAYER_FEMALE: '🕌',
+      PRAYER_AC: '❄️',
+      WOMEN_FRIENDLY_LAYOUT: '👩',
+      WUDHU_MALE: '💧',
+      WUDHU_FEMALE: '💧',
+      WUDHU_OKU: '♿',
+      TOILET_MALE: '🚻',
+      TOILET_FEMALE: '🚻',
+      TOILET_OKU: '♿',
+      WHEELCHAIR_ACCESS: '♿',
+      PARKING_COMPOUND: '🅿️',
+      PARKING_STREET: '🅿️',
+      WATER_DISPENSER: '🚰',
+      PHONE_CHARGER: '🔌',
+      REST_AREA: '🪑',
+      WORKING_SPACE: '💻',
+      EVENT_SPACE: '🎪',
+    };
+
+    const facilitiesData = masjid.facilities as unknown;
+    if (!Array.isArray(facilitiesData)) return [];
+
+    return facilitiesData.map((facility: { code: string; label: string }) => ({
+      key: facility.code,
+      name: facility.label,
+      icon: iconByCode[facility.code] ?? '✅',
+    }));
   };
 
   // Loading state
@@ -200,34 +222,177 @@ export default function MasjidDetailScreen() {
             />
           </View>
 
-          {/* Facilities */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Facilities
-            </Text>
-            {availableFacilities.length > 0 ? (
-              <View style={styles.facilitiesGrid}>
-                {availableFacilities.map((facility) => (
-                  <View
-                    key={facility.key}
-                    style={[
-                      styles.facilityItem,
-                      { backgroundColor: colors.primaryLight },
-                    ]}
-                  >
-                    <Text style={styles.facilityIcon}>{facility.icon}</Text>
-                    <Text style={[styles.facilityName, { color: colors.primary }]}>
-                      {facility.name}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <Text style={[styles.noFacilitiesText, { color: colors.textTertiary }]}>
-                No facilities information available
+          {/* Tabs */}
+          <View style={[styles.tabContainer, { backgroundColor: colors.backgroundSecondary }]}>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === 'facilities' && [styles.tabActive, { backgroundColor: colors.card }],
+              ]}
+              onPress={() => setActiveTab('facilities')}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: activeTab === 'facilities' ? colors.primary : colors.textSecondary },
+                ]}
+              >
+                Facilities
               </Text>
-            )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === 'photos' && [styles.tabActive, { backgroundColor: colors.card }],
+              ]}
+              onPress={() => setActiveTab('photos')}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: activeTab === 'photos' ? colors.primary : colors.textSecondary },
+                ]}
+              >
+                Photos
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === 'events' && [styles.tabActive, { backgroundColor: colors.card }],
+              ]}
+              onPress={() => setActiveTab('events')}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: activeTab === 'events' ? colors.primary : colors.textSecondary },
+                ]}
+              >
+                Events
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {activeTab === 'facilities' && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Facilities
+              </Text>
+              {availableFacilities.length > 0 ? (
+                <View style={styles.facilitiesGrid}>
+                  {availableFacilities.map((facility) => (
+                    <View
+                      key={facility.key}
+                      style={[
+                        styles.facilityItem,
+                        { backgroundColor: colors.primaryLight },
+                      ]}
+                    >
+                      <Text style={styles.facilityIcon}>{facility.icon}</Text>
+                      <Text style={[styles.facilityName, { color: colors.primary }]}>
+                        {facility.name}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={[styles.noFacilitiesText, { color: colors.textTertiary }]}>
+                  No facilities information available
+                </Text>
+              )}
+            </View>
+          )}
+
+          {activeTab === 'photos' && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Photos
+              </Text>
+              {isPhotosLoading ? (
+                <View style={styles.loadingInline}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={[styles.loadingInlineText, { color: colors.textSecondary }]}>
+                    Loading photos...
+                  </Text>
+                </View>
+              ) : isPhotosError ? (
+                <View style={styles.errorInline}>
+                  <Text style={[styles.errorInlineText, { color: colors.error }]}>
+                    Failed to load photos
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      track('masjid_photos_refetch', { masjid_id: masjid.id });
+                      refetchPhotos();
+                    }}
+                    style={[styles.retryButtonInline, { backgroundColor: colors.primary }]}
+                  >
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : masjidPhotos && masjidPhotos.length > 0 ? (
+                <View style={styles.photoGrid}>
+                  {masjidPhotos.map((photo) => (
+                    <View key={photo.id} style={styles.photoItem}>
+                      <Image source={{ uri: photo.url }} style={styles.photoImage} />
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Card variant="outlined" padding="md" style={styles.placeholderCard}>
+                  <View style={styles.placeholderHeader}>
+                    <View style={[styles.placeholderIcon, { backgroundColor: colors.backgroundSecondary }]}>
+                      <Text style={styles.placeholderEmoji}>📸</Text>
+                    </View>
+                    <View style={styles.placeholderContent}>
+                      <Text style={[styles.placeholderTitle, { color: colors.text }]}>
+                        No photos yet
+                      </Text>
+                      <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
+                        Photos can be added after checking in. We’ll review before publishing.
+                      </Text>
+                    </View>
+                  </View>
+                </Card>
+              )}
+            </View>
+          )}
+
+          {activeTab === 'events' && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Events
+              </Text>
+              <Card variant="outlined" padding="md" style={styles.placeholderCard}>
+                <View style={styles.placeholderHeader}>
+                  <View style={[styles.placeholderIcon, { backgroundColor: colors.backgroundSecondary }]}>
+                    <Text style={styles.placeholderEmoji}>🗓️</Text>
+                  </View>
+                  <View style={styles.placeholderContent}>
+                    <Text style={[styles.placeholderTitle, { color: colors.text }]}>
+                      Coming soon
+                    </Text>
+                    <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
+                      Events will show upcoming programs and prayer schedules.
+                    </Text>
+                    <View style={styles.lockHint}>
+                      <IconSymbol name="lock.fill" size={12} color={colors.textTertiary} />
+                      <Text style={[styles.lockHintText, { color: colors.textTertiary }]}>
+                        Available after check-in
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <Button
+                  title="Notify me"
+                  variant="outline"
+                  onPress={() => {}}
+                  style={styles.placeholderButton}
+                />
+              </Card>
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     </>
@@ -331,6 +496,30 @@ const styles = StyleSheet.create({
   directionsButton: {
     flex: 1,
   },
+  tabContainer: {
+    flexDirection: 'row',
+    marginHorizontal: Spacing.md,
+    padding: 4,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    alignItems: 'center',
+    borderRadius: BorderRadius.md,
+  },
+  tabActive: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tabText: {
+    ...Typography.bodySmall,
+    fontWeight: '600',
+  },
   section: {
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.lg,
@@ -362,5 +551,83 @@ const styles = StyleSheet.create({
   noFacilitiesText: {
     ...Typography.bodySmall,
     fontStyle: 'italic',
+  },
+  placeholderCard: {
+    gap: Spacing.md,
+  },
+  placeholderHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  placeholderIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderEmoji: {
+    fontSize: 24,
+  },
+  placeholderContent: {
+    flex: 1,
+  },
+  placeholderTitle: {
+    ...Typography.body,
+    fontWeight: '600',
+  },
+  placeholderText: {
+    ...Typography.caption,
+    marginTop: Spacing.xs,
+  },
+  placeholderButton: {
+    alignSelf: 'flex-start',
+  },
+  loadingInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  loadingInlineText: {
+    ...Typography.bodySmall,
+  },
+  errorInline: {
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+  },
+  errorInlineText: {
+    ...Typography.bodySmall,
+  },
+  retryButtonInline: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
+  },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  photoItem: {
+    width: '48%',
+    aspectRatio: 1,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    backgroundColor: '#F2F2F2',
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  lockHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+  },
+  lockHintText: {
+    ...Typography.caption,
   },
 });

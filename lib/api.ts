@@ -66,6 +66,11 @@ export interface MasjidFacilities {
   womenSection: boolean;
 }
 
+export interface FacilityOption {
+  code: string;
+  label: string;
+}
+
 /**
  * Full masjid details from /masjids/:id
  */
@@ -82,12 +87,12 @@ export interface MasjidDetails {
   districtName: string;
   jakimCode: string;
   checkinRadiusM: number;
-  facilities: MasjidFacilities;
   verified: boolean;
   active: boolean;
   geohash: string;
   createdAt: string;
   updatedAt: string;
+  facilities: FacilityOption[];
 }
 
 /**
@@ -135,6 +140,178 @@ export async function getMasjidById(masjidId: string): Promise<MasjidDetails> {
 
   if (!response.ok) {
     throw new Error(`Failed to fetch masjid details: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch facility lookup list
+ */
+export async function getFacilities(): Promise<FacilityOption[]> {
+  const response = await fetch(`${API_BASE_URL}/api/facilities`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch facilities: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch confirmed facilities for a masjid
+ */
+export async function getMasjidFacilities(
+  masjidId: string
+): Promise<FacilityOption[]> {
+  const response = await fetch(`${API_BASE_URL}/masjids/${masjidId}/facilities`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch masjid facilities: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export interface FacilitySubmitResponse {
+  pointEarned: number;
+}
+
+/**
+ * Submit facility confirmations for a masjid
+ * REQUIRES AUTHENTICATION
+ */
+export async function submitMasjidFacilities(
+  masjidId: string,
+  facilityCodes: string[]
+): Promise<FacilitySubmitResponse> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/masjids/${masjidId}/facilities`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ facilityCodes }),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Please sign in to update facilities');
+    }
+    throw new Error(data.message || `Facility update failed: ${response.status}`);
+  }
+
+  return data;
+}
+
+export interface PhotoUploadUrlResponse {
+  uploadUrl: string;
+  publicUrl: string;
+  key: string;
+  contentType: string;
+  category: string;
+}
+
+export interface MasjidPhoto {
+  id: string;
+  masjidId: string;
+  userId: string;
+  url: string;
+  category: string;
+  facilityCode: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface PhotoUploadUrlRequest {
+  category: string;
+  contentType: string;
+}
+
+/**
+ * Request a presigned upload URL for masjid photo
+ * REQUIRES AUTHENTICATION
+ */
+export async function getMasjidPhotoUploadUrl(
+  masjidId: string,
+  payload: PhotoUploadUrlRequest
+): Promise<PhotoUploadUrlResponse> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/masjids/${masjidId}/photos/upload-url`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Please sign in to upload photos');
+    }
+    throw new Error(data.message || `Failed to get upload URL: ${response.status}`);
+  }
+
+  return data;
+}
+
+export interface CreateMasjidPhotoRequest {
+  key: string;
+  category: string;
+  facilityCode?: string | null;
+}
+
+/**
+ * Create masjid photo record
+ * REQUIRES AUTHENTICATION
+ */
+export async function createMasjidPhoto(
+  masjidId: string,
+  payload: CreateMasjidPhotoRequest
+): Promise<void> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/masjids/${masjidId}/photos`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!response.ok) {
+    const data = await response.json();
+    if (response.status === 401) {
+      throw new Error('Please sign in to save photos');
+    }
+    throw new Error(data.message || `Failed to save photo: ${response.status}`);
+  }
+}
+
+export async function getMasjidPhotosAll(
+  masjidId: string,
+  options?: { limit?: number; category?: string }
+): Promise<MasjidPhoto[]> {
+  const params = new URLSearchParams();
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.category) params.set('category', options.category);
+
+  const query = params.toString();
+  const response = await fetch(
+    `${API_BASE_URL}/api/masjids/${masjidId}/photos/all${query ? `?${query}` : ''}`
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch masjid photos: ${response.status}`);
   }
 
   return response.json();

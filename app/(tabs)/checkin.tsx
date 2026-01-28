@@ -31,7 +31,7 @@ import { useLocation } from '@/hooks/use-location';
 import { useAnalytics } from '@/lib/analytics';
 import { checkinToMasjid, checkoutFromMasjid } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 type VisitState = 'idle' | 'nearby' | 'checked_in';
 
@@ -127,6 +127,15 @@ export default function CheckInScreen() {
       }
     : null;
 
+  const { data: facilityContribution } = useQuery<
+    { pointsEarned: number; submittedAt: string } | null
+  >({
+    queryKey: ['facility-contribution', activeVisit?.masjidId],
+    queryFn: async () => null,
+    enabled: false,
+    initialData: null,
+  });
+
   // Location and nearby masjids
   const { location, isLoading: isLocationLoading, refresh: refreshLocation } = useLocation();
   const {
@@ -214,6 +223,7 @@ export default function CheckInScreen() {
     if (activeVisit) {
       track('checkin_blocked', { reason: 'active_visit' });
       Alert.alert('Already Checked In', 'You have an active visit. Check out to start a new one.');
+      
       return;
     }
 
@@ -312,6 +322,30 @@ export default function CheckInScreen() {
     track('explore_from_checkin');
     router.push('/(tabs)/explore');
   }, [track]);
+
+  const handleUpdateFacilities = useCallback(() => {
+    if (!activeVisit) return;
+    track('checkin_update_facilities_clicked', { masjid_id: activeVisit.masjidId });
+    router.push({
+      pathname: '/checkin/update-facilities',
+      params: {
+        masjidId: activeVisit.masjidId,
+        masjidName: activeVisit.masjidName,
+      },
+    });
+  }, [activeVisit, track]);
+
+  const handleAddPhotos = useCallback(() => {
+    if (!activeVisit) return;
+    track('checkin_add_photos_clicked', { masjid_id: activeVisit.masjidId });
+    router.push({
+      pathname: '/checkin/add-photos',
+      params: {
+        masjidId: activeVisit.masjidId,
+        masjidName: activeVisit.masjidName,
+      },
+    });
+  }, [activeVisit, track]);
 
   // Handle refresh
   const handleRefresh = useCallback(async () => {
@@ -468,7 +502,54 @@ export default function CheckInScreen() {
               </Text>
             </View>
           ) : null}
+          {facilityContribution ? (
+            <View style={styles.pointsRow}>
+              <Text style={[styles.pointsLabel, { color: colors.text }]}>
+                Facility Update
+              </Text>
+              <Text
+                style={[
+                  styles.pointsValue,
+                  {
+                    color:
+                      facilityContribution.pointsEarned > 0
+                        ? colors.success
+                        : colors.textSecondary,
+                  },
+                ]}
+              >
+                {facilityContribution.pointsEarned > 0
+                  ? `+${facilityContribution.pointsEarned} pts`
+                  : '0 pts'}
+              </Text>
+            </View>
+          ) : null}
         </Card>
+
+        {/* Contribute */}
+        <View style={styles.contributeSection}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Contribute
+          </Text>
+          <Card variant="outlined" padding="md" style={styles.contributeCard}>
+            <Text style={[styles.contributeDescription, { color: colors.textSecondary }]}>
+              Confirm facilities to help other travellers. Earn bonus points for your first update.
+            </Text>
+            <View style={styles.contributeButtons}>
+              <Button
+                title="Update Facilities"
+                variant="primary"
+                onPress={handleUpdateFacilities}
+              />
+              <Button
+                title="Add Photos"
+                variant="outline"
+                onPress={handleAddPhotos}
+                style={styles.contributeSecondaryButton}
+              />
+            </View>
+          </Card>
+        </View>
 
         {/* Check Out Button */}
         <Button
@@ -624,6 +705,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: Spacing.sm,
   },
+  sectionTitle: {
+    ...Typography.bodySmall,
+    fontWeight: '600',
+  },
   pointsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -636,6 +721,22 @@ const styles = StyleSheet.create({
   pointsValue: {
     ...Typography.body,
     fontWeight: '600',
+  },
+  contributeSection: {
+    marginBottom: Spacing.md,
+  },
+  contributeCard: {
+    marginTop: Spacing.xs,
+  },
+  contributeDescription: {
+    ...Typography.bodySmall,
+    marginBottom: Spacing.md,
+  },
+  contributeButtons: {
+    gap: Spacing.sm,
+  },
+  contributeSecondaryButton: {
+    marginTop: Spacing.xs,
   },
   checkOutButton: {
     marginBottom: Spacing.md,

@@ -97,6 +97,20 @@ function RootLayoutContent() {
             animation: 'fade',
           }}
         />
+        <Stack.Screen
+          name="checkin/update-facilities"
+          options={{
+            title: 'Update Facilities',
+            headerBackTitle: 'Back',
+          }}
+        />
+        <Stack.Screen
+          name="checkin/add-photos"
+          options={{
+            title: 'Add Photos',
+            headerBackTitle: 'Back',
+          }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
