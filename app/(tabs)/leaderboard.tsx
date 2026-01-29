@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,7 +11,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/ui/card';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BorderRadius, Colors, Spacing, Typography, gold, primary } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLeaderboard } from '@/hooks/use-leaderboard';
@@ -168,18 +168,6 @@ export default function LeaderboardScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Leaderboard</Text>
-        <TouchableOpacity onPress={handleRefetch} disabled={isRefetching}>
-          <IconSymbol
-            name="arrow.clockwise"
-            size={20}
-            color={isRefetching ? colors.textTertiary : colors.textSecondary}
-          />
-        </TouchableOpacity>
-      </View>
-
       {/* Tabs */}
       <View style={[styles.tabContainer, { backgroundColor: colors.backgroundSecondary }]}>
         <TouchableOpacity
@@ -237,6 +225,13 @@ export default function LeaderboardScreen() {
             ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
             ListFooterComponent={
               <View style={styles.listFooter} />
+            }
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefetching}
+                onRefresh={handleRefetch}
+                tintColor={colors.primary}
+              />
             }
           />
         </>

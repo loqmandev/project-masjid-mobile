@@ -31,6 +31,7 @@ const MAPPING = {
   'chevron.down': 'keyboard-arrow-down',
   'chevron.left.forwardslash.chevron.right': 'code',
   'gearshape.fill': 'settings',
+  'star.fill': 'star',
   // Location
   'location.fill': 'location-on',
   'arrow.triangle.turn.up.right.diamond.fill': 'directions',

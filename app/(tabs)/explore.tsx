@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -6,7 +6,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -14,8 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { BorderRadius, Colors, Spacing, Typography, primary } from '@/constants/theme';
+import { BorderRadius, Colors, primary, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLocation } from '@/hooks/use-location';
 import { useNearbyMasjids } from '@/hooks/use-nearby-masjids';
@@ -133,36 +131,16 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Explore</Text>
-        <View style={styles.headerRight}>
-          <View style={styles.radiusBadge}>
-            <IconSymbol name="location.fill" size={14} color={colors.primary} />
-            <Text style={[styles.radiusText, { color: colors.primary }]}>5km</Text>
-          </View>
-          <TouchableOpacity onPress={handleRefresh}>
-            <IconSymbol name="arrow.clockwise" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Search Bar */}
-      <View style={[styles.searchContainer, { backgroundColor: colors.backgroundSecondary }]}>
-        <IconSymbol name="magnifyingglass" size={20} color={colors.textTertiary} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.text }]}
-          placeholder="Search masjid name..."
-          placeholderTextColor={colors.textTertiary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <IconSymbol name="xmark.circle.fill" size={20} color={colors.textTertiary} />
-          </TouchableOpacity>
-        )}
-      </View>
+      <Stack.Screen
+        options={{
+          headerSearchBarOptions: {
+            placeholder: 'Search masjid name...',
+            onChangeText: (event) => setSearchQuery(event.nativeEvent.text),
+            onSearchButtonPress: (event) => setSearchQuery(event.nativeEvent.text),
+            onCancelButtonPress: () => setSearchQuery(''),
+          },
+        }}
+      />
 
       {/* Filter Tabs */}
       <View style={[styles.tabContainer, { backgroundColor: colors.backgroundSecondary }]}>
@@ -293,24 +271,9 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     fontWeight: '600',
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-    borderRadius: BorderRadius.lg,
-    gap: Spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    ...Typography.body,
-    padding: 0,
-  },
   tabContainer: {
     flexDirection: 'row',
     marginHorizontal: Spacing.md,
-    marginTop: Spacing.sm,
     padding: 4,
     borderRadius: BorderRadius.lg,
   },

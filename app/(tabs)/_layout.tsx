@@ -34,7 +34,7 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.tabIconDefault,
-        headerShown: false,
+        // headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: {
           backgroundColor: colors.background,
@@ -61,6 +61,9 @@ export default function TabLayout() {
         name="explore"
         options={{
           title: 'Explore',
+          headerSearchBarOptions: {
+            placeholder: 'Search masjids, events, articles...',
+          },
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol size={24} name="magnifyingglass.circle.fill" color={color} />
           ),
