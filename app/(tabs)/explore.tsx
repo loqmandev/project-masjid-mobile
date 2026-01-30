@@ -1,9 +1,18 @@
+import {
+  Group,
+  Host,
+  BottomSheet as IOSBottomSheet,
+} from '@expo/ui/swift-ui';
 import { router, Stack } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   FlatList,
+  Modal,
+  Platform,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,25 +21,34 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BorderRadius, Colors, primary, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useFacilities } from '@/hooks/use-facilities';
 import { useLocation } from '@/hooks/use-location';
 import { useNearbyMasjids } from '@/hooks/use-nearby-masjids';
 import { MasjidResponse } from '@/lib/api';
-
-type FilterType = 'all' | 'checkin' | 'visited';
 
 export default function ExploreScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [appliedFacilities, setAppliedFacilities] = useState<Set<string>>(new Set());
+  const [pendingFacilities, setPendingFacilities] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Get user's current location
   const { location, isLoading: isLocationLoading, error: locationError, refresh: refreshLocation } = useLocation();
+
+  const {
+    data: facilities,
+    isLoading: isFacilitiesLoading,
+    error: facilitiesError,
+  } = useFacilities();
 
   // Fetch nearby masjids (5km radius)
   const {
@@ -42,9 +60,10 @@ export default function ExploreScreen() {
     latitude: location?.latitude ?? null,
     longitude: location?.longitude ?? null,
     radius: 5,
+    facilityCodes: Array.from(appliedFacilities),
   });
 
-  // Filter masjids based on search query and selected filter
+  // Filter masjids based on search query
   const filteredMasjids = useMemo(() => {
     if (!nearbyMasjids) return [];
 
@@ -54,23 +73,12 @@ export default function ExploreScreen() {
         masjid.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         masjid.districtName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         masjid.stateName.toLowerCase().includes(searchQuery.toLowerCase());
-
-      // Type filter
-      if (selectedFilter === 'checkin') {
-        return matchesSearch && masjid.canCheckin;
-      }
-      // Note: 'visited' filter would require user visit history from API
       return matchesSearch;
     });
-  }, [nearbyMasjids, searchQuery, selectedFilter]);
+  }, [nearbyMasjids, searchQuery]);
 
   const handleMasjidPress = (masjidId: string) => {
     router.push(`/masjid/${masjidId}`);
-  };
-
-  const handleRefresh = async () => {
-    // Force refresh to bypass cache when user explicitly requests it
-    await refreshLocation(true);
   };
 
   const handlePullRefresh = async () => {
@@ -86,6 +94,7 @@ export default function ExploreScreen() {
 
   const isLoading = isLocationLoading || isMasjidsLoading;
   const error = locationError || masjidsError?.message;
+  const hasFacilityFilter = appliedFacilities.size > 0;
 
   const formatDistance = (distanceM: number): string => {
     if (distanceM < 1000) {
@@ -129,8 +138,105 @@ export default function ExploreScreen() {
     </TouchableOpacity>
   );
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+  // Shared bottom sheet content component
+  const renderSheetContent = () => {
+    const screenHeight = Dimensions.get('window').height;
+    const listMaxHeight = screenHeight * 0.5;
+
+    return (
+    <View style={[styles.sheetContent, { backgroundColor: colors.background }]}>
+      <View style={styles.sheetHeader}>
+        <Text style={[styles.sheetTitle, { color: colors.text }]}>
+          Facilities
+        </Text>
+        <TouchableOpacity
+          onPress={() => setPendingFacilities(new Set())}
+          style={styles.sheetClearButton}
+        >
+          <Text style={[styles.sheetClearText, { color: colors.primary }]}>
+            Clear
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {isFacilitiesLoading ? (
+        <View style={styles.facilitiesLoading}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={[styles.facilitiesLoadingText, { color: colors.textSecondary }]}>
+            Loading facilities...
+          </Text>
+        </View>
+      ) : facilitiesError ? (
+        <Text style={[styles.facilitiesErrorText, { color: colors.error }]}>
+          Unable to load facilities
+        </Text>
+      ) : !facilities || facilities.length === 0 ? (
+        <Text style={[styles.facilitiesLoadingText, { color: colors.textSecondary }]}>
+          No facilities available
+        </Text>
+      ) : (
+        <ScrollView
+          style={{ maxHeight: listMaxHeight }}
+          contentContainerStyle={styles.sheetList}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
+        >
+          {facilities.map((facility) => {
+            const isSelected = pendingFacilities.has(facility.code);
+            return (
+              <TouchableOpacity
+                key={facility.code}
+                onPress={() =>
+                  setPendingFacilities((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(facility.code)) {
+                      next.delete(facility.code);
+                    } else {
+                      next.add(facility.code);
+                    }
+                    return next;
+                  })
+                }
+                style={[
+                  styles.sheetRow,
+                  {
+                    backgroundColor: isSelected ? colors.primaryLight : colors.card,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.sheetRowText, { color: colors.text }]}>
+                  {facility.label}
+                </Text>
+                {isSelected && (
+                  <IconSymbol
+                    name="checkmark.circle.fill"
+                    size={18}
+                    color={colors.primary}
+                  />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      <View style={styles.sheetActions}>
+        <Button
+          title="Search"
+          onPress={() => {
+            setAppliedFacilities(new Set(pendingFacilities));
+            setIsFilterOpen(false);
+          }}
+          disabled={isFacilitiesLoading}
+        />
+      </View>
+    </View>
+    );
+  };
+
+  const screenContent = (
+    <>
       <Stack.Screen
         options={{
           headerSearchBarOptions: {
@@ -141,106 +247,140 @@ export default function ExploreScreen() {
           },
         }}
       />
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Results Count */}
+        {!isLoading && !error && (
+          <Text style={[styles.resultsCount, { color: colors.textSecondary }]}>
+            {filteredMasjids.length} masjids within 5km
+            {hasFacilityFilter ? ' matching selected facilities' : ''}
+          </Text>
+        )}
 
-      {/* Filter Tabs */}
-      <View style={[styles.tabContainer, { backgroundColor: colors.backgroundSecondary }]}>
+        {/* Loading State */}
+        {isLoading && (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+              {isLocationLoading ? 'Getting your location...' : 'Finding nearby masjids...'}
+            </Text>
+          </View>
+        )}
+
+        {/* Error State */}
+        {error && !isLoading && (
+          <View style={styles.centerContainer}>
+            <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+            <TouchableOpacity
+              onPress={() => refetchMasjids()}
+              style={[styles.retryButton, { backgroundColor: colors.primary }]}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && !error && filteredMasjids.length === 0 && (
+          <View style={styles.centerContainer}>
+            <Text style={styles.emptyIcon}>🕌</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              No masjids found
+            </Text>
+            <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
+              {searchQuery
+                ? 'Try a different search term'
+                : hasFacilityFilter
+                  ? 'No masjids match the selected facilities'
+                  : 'No masjids within 5km of your location'}
+            </Text>
+          </View>
+        )}
+
+        {/* Masjid List */}
+        {!isLoading && !error && filteredMasjids.length > 0 && (
+          <FlatList
+            data={filteredMasjids}
+            renderItem={renderMasjidItem}
+            keyExtractor={(item) => item.masjidId}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handlePullRefresh}
+                tintColor={colors.primary}
+                colors={[colors.primary]}
+              />
+            }
+          />
+        )}
+
+        {/* Floating Filter Button */}
         <TouchableOpacity
-          style={[
-            styles.tab,
-            selectedFilter === 'all' && [styles.tabActive, { backgroundColor: colors.card }],
-          ]}
-          onPress={() => setSelectedFilter('all')}
+          onPress={() => {
+            setPendingFacilities(new Set(appliedFacilities));
+            setIsFilterOpen(true);
+          }}
+          style={[styles.fab, { backgroundColor: colors.primary }]}
+          activeOpacity={0.85}
         >
-          <Text
-            style={[
-              styles.tabText,
-              { color: selectedFilter === 'all' ? colors.primary : colors.textSecondary },
-            ]}
-          >
-            All Masjids
-          </Text>
+          <IconSymbol name="line.3.horizontal.decrease.circle.fill" size={22} color="#fff" />
+          {hasFacilityFilter && (
+            <View style={[styles.fabBadge, { backgroundColor: colors.card }]}>
+              <Text style={[styles.fabBadgeText, { color: colors.primary }]}>
+                {appliedFacilities.size}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            selectedFilter === 'checkin' && [styles.tabActive, { backgroundColor: colors.card }],
-          ]}
-          onPress={() => setSelectedFilter('checkin')}
+      </SafeAreaView>
+
+      {/* Bottom Sheet - Platform Specific */}
+      {Platform.OS === 'ios' ? (
+        <IOSBottomSheet
+          isOpened={isFilterOpen}
+          onIsOpenedChange={setIsFilterOpen}
+          presentationDetents={['medium', 'large'] as any}
+          presentationDragIndicator={'visible' as any}
         >
-          <Text
-            style={[
-              styles.tabText,
-              { color: selectedFilter === 'checkin' ? colors.primary : colors.textSecondary },
-            ]}
-          >
-            Can Check In
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Results Count */}
-      {!isLoading && !error && (
-        <Text style={[styles.resultsCount, { color: colors.textSecondary }]}>
-          {filteredMasjids.length} masjids within 5km
-        </Text>
-      )}
-
-      {/* Loading State */}
-      {isLoading && (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            {isLocationLoading ? 'Getting your location...' : 'Finding nearby masjids...'}
-          </Text>
-        </View>
-      )}
-
-      {/* Error State */}
-      {error && !isLoading && (
-        <View style={styles.centerContainer}>
-          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
-          <TouchableOpacity
-            onPress={() => refetchMasjids()}
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-          >
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Empty State */}
-      {!isLoading && !error && filteredMasjids.length === 0 && (
-        <View style={styles.centerContainer}>
-          <Text style={styles.emptyIcon}>🕌</Text>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No masjids found
-          </Text>
-          <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
-            {searchQuery ? 'Try a different search term' : 'No masjids within 5km of your location'}
-          </Text>
-        </View>
-      )}
-
-      {/* Masjid List */}
-      {!isLoading && !error && filteredMasjids.length > 0 && (
-        <FlatList
-          data={filteredMasjids}
-          renderItem={renderMasjidItem}
-          keyExtractor={(item) => item.masjidId}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handlePullRefresh}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
+          <Group>
+            <Host>
+              {renderSheetContent()}
+            </Host>
+          </Group>
+        </IOSBottomSheet>
+      ) : (
+        <Modal
+          visible={isFilterOpen}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setIsFilterOpen(false)}
+          statusBarTranslucent
+        >
+          <View style={styles.androidModalOverlay}>
+            <TouchableOpacity
+              style={styles.androidModalBackdrop}
+              activeOpacity={1}
+              onPress={() => setIsFilterOpen(false)}
             />
-          }
-        />
+            <View style={[styles.androidSheetContainer, { backgroundColor: colors.background }]}>
+              {/* Drag Indicator */}
+              <View style={styles.dragIndicatorContainer}>
+                <View style={[styles.dragIndicator, { backgroundColor: colors.border }]} />
+              </View>
+              {renderSheetContent()}
+            </View>
+          </View>
+        </Modal>
       )}
-    </SafeAreaView>
+    </>
   );
+
+  if (Platform.OS === 'ios') {
+    return <Host style={styles.host}>{screenContent}</Host>;
+  }
+
+  return screenContent;
 }
 
 const styles = StyleSheet.create({
@@ -271,28 +411,127 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     fontWeight: '600',
   },
-  tabContainer: {
-    flexDirection: 'row',
-    marginHorizontal: Spacing.md,
-    padding: 4,
-    borderRadius: BorderRadius.lg,
-  },
-  tab: {
+  host: {
     flex: 1,
-    paddingVertical: Spacing.sm,
+  },
+  fab: {
+    position: 'absolute',
+    right: Spacing.lg,
+    bottom: Spacing.lg,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
-    borderRadius: BorderRadius.md,
-  },
-  tabActive: {
+    justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  tabText: {
-    ...Typography.bodySmall,
+  fabBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  fabBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  // Android Modal styles
+  androidModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  androidModalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  androidSheetContainer: {
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    maxHeight: '85%',
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
+    zIndex: 1,
+  },
+  dragIndicatorContainer: {
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+  },
+  dragIndicator: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+  },
+  // Sheet content styles (shared between iOS and Android)
+  sheetContent: {
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sheetTitle: {
+    ...Typography.h3,
+  },
+  sheetClearButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  sheetClearText: {
+    ...Typography.caption,
     fontWeight: '600',
+  },
+  facilitiesLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.xs,
+  },
+  facilitiesLoadingText: {
+    ...Typography.caption,
+  },
+  facilitiesErrorText: {
+    ...Typography.caption,
+  },
+  sheetScroll: {
+    minHeight: 0,
+  },
+  sheetList: {
+    gap: Spacing.sm,
+    paddingBottom: Spacing.xl,
+  },
+  sheetRow: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sheetRowText: {
+    ...Typography.body,
+  },
+  sheetActions: {
+    paddingTop: Spacing.sm,
   },
   resultsCount: {
     ...Typography.bodySmall,

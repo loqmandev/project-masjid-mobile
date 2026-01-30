@@ -13,7 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ProgressBar } from '@/components/ui/progress-bar';
-import { Colors, primary, Spacing, Typography } from '@/constants/theme';
+import { Colors, Spacing, Typography } from '@/constants/theme';
 import { useCheckinMasjids } from '@/hooks/use-checkin-masjids';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLocation } from '@/hooks/use-location';
@@ -28,12 +28,9 @@ export default function HomeScreen() {
   const { data: session } = useSession();
   const insets = useSafeAreaInsets();
 
-  // Get display name from session or fallback for guests
   const displayName = session?.user?.name?.split(' ')[0] || 'Guest';
-  const isAuthenticated = !!session?.user;
 
-  // Fetch user profile and achievements (only when authenticated)
-  const { data: userProfile, isLoading: isProfileLoading } = useUserProfile();
+  const { data: userProfile } = useUserProfile();
   const { data: achievements } = useUserAchievements();
   const headerName = userProfile?.profile?.leaderboardAlias || displayName;
   const initials =
@@ -45,13 +42,10 @@ export default function HomeScreen() {
       .join('')
       .toUpperCase() || 'MJ';
 
-  // Get the next achievement to unlock
   const nextAchievement = getNextAchievement(achievements);
 
-  // Get user's current location
-  const { location, isLoading: isLocationLoading, error: locationError, refresh: refreshLocation } = useLocation();
+  const { location, isLoading: isLocationLoading, error: locationError } = useLocation();
 
-  // Fetch masjids available for check-in (within 100m)
   const {
     data: checkinMasjids,
     isLoading: isMasjidsLoading,
@@ -70,12 +64,6 @@ export default function HomeScreen() {
     router.push('/(tabs)/explore');
   };
 
-  const handleRefreshLocation = async () => {
-    // Force refresh to bypass cache and get fresh location
-    await refreshLocation(true);
-    // Masjids will automatically refetch when location changes due to query key dependency
-  };
-
   return (
     <SafeAreaView
       edges={['left', 'right', 'bottom']}
@@ -87,15 +75,13 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Custom Header */}
         <View style={styles.headerWrapper}>
-          <View style={styles.headerBackground}>
-            <View style={styles.headerGlow} />
-            <View style={styles.headerOrb} />
+          <View style={[styles.headerBackground, { backgroundColor: colors.primary }]}>
+            <View style={styles.headerGradient} />
           </View>
-          <View style={[styles.headerContent, { paddingTop: Spacing.lg + insets.top }]}>
+          <View style={[styles.headerContent, { paddingTop: Spacing.md + insets.top }]}>
             <View style={styles.headerTopRow}>
-              <View>
+              <View style={styles.greetingBlock}>
                 <Text style={styles.headerGreeting}>Assalamualaikum</Text>
                 <Text style={styles.headerName}>{headerName}</Text>
               </View>
@@ -104,115 +90,91 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={styles.headerSection}>
-              {/* Loading State */}
-              {(isLocationLoading || isMasjidsLoading) && (
-                <View style={{ padding: Spacing.md }}>
-                  <View style={styles.masjidCardContent}>
-                    <View style={styles.masjidLeft}>
-                      <Text style={[styles.masjidSubtitle, { color: 'rgba(255,255,255,0.75)' }]}>
-                        LOADING
-                      </Text>
-                      <Text style={[styles.masjidName, { color: '#fff' }]} numberOfLines={1}>
-                        {isLocationLoading ? 'Getting your location' : 'Finding nearby masjids'}
-                      </Text>
-                      <Text style={[styles.masjidSubtitle, { color: 'rgba(255,255,255,0.8)' }]}>
-                        Please wait a moment
-                      </Text>
+              {isLocationLoading || isMasjidsLoading ? (
+                <View style={styles.checkinCard}>
+                  <View style={styles.checkinLeft}>
+                    <View style={styles.checkinIconContainer}>
+                      <ActivityIndicator size="small" color={colors.primary} />
                     </View>
-                    <View style={styles.checkinSideButton}>
-                      <ActivityIndicator size="small" color="#fff" />
+                    <View>
+                      <Text style={[styles.checkinMainText, { color: '#fff' }]}>
+                        Finding nearby masjids
+                      </Text>
+                      <Text style={[styles.checkinSubText, { color: 'rgba(255,255,255,0.8)' }]}>
+                        Getting your location
+                      </Text>
                     </View>
                   </View>
                 </View>
-              )}
-
-              {/* Error State */}
-              {(locationError || masjidsError) && !isLocationLoading && !isMasjidsLoading && (
-                <View style={{ padding: Spacing.md }}>
-                  <View style={styles.masjidCardContent}>
-                    <View style={styles.masjidLeft}>
-                      <Text style={[styles.masjidSubtitle, { color: 'rgba(255,255,255,0.75)' }]}>
-                        SOMETHING WENT WRONG
-                      </Text>
-                      <Text style={[styles.masjidName, { color: '#fff' }]} numberOfLines={1}>
-                        Can’t load nearby masjids
-                      </Text>
-                      <Text style={[styles.masjidSubtitle, { color: 'rgba(255,255,255,0.8)' }]}>
-                        Tap to try again
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => refetchMasjids()}
-                      style={styles.checkinSideButton}
-                    >
-                      <IconSymbol name="arrow.clockwise" size={18} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {/* Empty State */}
-              {!isLocationLoading &&
-                !isMasjidsLoading &&
-                !locationError &&
-                !masjidsError &&
-                checkinMasjids?.length === 0 && (
-                  <View style={{ padding: Spacing.md }}>
-                    <View style={styles.masjidCardContent}>
-                      <View style={styles.masjidLeft}>
-                        <Text style={[styles.masjidSubtitle, { color: 'rgba(255,255,255,0.75)' }]}>
-                          NO MASJID FOUND
-                        </Text>
-                        <Text style={[styles.masjidName, { color: '#fff' }]} numberOfLines={1}>
-                          No nearby masjid yet
-                        </Text>
-                        <Text style={[styles.masjidSubtitle, { color: 'rgba(255,255,255,0.8)' }]}>
-                          Try moving a little closer
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={handleViewAllNearby}
-                        style={styles.checkinSideButton}>
-                        <IconSymbol name="magnifyingglass.circle.fill" size={20} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-
-              {/* Masjid List */}
-              {checkinMasjids?.map((masjid) => (
-                <View
-                  key={masjid.masjidId}
-                  style={{ padding: Spacing.md }}
+              ) : locationError || masjidsError ? (
+                <TouchableOpacity
+                  onPress={() => refetchMasjids()}
+                  style={styles.checkinCard}
+                  activeOpacity={0.7}
                 >
-                  <View style={styles.masjidCardContent}>
-                    <View style={styles.masjidLeft}>
-                      <Text style={[styles.masjidSubtitle, { color: 'rgba(255,255,255,0.75)' }]}>
-                        READY TO CHECK IN
-                      </Text>
-                      <View style={styles.masjidTitleRow}>
-                        <Text style={[styles.masjidName, { color: '#fff' }]} numberOfLines={1}>
-                          {masjid.name}
-                        </Text>
-                        <View style={styles.masjidDistanceBadge}>
-                          <Text style={styles.masjidDistanceText}>{masjid.distanceM}m</Text>
-                        </View>
-                      </View>
+                  <View style={styles.checkinLeft}>
+                    <View style={styles.checkinIconContainer}>
+                      <IconSymbol name="arrow.clockwise" size={22} color={colors.primary} />
                     </View>
-                    <TouchableOpacity
-                      onPress={() => handleMasjidPress(masjid.masjidId)}
-                      style={styles.checkinSideButton}
-                    >
-                      <IconSymbol name="checkmark.circle.fill" size={20} color="#fff" />
-                    </TouchableOpacity>
+                    <View>
+                      <Text style={[styles.checkinMainText, { color: '#fff' }]}>
+                        Can&apos;t find masjids
+                      </Text>
+                      <Text style={[styles.checkinSubText, { color: 'rgba(255,255,255,0.8)' }]}>
+                        Tap to retry
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              ))}
+                </TouchableOpacity>
+              ) : checkinMasjids && checkinMasjids.length > 0 ? (
+                <TouchableOpacity
+                  onPress={() => handleMasjidPress(checkinMasjids[0].masjidId)}
+                  style={styles.checkinCard}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.checkinLeft}>
+                    <View style={styles.checkinIconContainer}>
+                      <IconSymbol name="location.fill" size={22} color={colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.checkinMainText, { color: '#fff' }]} numberOfLines={1}>
+                        {checkinMasjids[0].name}
+                      </Text>
+                      <Text style={[styles.checkinSubText, { color: 'rgba(255,255,255,0.8)' }]}>
+                        Ready to check in • {checkinMasjids[0].distanceM}m away
+                      </Text>
+                    </View>
+                    <View style={styles.checkinActionContainer}>
+                      <IconSymbol name="checkmark" size={28} color="#fff" />
+                    </View>
+                  </View>
+
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={handleViewAllNearby}
+                  style={styles.checkinCard}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.checkinLeft}>
+                    <View style={styles.checkinIconContainer}>
+                      <IconSymbol name="magnifyingglass" size={22} color={colors.primary} />
+                    </View>
+                    <View>
+                      <Text style={[styles.checkinMainText, { color: '#fff' }]}>
+                        No nearby masjid
+                      </Text>
+                      <Text style={[styles.checkinSubText, { color: 'rgba(255,255,255,0.8)' }]}>
+                        Tap to explore nearby
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
         <View style={[styles.contentShell, { backgroundColor: colors.background }]}>
-          {/* Next Achievement Card */}
           {nextAchievement && nextAchievement.achievement.requiredCount && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -252,7 +214,6 @@ export default function HomeScreen() {
             </View>
           )}
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -286,48 +247,35 @@ const styles = StyleSheet.create({
   },
   headerBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: primary[600],
   },
-  headerGlow: {
-    position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: primary[400],
-    opacity: 0.4,
-    top: -60,
-    right: -40,
-  },
-  headerOrb: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: primary[800],
-    opacity: 0.35,
-    bottom: -40,
-    left: -30,
+  headerGradient: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+    opacity: 0.15,
   },
   headerContent: {
     padding: Spacing.lg,
-    paddingBottom: Spacing.xl,
+    paddingBottom: Spacing.xl + Spacing.md,
   },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+  },
+  greetingBlock: {
+    flex: 1,
   },
   headerGreeting: {
     ...Typography.caption,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '500',
+    letterSpacing: 0.5,
+    color: 'rgba(255,255,255,0.75)',
   },
   headerName: {
     ...Typography.h2,
-    marginTop: 4,
+    marginTop: 2,
     color: '#fff',
+    fontWeight: '700',
   },
   headerAvatar: {
     width: 44,
@@ -345,12 +293,52 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   headerSection: {
-    marginTop: Spacing.md,
-    padding: Spacing.md,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginTop: Spacing.lg,
+  },
+  checkinCard: {
+    padding: Spacing.lg,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  checkinLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    flex: 1,
+  },
+  checkinMainText: {
+    ...Typography.body,
+    fontWeight: '700',
+    fontSize: 18,
+    flex: 1,
+  },
+  checkinSubText: {
+    ...Typography.caption,
+    marginTop: 4,
+    opacity: 0.85,
+  },
+  distanceText: {
+    ...Typography.caption,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  checkinIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkinActionContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   section: {
     marginBottom: Spacing.lg,
@@ -389,121 +377,5 @@ const styles = StyleSheet.create({
   achievementProgress: {
     ...Typography.caption,
     marginTop: Spacing.sm,
-  },
-  achievementChip: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  achievementChipText: {
-    ...Typography.caption,
-    fontWeight: '600',
-  },
-  masjidCard: {
-    marginBottom: Spacing.sm,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  masjidCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.md,
-  },
-  masjidLeft: {
-    flex: 1,
-    gap: 6,
-  },
-  masjidTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  masjidName: {
-    ...Typography.body,
-    fontWeight: '700',
-    fontSize: 18,
-  },
-  masjidDistanceBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  masjidDistanceText: {
-    ...Typography.caption,
-    color: '#fff',
-    fontWeight: '600',
-  },
-  masjidSubtitle: {
-    ...Typography.caption,
-  },
-  checkinSideButton: {
-    width: 46,
-    alignSelf: 'stretch',
-    borderRadius: 9999,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centeredContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: {
-    ...Typography.bodySmall,
-    marginTop: Spacing.sm,
-  },
-  errorText: {
-    ...Typography.bodySmall,
-    textAlign: 'center',
-    marginBottom: Spacing.sm,
-  },
-  retryButton: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#fff',
-    ...Typography.button,
-  },
-  emptyIcon: {
-    fontSize: 32,
-    marginBottom: Spacing.sm,
-  },
-  emptyText: {
-    ...Typography.body,
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    ...Typography.caption,
-    textAlign: 'center',
-    marginTop: Spacing.xs,
-  },
-  emptyActions: {
-    marginTop: Spacing.lg,
-    gap: Spacing.sm,
-    width: '100%',
-  },
-  refreshButton: {
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  refreshButtonText: {
-    ...Typography.button,
-  },
-  exploreButton: {
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  exploreButtonText: {
-    color: '#fff',
-    ...Typography.button,
   },
 });

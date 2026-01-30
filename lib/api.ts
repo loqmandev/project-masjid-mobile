@@ -119,10 +119,19 @@ export async function getCheckinEligibleMasjids(
 export async function getNearbyMasjids(
   lat: number,
   lng: number,
-  radius: number = 5
+  radius: number = 5,
+  facilityCode?: string
 ): Promise<MasjidResponse[]> {
+  const params = new URLSearchParams({
+    lat: String(lat),
+    lng: String(lng),
+    radius: String(radius),
+  });
+  if (facilityCode) {
+    params.set('facility_code', facilityCode);
+  }
   const response = await fetch(
-    `${API_BASE_URL}/masjids/nearby?lat=${lat}&lng=${lng}&radius=${radius}`
+    `${API_BASE_URL}/masjids/nearby?${params.toString()}`
   );
 
   if (!response.ok) {

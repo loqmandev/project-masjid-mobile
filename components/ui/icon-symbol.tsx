@@ -32,6 +32,8 @@ const MAPPING = {
   'chevron.left.forwardslash.chevron.right': 'code',
   'gearshape.fill': 'settings',
   'star.fill': 'star',
+  'line.3.horizontal.decrease.circle.fill': 'tune',
+  'checkmark': 'check',
   // Location
   'location.fill': 'location-on',
   'arrow.triangle.turn.up.right.diamond.fill': 'directions',

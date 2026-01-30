@@ -23,7 +23,7 @@ import { submitMasjidFacilities } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
 import { useQueryClient } from '@tanstack/react-query';
 
-const FACILITY_GROUPS: Array<{ title: string; codes: string[] }> = [
+const FACILITY_GROUPS: { title: string; codes: string[] }[] = [
   {
     title: 'Prayer',
     codes: ['PRAYER_MALE', 'PRAYER_FEMALE', 'PRAYER_AC', 'WOMEN_FRIENDLY_LAYOUT'],
