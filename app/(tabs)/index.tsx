@@ -103,7 +103,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView
       edges={['left', 'right', 'bottom']}
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: colors.background }]} 
     >
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
@@ -318,8 +318,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
     overflow: 'hidden',
     marginHorizontal: -Spacing.md,
-    marginTop: -Spacing.md,
-    borderRadius: Spacing.xxl,
   },
   headerBackground: {
     paddingHorizontal: Spacing.lg,
