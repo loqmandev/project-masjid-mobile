@@ -1,9 +1,6 @@
-import * as Linking from 'expo-linking';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
-  Alert,
-  Dimensions,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,14 +12,11 @@ import { Button } from '@/components/ui/button';
 import { Colors, primary, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAnalytics } from '@/lib/analytics';
-import { authClient, useSession } from '@/lib/auth-client';
-
-const { width } = Dimensions.get('window');
+import { useSession } from '@/lib/auth-client';
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const [loading, setLoading] = useState(false);
   const { data: session, isPending } = useSession();
   const params = useLocalSearchParams<{ returnTo?: string }>();
   const { track, screen } = useAnalytics();
@@ -42,33 +36,6 @@ export default function LoginScreen() {
       router.replace(`/auth/enter-name?returnTo=${encodeURIComponent(returnTo)}` as any);
     }
   }, [session, isPending, params.returnTo]);
-
-  const handleGoogleSignIn = async () => {
-    track('login_google_clicked', { return_to: params.returnTo ?? '/(tabs)' });
-    setLoading(true);
-    try {
-      // Build proper deep link URL for OAuth callback
-      const callbackURL = Linking.createURL('/auth/enter-name', {
-        queryParams: { returnTo: params.returnTo || '/(tabs)' },
-      });
-
-      const result = await authClient.signIn.social({
-        provider: 'google',
-        callbackURL,
-      });
-
-      if (result.error) {
-        track('login_failed', { reason: result.error.message ?? 'unknown' });
-        Alert.alert('Sign In Failed', result.error.message || 'Unable to sign in with Google');
-      }
-      // Success case: the OAuth flow will redirect via deep link
-    } catch (error) {
-      track('login_failed', { reason: 'exception' });
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSkip = () => {
     track('login_skipped', { return_to: params.returnTo ?? '/(tabs)' });
@@ -156,19 +123,11 @@ export default function LoginScreen() {
           {/* Sign In Section */}
           <View style={styles.signInSection}>
             <Button
-              title={loading ? 'Signing in...' : 'Continue with Google'}
+              title="Continue with Email"
               variant="primary"
               size="lg"
-              loading={loading}
-              onPress={handleGoogleSignIn}
-              style={styles.googleButton}
-              icon={
-                !loading && (
-                  <View style={styles.googleIconContainer}>
-                    <Text style={styles.googleIcon}>G</Text>
-                  </View>
-                )
-              }
+              onPress={() => router.push('/auth/email')}
+              style={styles.emailButton}
             />
 
             <Text style={[styles.termsText, { color: colors.textTertiary }]}>
@@ -266,21 +225,8 @@ const styles = StyleSheet.create({
   signInSection: {
     gap: Spacing.md,
   },
-  googleButton: {
+  emailButton: {
     width: '100%',
-  },
-  googleIconContainer: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  googleIcon: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#4285F4',
   },
   termsText: {
     ...Typography.caption,

@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ProgressBar } from '@/components/ui/progress-bar';
-import { BorderRadius, Colors, primary, Spacing, Typography } from '@/constants/theme';
+import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAnalytics } from '@/lib/analytics';
 import {
@@ -247,11 +247,11 @@ export default function ProfileScreen() {
 
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <View style={[styles.avatar, { backgroundColor: primary[100] }]}>
+          <View style={[styles.avatar, { backgroundColor: colors.primary + '15' }]}>
             {avatarUrl ? (
               <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
             ) : (
-              <Text style={styles.avatarText}>👤</Text>
+              <IconSymbol name="user" size={40} color={colors.primary} />
             )}
           </View>
           <Text style={[styles.displayName, { color: colors.text }]}>
@@ -262,7 +262,7 @@ export default function ProfileScreen() {
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
           <Card variant="elevated" padding="md" style={styles.statCard}>
-            <Text style={styles.statEmoji}>⭐</Text>
+            <IconSymbol name="star" size={28} color={colors.primary} />
             <Text style={[styles.statValue, { color: colors.text }]}>
               {totalPoints}
             </Text>
@@ -271,7 +271,7 @@ export default function ProfileScreen() {
             </Text>
           </Card>
           <Card variant="elevated" padding="md" style={styles.statCard}>
-            <Text style={styles.statEmoji}>🕌</Text>
+            <IconSymbol name="mosque" size={28} color={colors.primary} />
             <Text style={[styles.statValue, { color: colors.text }]}>
               {uniqueMasjidsVisited}
             </Text>
@@ -280,7 +280,7 @@ export default function ProfileScreen() {
             </Text>
           </Card>
           <Card variant="elevated" padding="md" style={styles.statCard}>
-            <Text style={styles.statEmoji}>🏆</Text>
+            <IconSymbol name="trophy" size={28} color={colors.primary} />
             <Text style={[styles.statValue, { color: colors.text }]}>
               {globalRank ? `#${globalRank}` : '-'}
             </Text>
@@ -327,9 +327,11 @@ export default function ProfileScreen() {
                     ]}
                   >
                     <View style={styles.achievementBadge}>
-                      <Text style={styles.achievementEmoji}>
-                        {isUnlocked ? '🏅' : '🔒'}
-                      </Text>
+                      {isUnlocked ? (
+                        <IconSymbol name="medal" size={32} color={colors.primary} />
+                      ) : (
+                        <IconSymbol name="lock" size={32} color={colors.textTertiary} />
+                      )}
                     </View>
                     <Text
                       style={[
@@ -389,8 +391,8 @@ export default function ProfileScreen() {
                 key={visit.id}
                 style={[styles.visitItem, { borderBottomColor: colors.border }]}
               >
-                <View style={[styles.visitIcon, { backgroundColor: primary[50] }]}>
-                  <Text>🕌</Text>
+                <View style={[styles.visitIcon, { backgroundColor: colors.primary + '15' }]}>
+                  <IconSymbol name="mosque" size={20} color={colors.primary} />
                 </View>
                 <View style={styles.visitInfo}>
                   <Text style={[styles.visitName, { color: colors.text }]}>
@@ -486,12 +488,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   avatarImage: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-  },
-  avatarText: {
-    fontSize: 40,
+    width: '100%',
+    height: '100%',
   },
   displayName: {
     ...Typography.h2,
@@ -508,10 +506,7 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     alignItems: 'center',
-  },
-  statEmoji: {
-    fontSize: 24,
-    marginBottom: Spacing.xs,
+    gap: Spacing.xs,
   },
   statValue: {
     ...Typography.h3,
@@ -549,9 +544,6 @@ const styles = StyleSheet.create({
   },
   achievementBadge: {
     marginBottom: Spacing.xs,
-  },
-  achievementEmoji: {
-    fontSize: 32,
   },
   achievementName: {
     ...Typography.caption,

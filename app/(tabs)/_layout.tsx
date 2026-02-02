@@ -1,6 +1,7 @@
 import { Tabs, router } from 'expo-router';
 import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -14,6 +15,7 @@ export default function TabLayout() {
   const colors = Colors[colorScheme ?? 'light'];
   const { data: session, isPending } = useSession();
   const { track } = useAnalytics();
+  const insets = useSafeAreaInsets();
 
   const requireAuth = (route: string) => ({
     tabPress: (e: any) => {
@@ -39,8 +41,8 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: colors.background,
           borderTopColor: colors.border,
-          height: Platform.OS === 'ios' ? 88 : 64,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+          height: Platform.OS === 'ios' ? 88 : 64 + insets.bottom,
+          paddingBottom: Platform.OS === 'ios' ? 28 : insets.bottom + 8,
           paddingTop: 8,
         },
         tabBarLabelStyle: {
@@ -73,6 +75,7 @@ export default function TabLayout() {
         name="checkin"
         options={{
           title: 'Check In',
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.checkInButton, focused && styles.checkInButtonActive]}>
               <IconSymbol size={28} name="checkmark.circle.fill" color={focused ? '#fff' : colors.primary} />

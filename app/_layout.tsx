@@ -62,6 +62,20 @@ function RootLayoutContent() {
           }}
         />
         <Stack.Screen
+          name="auth/email"
+          options={{
+            headerShown: false,
+            presentation: 'fullScreenModal',
+          }}
+        />
+        <Stack.Screen
+          name="auth/verify-otp"
+          options={{
+            headerShown: false,
+            presentation: 'fullScreenModal',
+          }}
+        />
+        <Stack.Screen
           name="auth/enter-name"
           options={{
             headerShown: false,

@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/ui/card';
-import { BorderRadius, Colors, Spacing, Typography, gold, primary } from '@/constants/theme';
+import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLeaderboard } from '@/hooks/use-leaderboard';
 import { useAnalytics } from '@/lib/analytics';
@@ -27,6 +27,11 @@ export default function LeaderboardScreen() {
 
   const [activeTab, setActiveTab] = useState<TabType>('monthly');
   const { data: leaderboardData, currentUser, isLoading, isError, refetch, isRefetching } = useLeaderboard(activeTab);
+
+  // Limit to top 10
+  const topTenData = leaderboardData?.slice(0, 10) || [];
+  const topThree = topTenData.slice(0, 3);
+  const restOfTopTen = topTenData.slice(3);
 
   const handleRefetch = () => {
     track('leaderboard_refetch', { tab: activeTab });
@@ -45,51 +50,55 @@ export default function LeaderboardScreen() {
   }, [activeTab, track]);
 
   const renderTopThree = () => {
-    if (!leaderboardData || leaderboardData.length < 3) return null;
-
-    const topThree = leaderboardData.slice(0, 3);
+    if (topThree.length < 3) return null;
 
     return (
       <View style={[styles.topThreeCard, { backgroundColor: colors.backgroundSecondary }]}>
         <View style={styles.topThreeContainer}>
           {/* Second Place */}
-          <View style={styles.topThreeItem}>
-            <View style={[styles.avatar, styles.avatarSecond, { backgroundColor: '#E0E0E0' }]}>
-              <Text style={styles.avatarText}>🥈</Text>
+          <View style={[styles.topThreeItem, styles.podiumSecond]}>
+            <View style={[styles.podiumAvatar, { backgroundColor: colors.primary + '15' }]}>
+              <Text style={[styles.podiumAvatarText, { color: colors.primary }]}>
+                {topThree[1].displayName.charAt(0).toUpperCase()}
+              </Text>
             </View>
-            <Text style={[styles.topThreeName, { color: colors.text }]} numberOfLines={1}>
+            <Text style={[styles.podiumName, { color: colors.text }]} numberOfLines={1}>
               {topThree[1].displayName}
             </Text>
-            <Text style={[styles.topThreePoints, { color: colors.textSecondary }]}>
+            <Text style={[styles.podiumPoints, { color: colors.textSecondary }]}>
               {topThree[1].points} pts
             </Text>
           </View>
 
           {/* First Place */}
-          <View style={[styles.topThreeItem, styles.topThreeFirst]}>
-            <View style={[styles.avatar, styles.avatarFirst, { backgroundColor: gold[200] }]}>
-              <Text style={[styles.avatarText, styles.avatarTextFirst]}>🥇</Text>
+          <View style={[styles.topThreeItem, styles.podiumFirst]}>
+            <View style={[styles.podiumAvatar, styles.podiumAvatarFirst, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.podiumAvatarText, styles.podiumAvatarTextFirst, { color: '#fff' }]}>
+                {topThree[0].displayName.charAt(0).toUpperCase()}
+              </Text>
             </View>
-            <Text style={[styles.topThreeName, { color: colors.text }]} numberOfLines={1}>
+            <Text style={[styles.podiumName, styles.podiumNameFirst, { color: colors.text }]} numberOfLines={1}>
               {topThree[0].displayName}
             </Text>
-            <Text style={[styles.topThreePoints, { color: colors.textSecondary }]}>
+            <Text style={[styles.podiumPoints, styles.podiumPointsFirst, { color: colors.textSecondary }]}>
               {topThree[0].points} pts
             </Text>
-            <Text style={[styles.topThreeMasjids, { color: colors.textTertiary }]}>
+            <Text style={[styles.podiumMeta, { color: colors.textTertiary }]}>
               {topThree[0].masjidsVisited} masjids
             </Text>
           </View>
 
           {/* Third Place */}
-          <View style={styles.topThreeItem}>
-            <View style={[styles.avatar, styles.avatarThird, { backgroundColor: '#FFCCBC' }]}>
-              <Text style={styles.avatarText}>🥉</Text>
+          <View style={[styles.topThreeItem, styles.podiumThird]}>
+            <View style={[styles.podiumAvatar, { backgroundColor: colors.primary + '15' }]}>
+              <Text style={[styles.podiumAvatarText, { color: colors.primary }]}>
+                {topThree[2].displayName.charAt(0).toUpperCase()}
+              </Text>
             </View>
-            <Text style={[styles.topThreeName, { color: colors.text }]} numberOfLines={1}>
+            <Text style={[styles.podiumName, { color: colors.text }]} numberOfLines={1}>
               {topThree[2].displayName}
             </Text>
-            <Text style={[styles.topThreePoints, { color: colors.textSecondary }]}>
+            <Text style={[styles.podiumPoints, { color: colors.textSecondary }]}>
               {topThree[2].points} pts
             </Text>
           </View>
@@ -98,37 +107,39 @@ export default function LeaderboardScreen() {
     );
   };
 
-  const renderLeaderboardItem = ({ item, index }: { item: LeaderboardEntry; index: number }) => {
-    if (index < 3) return null; // Skip top 3, rendered separately
-
+  const renderLeaderboardItem = ({ item }: { item: LeaderboardEntry }) => {
     return (
       <View
         style={[
           styles.leaderboardItem,
           { backgroundColor: colors.card, borderColor: colors.border },
-          item.isCurrentUser && { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+          item.isCurrentUser && { backgroundColor: colors.primary + '10', borderColor: colors.primary },
         ]}
       >
-        <View style={[styles.rankBadge, { backgroundColor: colors.backgroundSecondary }]}>
-          <Text style={[styles.rankText, { color: colors.textSecondary }]}>
+        <View style={[styles.rankBadge, { backgroundColor: colors.primary + '15' }]}>
+          <Text style={[styles.rankText, { color: colors.primary }]}>
             #{item.rank}
           </Text>
         </View>
-        <View style={[styles.itemAvatar, { backgroundColor: colors.backgroundSecondary }]}>
-          <Text style={styles.itemAvatarText}>👤</Text>
+        <View style={[styles.itemAvatar, { backgroundColor: colors.primary + '15' }]}>
+          <Text style={[styles.itemAvatarText, { color: colors.primary }]}>
+            {item.displayName.charAt(0).toUpperCase()}
+          </Text>
         </View>
         <View style={styles.itemInfo}>
           <Text style={[styles.itemName, { color: colors.text }]}>
             {item.displayName}
-            {item.isCurrentUser && ' (You)'}
+            {item.isCurrentUser && (
+              <Text style={[styles.youLabel, { color: colors.primary }]}> (You)</Text>
+            )}
           </Text>
           <Text style={[styles.itemMeta, { color: colors.textTertiary }]}>
             {item.masjidsVisited} masjids
           </Text>
         </View>
-        <View style={[styles.pointsPill, { backgroundColor: colors.backgroundSecondary }]}>
-          <Text style={[styles.itemPoints, { color: colors.text }]}>
-            {item.points} pts
+        <View style={[styles.pointsPill, { backgroundColor: colors.primary + '10' }]}>
+          <Text style={[styles.itemPoints, { color: colors.primary }]}>
+            {item.points}
           </Text>
         </View>
       </View>
@@ -208,45 +219,46 @@ export default function LeaderboardScreen() {
         renderLoadingState()
       ) : isError ? (
         renderErrorState()
-      ) : !leaderboardData || leaderboardData.length === 0 ? (
+      ) : !topTenData || topTenData.length === 0 ? (
         renderEmptyState()
       ) : (
         <>
           {/* Top 3 Podium */}
           {renderTopThree()}
 
-          {/* Rest of Leaderboard */}
-          <FlatList
-            data={leaderboardData}
-            renderItem={renderLeaderboardItem}
-            keyExtractor={(item) => `${item.rank}-${item.displayName}`}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
-            ListFooterComponent={
-              <View style={styles.listFooter} />
-            }
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefetching}
-                onRefresh={handleRefetch}
-                tintColor={colors.primary}
-              />
-            }
-          />
+          {/* Rest of Top 10 */}
+          {restOfTopTen.length > 0 && (
+            <FlatList
+              data={restOfTopTen}
+              renderItem={renderLeaderboardItem}
+              keyExtractor={(item) => `${item.rank}-${item.displayName}`}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+              ListFooterComponent={
+                <View style={styles.listFooter} />
+              }
+              refreshControl={
+                <RefreshControl
+                  refreshing={isRefetching}
+                  onRefresh={handleRefetch}
+                  tintColor={colors.primary}
+                />
+              }
+            />
+          )}
         </>
       )}
 
       {/* Current User Card - only show if user is found in leaderboard */}
-      {currentUser && (
+      {currentUser && !topTenData.some(u => u.isCurrentUser) && (
         <Card variant="elevated" padding="md" style={styles.currentUserCard}>
           <View style={styles.currentUserContent}>
             <View style={styles.currentUserLeft}>
-              <Text style={[styles.currentUserRank, { color: colors.primary }]}>
-                #{currentUser.rank}
-              </Text>
-              <View style={[styles.currentUserAvatar, { backgroundColor: primary[100] }]}>
-                <Text style={styles.currentUserAvatarText}>👤</Text>
+              <View style={[styles.currentUserRankBadge, { backgroundColor: colors.primary + '15' }]}>
+                <Text style={[styles.currentUserRank, { color: colors.primary }]}>
+                  #{currentUser.rank}
+                </Text>
               </View>
               <View>
                 <Text style={[styles.currentUserName, { color: colors.text }]}>
@@ -258,9 +270,11 @@ export default function LeaderboardScreen() {
               </View>
             </View>
             <View style={styles.currentUserRight}>
-              <Text style={[styles.currentUserPoints, { color: colors.text }]}>
-                {currentUser.points} pts
-              </Text>
+              <View style={[styles.currentUserPointsBadge, { backgroundColor: colors.primary + '10' }]}>
+                <Text style={[styles.currentUserPoints, { color: colors.primary }]}>
+                  {currentUser.points}
+                </Text>
+              </View>
             </View>
           </View>
         </Card>
@@ -311,68 +325,107 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'flex-end',
-    paddingVertical: Spacing.lg,
-    gap: Spacing.md,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
   },
   topThreeCard: {
     marginHorizontal: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    borderRadius: BorderRadius.lg,
     marginBottom: Spacing.md,
-  },
-  topThreeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  topThreeTitle: {
-    ...Typography.body,
-    fontWeight: '700',
-  },
-  topThreeEmoji: {
-    fontSize: 18,
+    borderRadius: BorderRadius.xl,
+    overflow: 'hidden',
   },
   topThreeItem: {
     alignItems: 'center',
     flex: 1,
   },
-  topThreeFirst: {
-    marginBottom: Spacing.md,
+  podiumFirst: {
+    marginBottom: Spacing.xs,
   },
-  avatar: {
+  podiumSecond: {
+    marginTop: Spacing.md,
+  },
+  podiumThird: {
+    marginTop: Spacing.lg + Spacing.xs,
+  },
+  podiumCrown: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.xs,
+  },
+  podiumBase: {
+    alignItems: 'center',
+  },
+  podiumAvatar: {
     width: 56,
     height: 56,
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.sm,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  avatarFirst: {
+  podiumAvatarFirst: {
     width: 72,
     height: 72,
     borderRadius: 36,
+    borderWidth: 3,
   },
-  avatarSecond: {},
-  avatarThird: {},
-  avatarText: {
-    fontSize: 24,
+  podiumAvatarText: {
+    ...Typography.h3,
+    fontWeight: '700',
+    color: Colors.light.primary,
   },
-  avatarTextFirst: {
-    fontSize: 32,
+  podiumAvatarTextFirst: {
+    ...Typography.h2,
+    color: '#fff',
   },
-  topThreeName: {
+  podiumName: {
     ...Typography.bodySmall,
     fontWeight: '600',
     textAlign: 'center',
+    marginBottom: 2,
   },
-  topThreePoints: {
+  podiumNameFirst: {
+    ...Typography.body,
+    fontWeight: '700',
+  },
+  podiumPoints: {
+    ...Typography.caption,
+    fontWeight: '500',
+  },
+  podiumPointsFirst: {
+    ...Typography.caption,
+    fontWeight: '600',
+  },
+  podiumMeta: {
     ...Typography.caption,
     marginTop: 2,
   },
-  topThreeMasjids: {
-    ...Typography.caption,
-    marginTop: 2,
+  rankBadgeLarge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+  },
+  rankBadgeFirst: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  rankBadgeNumber: {
+    ...Typography.bodySmall,
+    fontWeight: '700',
+  },
+  rankBadgeNumberFirst: {
+    ...Typography.body,
+    fontWeight: '700',
   },
   listContent: {
     paddingHorizontal: 0,
@@ -422,6 +475,9 @@ const styles = StyleSheet.create({
     ...Typography.body,
     fontWeight: '500',
   },
+  youLabel: {
+    fontWeight: '600',
+  },
   itemMeta: {
     ...Typography.caption,
     marginTop: 2,
@@ -452,8 +508,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
+  currentUserRankBadge: {
+    minWidth: 40,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   currentUserRank: {
-    ...Typography.h3,
+    ...Typography.body,
     fontWeight: '700',
   },
   currentUserAvatar: {
@@ -464,7 +528,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   currentUserAvatarText: {
-    fontSize: 20,
+    ...Typography.h3,
+    fontWeight: '700',
   },
   currentUserName: {
     ...Typography.body,
@@ -475,6 +540,11 @@ const styles = StyleSheet.create({
   },
   currentUserRight: {
     alignItems: 'flex-end',
+  },
+  currentUserPointsBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.md,
   },
   currentUserPoints: {
     ...Typography.body,

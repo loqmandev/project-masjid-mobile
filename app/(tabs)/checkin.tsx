@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ProgressBar } from '@/components/ui/progress-bar';
-import { BorderRadius, Colors, Spacing, Typography, primary } from '@/constants/theme';
+import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
 import { useActiveCheckin } from '@/hooks/use-active-checkin';
 import { useCheckinMasjids } from '@/hooks/use-checkin-masjids';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -47,9 +47,11 @@ interface ActiveVisit {
 function PulsingCheckInButton({
   onPress,
   isLoading,
+  colors,
 }: {
   onPress: () => void;
   isLoading: boolean;
+  colors: typeof Colors.light;
 }) {
   const pulseScale = useSharedValue(1);
 
@@ -75,7 +77,7 @@ function PulsingCheckInButton({
   return (
     <Animated.View style={[styles.checkInButtonContainer, pulseStyle]}>
       <TouchableOpacity
-        style={[styles.checkInButton, { backgroundColor: primary[500] }]}
+        style={[styles.checkInButton, { backgroundColor: colors.primary }]}
         onPress={onPress}
         activeOpacity={0.9}
         disabled={isLoading}
@@ -375,8 +377,8 @@ export default function CheckInScreen() {
   } else if (visitState === 'idle') {
     content = (
       <View style={styles.centeredContent}>
-        <View style={[styles.iconCircle, { backgroundColor: colors.backgroundSecondary }]}>
-          <Text style={styles.largeEmoji}>🕌</Text>
+        <View style={[styles.iconCircle, { backgroundColor: colors.primary + '15' }]}>
+          <IconSymbol name="mosque" size={48} color={colors.primary} />
         </View>
         <Text style={[styles.idleTitle, { color: colors.text }]}>
           No Masjid Nearby
@@ -404,8 +406,8 @@ export default function CheckInScreen() {
     content = (
       <View style={styles.centeredContent}>
         {/* Masjid Image */}
-        <View style={[styles.masjidImageLarge, { backgroundColor: primary[50] }]}>
-          <Text style={styles.veryLargeEmoji}>🕌</Text>
+        <View style={[styles.masjidImageLarge, { backgroundColor: colors.primary + '15' }]}>
+          <IconSymbol name="mosque" size={64} color={colors.primary} />
         </View>
 
         <Text style={[styles.masjidName, { color: colors.text }]}>
@@ -427,6 +429,7 @@ export default function CheckInScreen() {
         <PulsingCheckInButton
           onPress={handleCheckIn}
           isLoading={isCheckingIn}
+          colors={colors}
         />
 
         {/* Points Preview */}
@@ -444,15 +447,42 @@ export default function CheckInScreen() {
   } else {
     content = (
       <>
-        {/* Header */}
+        {/* Header with Checkout Button */}
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Active Visit</Text>
+          <TouchableOpacity
+            style={[
+              styles.headerCheckOutButton,
+              {
+                backgroundColor: canCheckOut ? colors.primary : colors.backgroundSecondary,
+                opacity: canCheckOut ? 1 : 0.6,
+              },
+            ]}
+            onPress={handleCheckOut}
+            disabled={!canCheckOut || isCheckingOut}
+            activeOpacity={0.7}
+          >
+            {isCheckingOut ? (
+              <ActivityIndicator size="small" color={canCheckOut ? '#fff' : colors.textSecondary} />
+            ) : (
+              <>
+                <Text
+                  style={[
+                    styles.headerCheckOutButtonText,
+                    { color: canCheckOut ? '#fff' : colors.textSecondary },
+                  ]}
+                >
+                  {canCheckOut ? 'CHECK OUT' : formatTime(timeRemaining)}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Masjid Info */}
         <View style={styles.centeredContent}>
-          <View style={[styles.masjidImageLarge, { backgroundColor: primary[50] }]}>
-            <Text style={styles.veryLargeEmoji}>🕌</Text>
+          <View style={[styles.masjidImageLarge, { backgroundColor: colors.primary + '15' }]}>
+            <IconSymbol name="mosque" size={64} color={colors.primary} />
           </View>
 
           <Text style={[styles.masjidName, { color: colors.text }]}>
@@ -466,13 +496,19 @@ export default function CheckInScreen() {
         </View>
 
         {/* Timer Card */}
-        <Card variant="elevated" padding="lg" style={styles.timerCard}>
+        <Card variant="outlined" padding="lg" style={styles.timerCard}>
           <Text style={[styles.timerLabel, { color: colors.textSecondary }]}>
             {canCheckOut ? 'Ready to check out!' : 'Time Remaining'}
           </Text>
-          <Text style={[styles.timerValue, { color: canCheckOut ? colors.success : colors.text }]}>
-            {canCheckOut ? '✓' : formatTime(timeRemaining)}
-          </Text>
+          {canCheckOut ? (
+            <View style={styles.timerCheckContainer}>
+              <IconSymbol name="checkmark.circle.fill" size={48} color={colors.success} />
+            </View>
+          ) : (
+            <Text style={[styles.timerValue, { color: colors.text }]}>
+              {formatTime(timeRemaining)}
+            </Text>
+          )}
           <ProgressBar
             progress={progressPercentage}
             variant="primary"
@@ -480,10 +516,77 @@ export default function CheckInScreen() {
           />
         </Card>
 
-        {/* Points Preview */}
+        {/* Contribute Section - Redesigned */}
+        <View style={styles.contributeSection}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Help Other Travellers
+          </Text>
+
+          {/* Update Facilities Card */}
+          <TouchableOpacity
+            onPress={handleUpdateFacilities}
+            activeOpacity={0.7}
+            style={styles.actionCard}
+          >
+            <Card variant="outlined" padding="md" style={styles.actionCardInner}>
+              <View style={styles.actionCardHeader}>
+                <View style={[styles.actionIconContainer, { backgroundColor: colors.primary + '15' }]}>
+                  <IconSymbol name="checkmark.seal.fill" size={24} color={colors.primary} />
+                </View>
+                <View style={styles.actionCardInfo}>
+                  <Text style={[styles.actionCardTitle, { color: colors.text }]}>
+                    Update Facilities
+                  </Text>
+                  <Text style={[styles.actionCardSubtitle, { color: colors.textSecondary }]}>
+                    Confirm available facilities
+                  </Text>
+                </View>
+                <IconSymbol name="chevron.right" size={18} color={colors.textTertiary} />
+              </View>
+              <View style={[styles.actionBonusBadge, { backgroundColor: Colors.light.gold + '20' }]}>
+                <IconSymbol name="star.fill" size={12} color={Colors.light.gold} />
+                <Text style={[styles.actionBonusText, { color: Colors.light.gold }]}>
+                  First update: +10 pts
+                </Text>
+              </View>
+            </Card>
+          </TouchableOpacity>
+
+          {/* Add Photos Card */}
+          <TouchableOpacity
+            onPress={handleAddPhotos}
+            activeOpacity={0.7}
+            style={styles.actionCard}
+          >
+            <Card variant="outlined" padding="md" style={styles.actionCardInner}>
+              <View style={styles.actionCardHeader}>
+                <View style={[styles.actionIconContainer, { backgroundColor: colors.success + '15' }]}>
+                  <IconSymbol name="camera.fill" size={24} color={colors.success} />
+                </View>
+                <View style={styles.actionCardInfo}>
+                  <Text style={[styles.actionCardTitle, { color: colors.text }]}>
+                    Add Photos
+                  </Text>
+                  <Text style={[styles.actionCardSubtitle, { color: colors.textSecondary }]}>
+                    Share masjid photos
+                  </Text>
+                </View>
+                <IconSymbol name="chevron.right" size={18} color={colors.textTertiary} />
+              </View>
+              <View style={[styles.actionBonusBadge, { backgroundColor: Colors.light.gold + '20' }]}>
+                <IconSymbol name="star.fill" size={12} color={Colors.light.gold} />
+                <Text style={[styles.actionBonusText, { color: Colors.light.gold }]}>
+                  First photo: +10 pts
+                </Text>
+              </View>
+            </Card>
+          </TouchableOpacity>
+        </View>
+
+        {/* Points Preview - Moved to bottom */}
         <Card variant="outlined" padding="md" style={styles.pointsPreview}>
           <Text style={[styles.pointsTitle, { color: colors.textSecondary }]}>
-            Points Preview
+            Points You'll Earn
           </Text>
           <View style={styles.pointsRow}>
             <Text style={[styles.pointsLabel, { color: colors.text }]}>Base Visit</Text>
@@ -525,47 +628,12 @@ export default function CheckInScreen() {
             </View>
           ) : null}
         </Card>
-
-        {/* Contribute */}
-        <View style={styles.contributeSection}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Contribute
-          </Text>
-          <Card variant="outlined" padding="md" style={styles.contributeCard}>
-            <Text style={[styles.contributeDescription, { color: colors.textSecondary }]}>
-              Confirm facilities to help other travellers. Earn bonus points for your first update.
-            </Text>
-            <View style={styles.contributeButtons}>
-              <Button
-                title="Update Facilities"
-                variant="primary"
-                onPress={handleUpdateFacilities}
-              />
-              <Button
-                title="Add Photos"
-                variant="outline"
-                onPress={handleAddPhotos}
-                style={styles.contributeSecondaryButton}
-              />
-            </View>
-          </Card>
-        </View>
-
-        {/* Check Out Button */}
-        <Button
-          title={isCheckingOut ? 'Checking out...' : (canCheckOut ? 'CHECK OUT' : `CHECK OUT (${formatTime(timeRemaining)})`)}
-          variant={canCheckOut ? 'primary' : 'secondary'}
-          disabled={!canCheckOut || isCheckingOut}
-          loading={isCheckingOut}
-          onPress={handleCheckOut}
-          style={styles.checkOutButton}
-        />
       </>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {content}
       </ScrollView>
@@ -593,11 +661,22 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.md,
   },
   headerTitle: {
     ...Typography.h3,
+  },
+  headerCheckOutButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  headerCheckOutButtonText: {
+    ...Typography.button,
+    fontWeight: '600',
   },
   iconCircle: {
     width: 120,
@@ -672,7 +751,7 @@ const styles = StyleSheet.create({
     borderRadius: 70,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: primary[500],
+    shadowColor: '#00A9A5',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -694,6 +773,12 @@ const styles = StyleSheet.create({
   timerValue: {
     fontSize: 48,
     fontWeight: '700',
+    marginBottom: Spacing.md,
+  },
+  timerCheckContainer: {
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: Spacing.md,
   },
   pointsPreview: {
@@ -725,21 +810,48 @@ const styles = StyleSheet.create({
   contributeSection: {
     marginBottom: Spacing.md,
   },
-  contributeCard: {
-    marginTop: Spacing.xs,
+  actionCard: {
+    marginBottom: Spacing.sm,
   },
-  contributeDescription: {
-    ...Typography.bodySmall,
-    marginBottom: Spacing.md,
+  actionCardInner: {
+    marginBottom: 0,
   },
-  contributeButtons: {
-    gap: Spacing.sm,
+  actionCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  contributeSecondaryButton: {
-    marginTop: Spacing.xs,
+  actionIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
   },
-  checkOutButton: {
-    marginBottom: Spacing.md,
+  actionCardInfo: {
+    flex: 1,
+  },
+  actionCardTitle: {
+    ...Typography.body,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  actionCardSubtitle: {
+    ...Typography.caption,
+  },
+  actionBonusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    gap: Spacing.xs,
+  },
+  actionBonusText: {
+    ...Typography.caption,
+    fontWeight: '600',
   },
   actionButtons: {
     flexDirection: 'row',
