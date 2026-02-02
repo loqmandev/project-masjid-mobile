@@ -24,13 +24,21 @@ export default function EnterNameScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { data: session, isPending } = useSession();
-  const params = useLocalSearchParams<{ returnTo?: string }>();
+  const params = useLocalSearchParams<{ returnTo?: string; suggestedName?: string; email?: string }>();
   const returnTo = useMemo(() => params.returnTo || '/(tabs)', [params.returnTo]);
   const { track, identify, screen } = useAnalytics();
   const hasTrackedView = useRef(false);
   const hasIdentified = useRef(false);
 
-  const [name, setName] = useState('');
+  // Use suggested name from Apple Sign In if available
+  const suggestedName = useMemo(() => {
+    if (params.suggestedName) {
+      return decodeURIComponent(params.suggestedName);
+    }
+    return null;
+  }, [params.suggestedName]);
+
+  const [name, setName] = useState(suggestedName || '');
   const [isChecking, setIsChecking] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -43,7 +51,7 @@ export default function EnterNameScreen() {
 
     const userId = session?.user?.id ?? session?.user?.email;
 
-    if (!session?.user) {
+    if (!session || !session?.user) {
       router.replace('/auth/login');
       return;
     }
@@ -78,10 +86,10 @@ export default function EnterNameScreen() {
           return;
         }
 
-        setName(profileData.user.name || session.user?.name || '');
+        setName(profileData.user.name || session?.user?.name || '');
       } catch (error) {
         if (isActive) {
-          setName(session.user?.name || '');
+          setName(session?.user?.name || '');
         }
       } finally {
         if (isActive) {

@@ -1,8 +1,8 @@
 // Fallback for using MaterialIcons on Android and web.
 
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import { SymbolWeight, SymbolViewProps } from 'expo-symbols';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { SymbolViewProps, SymbolWeight } from 'expo-symbols';
 import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
@@ -64,6 +64,7 @@ const FONTAWESOME_ICONS: Record<string, ComponentProps<typeof FontAwesome6>['nam
   'trophy': 'trophy',
   'medal': 'medal',
   'lock': 'lock',
+  'google': 'google',
   'flame': 'fire',
   'building.2.fill': 'building',
   'sparkles': 'wand-magic-sparkles',
