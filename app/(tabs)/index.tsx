@@ -53,7 +53,7 @@ function getProgressHint(current: number, required: number): string {
 
 function getProgressMessage(current: number, required: number): string {
   if (current === 0) return 'Start your journey today.';
-  if (current === required - 1) return `${current}/${required} - One more step!`;
+  if (current === required - 1) return `${current}/${required} - One more masjid!`;
   return `${current}/${required} - Keep going.`;
 }
 
@@ -103,7 +103,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView
       edges={['left', 'right', 'bottom']}
-      style={[styles.container, { backgroundColor: colors.background }]} 
+      style={[styles.container, { backgroundColor: colors.background }]}
     >
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
@@ -193,7 +193,7 @@ export default function HomeScreen() {
         {/* Personal Journey Summary Card */}
         <Card variant="outlined" padding="lg" style={styles.journeyCard}>
           <View style={styles.journeyHeader}>
-            <Text style={[styles.journeyTitle, { color: colors.text }]}>Your Journey</Text>
+            <Text style={[styles.journeyTitle, { color: colors.text }]}>Journey</Text>
           </View>
 
           <View style={styles.journeyStats}>
@@ -254,12 +254,13 @@ export default function HomeScreen() {
         {/* Achievement Progress */}
         {nextAchievement && nextAchievement.achievement.requiredCount && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Progress</Text>
-
             <Card variant="outlined" padding="lg" style={styles.progressCard}>
+              <View style={styles.journeyHeader}>
+                <Text style={[styles.journeyTitle, { color: colors.text }]}>Achievement</Text>
+              </View>
               <View style={styles.progressHeader}>
                 <IconSymbol
-                  name={getAchievementIconName(nextAchievement.achievement.type)}
+                  name={'medal'}
                   size={24}
                   color={colors.primary}
                 />
@@ -479,6 +480,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Spacing.sm,
+    gap: Spacing.md,
   },
   progressInfo: {
     flex: 1,
