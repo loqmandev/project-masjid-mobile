@@ -1,9 +1,8 @@
-import * as Linking from 'expo-linking';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  Dimensions,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,21 +11,23 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, primary, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAnalytics } from '@/lib/analytics';
-import { authClient, useSession } from '@/lib/auth-client';
-
-const { width } = Dimensions.get('window');
+import { signInWithApple } from '@/lib/apple-sign-in';
+import { useSession } from '@/lib/auth-client';
+import { signInWithGoogle } from '@/lib/google-oauth';
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const [loading, setLoading] = useState(false);
   const { data: session, isPending } = useSession();
   const params = useLocalSearchParams<{ returnTo?: string }>();
   const { track, screen } = useAnalytics();
   const hasTrackedView = useRef(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     if (hasTrackedView.current) return;
@@ -43,33 +44,6 @@ export default function LoginScreen() {
     }
   }, [session, isPending, params.returnTo]);
 
-  const handleGoogleSignIn = async () => {
-    track('login_google_clicked', { return_to: params.returnTo ?? '/(tabs)' });
-    setLoading(true);
-    try {
-      // Build proper deep link URL for OAuth callback
-      const callbackURL = Linking.createURL('/auth/enter-name', {
-        queryParams: { returnTo: params.returnTo || '/(tabs)' },
-      });
-
-      const result = await authClient.signIn.social({
-        provider: 'google',
-        callbackURL,
-      });
-
-      if (result.error) {
-        track('login_failed', { reason: result.error.message ?? 'unknown' });
-        Alert.alert('Sign In Failed', result.error.message || 'Unable to sign in with Google');
-      }
-      // Success case: the OAuth flow will redirect via deep link
-    } catch (error) {
-      track('login_failed', { reason: 'exception' });
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSkip = () => {
     track('login_skipped', { return_to: params.returnTo ?? '/(tabs)' });
     if (router.canGoBack()) {
@@ -77,6 +51,60 @@ export default function LoginScreen() {
       return;
     }
     router.replace('/(tabs)');
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setAuthError(null);
+    track('google_sign_in_attempted');
+    try {
+      const result = await signInWithGoogle();
+      if (!result.success) {
+        setAuthError(result.error || 'Failed to sign in with Google');
+        track('google_sign_in_failed', { error: result.error ?? 'Failed to sign in with Google' });
+      } else {
+        track('google_sign_in_success');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setIsLoading(true);
+    setAuthError(null);
+    track('apple_sign_in_attempted');
+    try {
+      const result = await signInWithApple();
+      if (!result.success) {
+        setAuthError(result.error || 'Failed to sign in with Apple');
+        track('apple_sign_in_failed', { error: result.error ?? 'Failed to sign in with Apple' });
+      } else {
+        track('apple_sign_in_success', { hasUserData: !!result.userData });
+        // If Apple provided user data, pass it to enter-name screen
+        if (result.userData?.email || result.userData?.fullName) {
+          const urlParams = new URLSearchParams();
+          if (result.userData.email) {
+            urlParams.set('email', result.userData.email);
+          }
+          if (result.userData.fullName) {
+            const fullName = [
+              result.userData.fullName.givenName,
+              result.userData.fullName.familyName,
+            ].filter(Boolean).join(' ');
+            if (fullName) {
+              urlParams.set('suggestedName', fullName);
+            }
+          }
+          const queryString = urlParams.toString();
+          router.replace(
+            `/auth/enter-name?returnTo=${encodeURIComponent(params.returnTo || '/(tabs)')}${queryString ? '&' + queryString : ''}` as any
+          );
+        }
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Show loading while checking session
@@ -155,21 +183,57 @@ export default function LoginScreen() {
 
           {/* Sign In Section */}
           <View style={styles.signInSection}>
+            {/* Google Sign In Button */}
             <Button
-              title={loading ? 'Signing in...' : 'Continue with Google'}
-              variant="primary"
+              title="Continue with Google"
+              variant="outline"
               size="lg"
-              loading={loading}
               onPress={handleGoogleSignIn}
-              style={styles.googleButton}
+              disabled={isLoading}
+              style={styles.socialButton}
               icon={
-                !loading && (
-                  <View style={styles.googleIconContainer}>
-                    <Text style={styles.googleIcon}>G</Text>
-                  </View>
-                )
+                <View style={styles.iconContainer}>
+                  <IconSymbol name="google" size={20} color={colors.primary} />
+                </View>
               }
             />
+
+            {/* Apple Sign In Button - iOS only */}
+            {Platform.OS === 'ios' && (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                style={styles.appleButton}
+                onPress={handleAppleSignIn}
+                cornerRadius={12}
+              />
+            )}
+
+            {/* Divider */}
+            <View style={styles.dividerContainer}>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+              <Text style={[styles.dividerText, { color: colors.textSecondary }]}>
+                or
+              </Text>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            </View>
+
+            {/* Email Sign In Button */}
+            <Button
+              title="Continue with Email"
+              variant="primary"
+              size="lg"
+              onPress={() => router.push('/auth/email')}
+              disabled={isLoading}
+              style={styles.emailButton}
+            />
+
+            {/* Error message */}
+            {authError && (
+              <Text style={[styles.errorText, { color: colors.error }]}>
+                {authError}
+              </Text>
+            )}
 
             <Text style={[styles.termsText, { color: colors.textTertiary }]}>
               By continuing, you agree to our{' '}
@@ -266,21 +330,40 @@ const styles = StyleSheet.create({
   signInSection: {
     gap: Spacing.md,
   },
-  googleButton: {
+  socialButton: {
     width: '100%',
+    minHeight: 50,
   },
-  googleIconContainer: {
+  appleButton: {
+    width: '100%',
+    height: 50,
+  },
+  iconContainer: {
     width: 20,
     height: 20,
-    borderRadius: 10,
-    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  googleIcon: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#4285F4',
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: Spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    ...Typography.caption,
+    marginHorizontal: Spacing.md,
+  },
+  emailButton: {
+    width: '100%',
+  },
+  errorText: {
+    ...Typography.bodySmall,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
   },
   termsText: {
     ...Typography.caption,

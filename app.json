@@ -9,9 +9,17 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "usesAppleSignIn": true,
       "bundleIdentifier": "my.lonasoft.jejakmasjidmobile",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "jejakmasjidmobile"
+            ]
+          }
+        ]
       },
       "icon": "./assets/images/icon.png"
     },
@@ -24,7 +32,16 @@
       "icon": "./assets/images/icon-android.png",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "my.lonasoft.jejakmasjidmobile"
+      "package": "my.lonasoft.jejakmasjidmobile",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": {
+            "scheme": "jejakmasjidmobile"
+          }
+        }
+      ]
     },
     "web": {
       "output": "static",
@@ -32,6 +49,9 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-apple-authentication"
+      ],
       [
         "expo-splash-screen",
         {

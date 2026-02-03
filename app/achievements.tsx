@@ -12,6 +12,7 @@ import { Stack } from 'expo-router';
 
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { Colors, Spacing, Typography, badges, BorderRadius } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -172,14 +173,17 @@ export default function AchievementsScreen() {
               styles.badgeContainer,
               {
                 backgroundColor: isUnlocked
-                  ? badgeColor + '30'
+                  ? badgeColor + '20'
                   : colors.backgroundSecondary,
+                borderColor: isUnlocked ? badgeColor : colors.border,
               },
             ]}
           >
-            <Text style={styles.badgeEmoji}>
-              {isUnlocked ? '🏅' : '🔒'}
-            </Text>
+            {isUnlocked ? (
+              <IconSymbol name="medal" size={28} color={badgeColor} />
+            ) : (
+              <IconSymbol name="lock" size={24} color={colors.textTertiary} />
+            )}
           </View>
 
           {/* Achievement Info */}
@@ -190,6 +194,7 @@ export default function AchievementsScreen() {
                   styles.achievementName,
                   { color: isUnlocked ? colors.text : colors.textSecondary },
                 ]}
+                numberOfLines={1}
               >
                 {achievement.name}
               </Text>
@@ -206,9 +211,12 @@ export default function AchievementsScreen() {
 
             {/* Progress */}
             {isUnlocked ? (
-              <Text style={[styles.unlockedText, { color: colors.success }]}>
-                Unlocked {formatRelativeTime(progress?.unlockedAt ?? null)}
-              </Text>
+              <View style={styles.unlockedSection}>
+                <IconSymbol name="checkmark.circle.fill" size={14} color={colors.success} />
+                <Text style={[styles.unlockedText, { color: colors.success }]}>
+                  Unlocked {formatRelativeTime(progress?.unlockedAt ?? null)}
+                </Text>
+              </View>
             ) : (
               <View style={styles.progressSection}>
                 <ProgressBar
@@ -216,9 +224,14 @@ export default function AchievementsScreen() {
                   variant="primary"
                   size="sm"
                 />
-                <Text style={[styles.progressText, { color: colors.textSecondary }]}>
-                  {currentProgress}/{requiredCount}
-                </Text>
+                <View style={styles.progressInfo}>
+                  <Text style={[styles.progressText, { color: colors.textSecondary }]}>
+                    {currentProgress} of {requiredCount}
+                  </Text>
+                  <Text style={[styles.progressPercent, { color: colors.textTertiary }]}>
+                    {Math.round(progressPercent)}%
+                  </Text>
+                </View>
               </View>
             )}
           </View>
@@ -301,18 +314,24 @@ export default function AchievementsScreen() {
           }
         >
           {/* Stats Summary */}
-          <Card variant="elevated" padding="md" style={styles.summaryCard}>
+          <Card variant="outlined" padding="lg" style={styles.summaryCard}>
+            <Text style={[styles.summaryTitle, { color: colors.text }]}>Your Progress</Text>
             <View style={styles.summaryRow}>
               <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, { color: colors.primary }]}>
+                <View style={[styles.summaryIconContainer, { backgroundColor: Colors.light.success + '20' }]}>
+                  <IconSymbol name="medal" size={20} color={Colors.light.success} />
+                </View>
+                <Text style={[styles.summaryValue, { color: colors.text }]}>
                   {stats.unlocked}
                 </Text>
                 <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
                   Unlocked
                 </Text>
               </View>
-              <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
               <View style={styles.summaryItem}>
+                <View style={[styles.summaryIconContainer, { backgroundColor: colors.primary + '15' }]}>
+                  <IconSymbol name="flame.fill" size={20} color={colors.primary} />
+                </View>
                 <Text style={[styles.summaryValue, { color: colors.text }]}>
                   {stats.inProgress}
                 </Text>
@@ -320,9 +339,11 @@ export default function AchievementsScreen() {
                   In Progress
                 </Text>
               </View>
-              <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
               <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, { color: colors.textTertiary }]}>
+                <View style={[styles.summaryIconContainer, { backgroundColor: colors.textTertiary + '15' }]}>
+                  <IconSymbol name="lock" size={20} color={colors.textTertiary} />
+                </View>
+                <Text style={[styles.summaryValue, { color: colors.text }]}>
                   {stats.locked}
                 </Text>
                 <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
@@ -399,24 +420,35 @@ const styles = StyleSheet.create({
   summaryCard: {
     marginBottom: Spacing.lg,
   },
+  summaryTitle: {
+    ...Typography.h3,
+    fontWeight: '600',
+    marginBottom: Spacing.md,
+  },
   summaryRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: Spacing.sm,
   },
   summaryItem: {
     flex: 1,
     alignItems: 'center',
   },
-  summaryDivider: {
-    width: 1,
+  summaryIconContainer: {
+    width: 40,
     height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
   },
   summaryValue: {
-    ...Typography.h2,
+    ...Typography.h3,
     fontWeight: '700',
+    marginBottom: 2,
   },
   summaryLabel: {
     ...Typography.caption,
+    textAlign: 'center',
   },
   section: {
     marginBottom: Spacing.lg,
@@ -445,9 +477,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Spacing.md,
-  },
-  badgeEmoji: {
-    fontSize: 28,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   achievementInfo: {
     flex: 1,
@@ -468,6 +499,11 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     marginBottom: Spacing.sm,
   },
+  unlockedSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
   unlockedText: {
     ...Typography.caption,
     fontWeight: '500',
@@ -475,9 +511,17 @@ const styles = StyleSheet.create({
   progressSection: {
     gap: Spacing.xs,
   },
+  progressInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   progressText: {
     ...Typography.caption,
-    textAlign: 'right',
+  },
+  progressPercent: {
+    ...Typography.caption,
+    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,

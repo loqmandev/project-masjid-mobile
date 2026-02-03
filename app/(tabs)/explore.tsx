@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { BorderRadius, Colors, primary, Spacing, Typography } from '@/constants/theme';
+import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useFacilities } from '@/hooks/use-facilities';
 import { useLocation } from '@/hooks/use-location';
@@ -110,28 +110,34 @@ export default function ExploreScreen() {
     >
       <Card variant="outlined" padding="md" style={styles.masjidCard}>
         <View style={styles.masjidCardContent}>
-          {/* Masjid Image/Icon */}
-          <View style={[styles.masjidImage, { backgroundColor: primary[50] }]}>
-            <Text style={styles.masjidEmoji}>🕌</Text>
-          </View>
-
-          {/* Masjid Info */}
-          <View style={styles.masjidInfo}>
-            <Text style={[styles.masjidName, { color: colors.text }]} numberOfLines={2}>
-              {masjid.name}
-            </Text>
-            <Text style={[styles.masjidMeta, { color: colors.textSecondary }]}>
-              {formatDistance(masjid.distanceM)} away • {masjid.districtName}
-            </Text>
-
-            {/* Status Badges */}
-            <View style={styles.badgeContainer}>
-              {masjid.canCheckin ? (
-                <Badge label="Ready to check in" variant="success" size="sm" />
-              ) : (
-                <Badge label="Not in range" variant="default" size="sm" />
+          {/* Main Content */}
+          <View style={styles.masjidMainContent}>
+            <View style={styles.masjidHeader}>
+              <Text style={[styles.masjidName, { color: colors.text }]} numberOfLines={2}>
+                {masjid.name}
+              </Text>
+              {masjid.canCheckin && (
+                <View style={[styles.checkinIndicator, { backgroundColor: colors.success + '20' }]}>
+                  <IconSymbol name="checkmark.circle.fill" size={16} color={colors.success} />
+                </View>
               )}
             </View>
+
+            <View style={styles.masjidMetaRow}>
+              <IconSymbol name="location.fill" size={14} color={colors.textTertiary} />
+              <Text style={[styles.masjidMeta, { color: colors.textSecondary }]}>
+                {formatDistance(masjid.distanceM)} • {masjid.districtName}, {masjid.stateName}
+              </Text>
+            </View>
+          </View>
+
+          {/* Status Badge */}
+          <View style={styles.statusBadgeContainer}>
+            <Badge
+              label={masjid.canCheckin ? 'Ready' : 'Too far'}
+              variant={masjid.canCheckin ? 'success' : 'default'}
+              size="sm"
+            />
           </View>
         </View>
       </Card>
@@ -282,11 +288,13 @@ export default function ExploreScreen() {
         {/* Empty State */}
         {!isLoading && !error && filteredMasjids.length === 0 && (
           <View style={styles.centerContainer}>
-            <Text style={styles.emptyIcon}>🕌</Text>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary + '15' }]}>
+              <IconSymbol name="map.fill" size={48} color={colors.primary} />
+            </View>
+            <Text style={[styles.emptyText, { color: colors.text }]}>
               No masjids found
             </Text>
-            <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
+            <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
               {searchQuery
                 ? 'Try a different search term'
                 : hasFacilityFilter
@@ -548,33 +556,43 @@ const styles = StyleSheet.create({
   },
   masjidCardContent: {
     flexDirection: 'row',
-  },
-  masjidImage: {
-    width: 72,
-    height: 72,
-    borderRadius: BorderRadius.md,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  masjidMainContent: {
+    flex: 1,
     marginRight: Spacing.md,
   },
-  masjidEmoji: {
-    fontSize: 32,
-  },
-  masjidInfo: {
-    flex: 1,
-    justifyContent: 'center',
+  masjidHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.xs,
   },
   masjidName: {
     ...Typography.body,
     fontWeight: '600',
-    marginBottom: 2,
+    flex: 1,
+    marginRight: Spacing.sm,
+  },
+  checkinIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  masjidMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
   masjidMeta: {
     ...Typography.caption,
-    marginBottom: Spacing.xs,
+    flex: 1,
   },
-  badgeContainer: {
-    marginTop: Spacing.xs,
+  statusBadgeContainer: {
+    alignSelf: 'flex-start',
   },
   firstVisitorBadge: {
     gap: 2,
@@ -619,17 +637,22 @@ const styles = StyleSheet.create({
     color: '#fff',
     ...Typography.button,
   },
-  emptyIcon: {
-    fontSize: 48,
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: Spacing.md,
   },
   emptyText: {
-    ...Typography.body,
+    ...Typography.h3,
     textAlign: 'center',
+    fontWeight: '600',
+    marginBottom: Spacing.xs,
   },
   emptySubtext: {
-    ...Typography.caption,
+    ...Typography.body,
     textAlign: 'center',
-    marginTop: Spacing.xs,
   },
 });

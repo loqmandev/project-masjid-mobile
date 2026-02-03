@@ -1,3 +1,4 @@
+import { router, Stack } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -9,11 +10,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, Stack } from 'expo-router';
 
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { BorderRadius, Colors, primary, Spacing, Typography } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getUserCheckins, UserCheckin } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
@@ -226,32 +227,40 @@ export default function HistoryScreen() {
           }
         >
           {/* Summary Card */}
-          <Card variant="elevated" padding="md" style={styles.summaryCard}>
+          <Card variant="outlined" padding="lg" style={styles.summaryCard}>
+            <Text style={[styles.summaryTitle, { color: colors.text }]}>Your Journey</Text>
             <View style={styles.summaryRow}>
               <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, { color: colors.primary }]}>
+                <View style={[styles.summaryIconContainer, { backgroundColor: colors.primary + '15' }]}>
+                  <IconSymbol name="location.fill" size={20} color={colors.primary} />
+                </View>
+                <Text style={[styles.summaryValue, { color: colors.text }]}>
                   {totalVisits}
                 </Text>
                 <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
                   Total Visits
                 </Text>
               </View>
-              <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
               <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, { color: colors.success }]}>
+                <View style={[styles.summaryIconContainer, { backgroundColor: Colors.light.success + '20' }]}>
+                  <IconSymbol name="checkmark.circle.fill" size={20} color={Colors.light.success} />
+                </View>
+                <Text style={[styles.summaryValue, { color: colors.text }]}>
                   {completedVisits}
                 </Text>
                 <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
                   Completed
                 </Text>
               </View>
-              <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
               <View style={styles.summaryItem}>
+                <View style={[styles.summaryIconContainer, { backgroundColor: Colors.light.gold + '20' }]}>
+                  <IconSymbol name="star.fill" size={20} color={Colors.light.gold} />
+                </View>
                 <Text style={[styles.summaryValue, { color: colors.text }]}>
                   {totalPoints}
                 </Text>
                 <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                  Points Earned
+                  Points
                 </Text>
               </View>
             </View>
@@ -270,8 +279,8 @@ export default function HistoryScreen() {
                   >
                     <Card variant="outlined" padding="md" style={styles.visitCard}>
                       <View style={styles.visitContent}>
-                        <View style={[styles.visitIcon, { backgroundColor: primary[50] }]}>
-                          <Text style={styles.visitEmoji}>🕌</Text>
+                        <View style={[styles.visitIcon, { backgroundColor: colors.primary + '15' }]}>
+                          <IconSymbol name="mosque" size={24} color={colors.primary} />
                         </View>
                         <View style={styles.visitInfo}>
                           <View style={styles.visitHeader}>
@@ -294,9 +303,11 @@ export default function HistoryScreen() {
                               variant={getStatusVariant(visit.status)}
                               size="sm"
                             />
-                            <Text style={[styles.visitPoints, { color: colors.primary }]}>
-                              +{visit.actualPointsEarned} pts
-                            </Text>
+                            <View style={[styles.pointsBadge, { backgroundColor: colors.primary + '10' }]}>
+                              <Text style={[styles.visitPoints, { color: colors.primary }]}>
+                                +{visit.actualPointsEarned}
+                              </Text>
+                            </View>
                           </View>
                         </View>
                       </View>
@@ -306,19 +317,22 @@ export default function HistoryScreen() {
               </View>
             ))
           ) : (
-            <Card variant="outlined" padding="lg">
+            <Card variant="outlined" padding="lg" style={styles.emptyCard}>
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyIcon}>📍</Text>
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary + '15' }]}>
+                  <IconSymbol name="map.fill" size={48} color={colors.primary} />
+                </View>
+                <Text style={[styles.emptyText, { color: colors.text }]}>
                   No visits yet
                 </Text>
-                <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
+                <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
                   Start exploring masjids and check in to build your history!
                 </Text>
                 <TouchableOpacity
                   style={[styles.exploreButton, { backgroundColor: colors.primary }]}
                   onPress={() => router.push('/(tabs)/explore')}
                 >
+                  <IconSymbol name="magnifyingglass" size={18} color="#fff" />
                   <Text style={styles.exploreButtonText}>Explore Masjids</Text>
                 </TouchableOpacity>
               </View>
@@ -367,24 +381,35 @@ const styles = StyleSheet.create({
   summaryCard: {
     marginBottom: Spacing.lg,
   },
+  summaryTitle: {
+    ...Typography.h3,
+    fontWeight: '600',
+    marginBottom: Spacing.md,
+  },
   summaryRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: Spacing.sm,
   },
   summaryItem: {
     flex: 1,
     alignItems: 'center',
   },
-  summaryDivider: {
-    width: 1,
+  summaryIconContainer: {
+    width: 40,
     height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
   },
   summaryValue: {
-    ...Typography.h2,
+    ...Typography.h3,
     fontWeight: '700',
+    marginBottom: 2,
   },
   summaryLabel: {
     ...Typography.caption,
+    textAlign: 'center',
   },
   section: {
     marginBottom: Spacing.lg,
@@ -406,9 +431,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Spacing.md,
-  },
-  visitEmoji: {
-    fontSize: 24,
   },
   visitInfo: {
     flex: 1,
@@ -437,31 +459,48 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     fontWeight: '600',
   },
+  pointsBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  emptyCard: {
+    marginTop: Spacing.lg,
+  },
   emptyContainer: {
     alignItems: 'center',
-    paddingVertical: Spacing.lg,
+    paddingVertical: Spacing.xl,
   },
-  emptyIcon: {
-    fontSize: 48,
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: Spacing.md,
   },
   emptyText: {
-    ...Typography.body,
+    ...Typography.h3,
     textAlign: 'center',
+    fontWeight: '600',
     marginBottom: Spacing.xs,
   },
   emptySubtext: {
-    ...Typography.caption,
+    ...Typography.body,
     textAlign: 'center',
     marginBottom: Spacing.lg,
   },
   exploreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
   },
   exploreButtonText: {
     color: '#fff',
     ...Typography.button,
+    fontWeight: '600',
   },
 });
