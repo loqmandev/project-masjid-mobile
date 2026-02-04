@@ -1,7 +1,8 @@
 // Fallback for using MaterialIcons on Android and web.
 
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { FontAwesome6 } from '@expo/vector-icons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { SymbolViewProps, SymbolWeight } from 'expo-symbols';
 import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
@@ -12,8 +13,11 @@ type IconSymbolName = keyof typeof MAPPING;
 // FontAwesome6 icon names
 type FontAwesomeIconName = keyof typeof FONTAWESOME_ICONS;
 
+// MaterialCommunityIcons icon names
+type MaterialCommunityIconName = keyof typeof MATERIAL_COMMUNITY_ICONS;
+
 // Combined icon type
-type AllIconNames = IconSymbolName | FontAwesomeIconName;
+type AllIconNames = IconSymbolName | FontAwesomeIconName | MaterialCommunityIconName;
 
 /**
  * Add your SF Symbols to Material Icons mappings here.
@@ -58,29 +62,25 @@ const MAPPING = {
 
 // Icons that should use FontAwesome6 instead of MaterialIcons
 const FONTAWESOME_ICONS: Record<string, ComponentProps<typeof FontAwesome6>['name']> = {
-  'mosque': 'mosque',
   'user': 'user',
   'star': 'star',
   'trophy': 'trophy',
   'medal': 'medal',
   'lock': 'lock',
-  'google': 'google',
   'flame': 'fire',
-  'building.2.fill': 'building',
   'sparkles': 'wand-magic-sparkles',
-  'map.fill': 'map',
-  'hands.sparkles.fill': 'hands-holding-circle',
-  'target': 'crosshairs',
   'chevron.right': 'chevron-right',
   'magnifyingglass': 'magnifying-glass',
   'arrow.clockwise': 'rotate-right',
   'gearshape.fill': 'gear',
   'bell': 'bell',
   'checkmark': 'check',
-  'location.fill': 'location-dot',
-  'checkmark.circle.fill': 'circle-check',
   'camera.fill': 'camera',
-  'checkmark.seal.fill': 'certificate',
+};
+
+// Icons that should use MaterialCommunityIcons
+const MATERIAL_COMMUNITY_ICONS: Record<string, ComponentProps<typeof MaterialCommunityIcons>['name']> = {
+  'mosque': 'mosque',
 };
 
 /**
@@ -100,9 +100,15 @@ export function IconSymbol({
   style?: StyleProp<TextStyle>;
   weight?: SymbolWeight;
 }) {
+  // Check if this icon should use MaterialCommunityIcons
+  if (name in MATERIAL_COMMUNITY_ICONS) {
+    return <MaterialCommunityIcons color={color} size={size} name={MATERIAL_COMMUNITY_ICONS[name as MaterialCommunityIconName]} style={style} />;
+  }
+
   // Check if this icon should use FontAwesome6
   if (name in FONTAWESOME_ICONS) {
     return <FontAwesome6 color={color} size={size} name={FONTAWESOME_ICONS[name as FontAwesomeIconName]} style={style} />;
   }
+
   return <MaterialIcons color={color} size={size} name={MAPPING[name as IconSymbolName]} style={style} />;
 }

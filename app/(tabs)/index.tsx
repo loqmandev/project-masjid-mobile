@@ -31,17 +31,6 @@ function getEncouragementMessage(): string {
   return messages[Math.floor(Math.random() * messages.length)];
 }
 
-function getAchievementIconName(type: string): 'star.fill' | 'hands.sparkles.fill' | 'flame.fill' | 'map.fill' | 'trophy.fill' | 'target' {
-  const iconMap: Record<string, 'star.fill' | 'hands.sparkles.fill' | 'flame.fill' | 'map.fill' | 'trophy.fill' | 'target'> = {
-    explorer: 'star.fill',
-    prayer_warrior: 'hands.sparkles.fill',
-    streak: 'flame.fill',
-    geographic: 'map.fill',
-    special: 'trophy.fill',
-  };
-  return iconMap[type] || 'target';
-}
-
 function getProgressHint(current: number, required: number): string {
   const progressPercent = current / required;
 
@@ -64,11 +53,9 @@ export default function HomeScreen() {
   const { data: session } = useSession();
   const insets = useSafeAreaInsets();
 
-  const displayName = session?.user?.name?.split(' ')[0] || 'Guest';
-
   const { data: userProfile } = useUserProfile();
   const { data: achievements } = useUserAchievements();
-  const headerName = userProfile?.profile?.leaderboardAlias || displayName;
+  const headerName = userProfile?.profile?.leaderboardAlias || 'Guest';
   const initials =
     headerName
       .split(' ')

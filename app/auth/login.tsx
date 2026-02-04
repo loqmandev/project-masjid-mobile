@@ -2,17 +2,15 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Platform,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, primary, Spacing, Typography } from '@/constants/theme';
+import { Colors, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAnalytics } from '@/lib/analytics';
 import { signInWithApple } from '@/lib/apple-sign-in';
@@ -43,15 +41,6 @@ export default function LoginScreen() {
       router.replace(`/auth/enter-name?returnTo=${encodeURIComponent(returnTo)}` as any);
     }
   }, [session, isPending, params.returnTo]);
-
-  const handleSkip = () => {
-    track('login_skipped', { return_to: params.returnTo ?? '/(tabs)' });
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-    router.replace('/(tabs)');
-  };
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
@@ -113,7 +102,7 @@ export default function LoginScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading...
+            Getting ready...
           </Text>
         </View>
       </SafeAreaView>
@@ -122,53 +111,53 @@ export default function LoginScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen options={{ title: '', headerTransparent: true, headerBackButtonMenuEnabled: true, headerBackButtonDisplayMode: 'minimal' }} />
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.content}>
           {/* Logo/Branding Section */}
           <View style={styles.brandSection}>
-            <View style={[styles.logoContainer, { backgroundColor: primary[100] }]}>
-              <Text style={styles.logoEmoji}>🕌</Text>
+            <View style={[styles.logoContainer, { backgroundColor: colors.primary + '15' }]}>
+              <IconSymbol name="mosque" size={48} color={colors.primary} />
             </View>
             <Text style={[styles.appName, { color: colors.text }]}>Jejak Masjid</Text>
             <Text style={[styles.tagline, { color: colors.textSecondary }]}>
-              Explore • Visit • Earn Rewards
+              Explore • Visit • Earn Points
             </Text>
           </View>
 
           {/* Feature Highlights */}
           <View style={styles.featuresSection}>
             <View style={styles.featureItem}>
-              <View style={[styles.featureIcon, { backgroundColor: primary[50] }]}>
-                <Text style={styles.featureEmoji}>📍</Text>
+              <View style={[styles.featureIcon, { backgroundColor: colors.primary + '15' }]}>
+                <IconSymbol name="mosque" size={24} color={colors.primary} />
               </View>
               <View style={styles.featureText}>
                 <Text style={[styles.featureTitle, { color: colors.text }]}>
                   Discover Masjids
                 </Text>
                 <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>
-                  Find masjids near you across Malaysia
+                  Remember each masjid you visit
                 </Text>
               </View>
             </View>
 
             <View style={styles.featureItem}>
-              <View style={[styles.featureIcon, { backgroundColor: primary[50] }]}>
-                <Text style={styles.featureEmoji}>⭐</Text>
+              <View style={[styles.featureIcon, { backgroundColor: colors.primary + '15' }]}>
+                <IconSymbol name="star" size={24} color={colors.primary} />
               </View>
               <View style={styles.featureText}>
                 <Text style={[styles.featureTitle, { color: colors.text }]}>
                   Earn Points
                 </Text>
                 <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>
-                  Check in during prayer times for 2x points
+                  Check in and contribute for community
                 </Text>
               </View>
             </View>
 
             <View style={styles.featureItem}>
-              <View style={[styles.featureIcon, { backgroundColor: primary[50] }]}>
-                <Text style={styles.featureEmoji}>🏆</Text>
+              <View style={[styles.featureIcon, { backgroundColor: colors.primary + '15' }]}>
+                <IconSymbol name="trophy" size={24} color={colors.primary} />
               </View>
               <View style={styles.featureText}>
                 <Text style={[styles.featureTitle, { color: colors.text }]}>
@@ -191,18 +180,13 @@ export default function LoginScreen() {
               onPress={handleGoogleSignIn}
               disabled={isLoading}
               style={styles.socialButton}
-              icon={
-                <View style={styles.iconContainer}>
-                  <IconSymbol name="google" size={20} color={colors.primary} />
-                </View>
-              }
             />
 
             {/* Apple Sign In Button - iOS only */}
-            {Platform.OS === 'ios' && (
+            {(
               <AppleAuthentication.AppleAuthenticationButton
                 buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
                 style={styles.appleButton}
                 onPress={handleAppleSignIn}
                 cornerRadius={12}
@@ -241,16 +225,6 @@ export default function LoginScreen() {
               <Text style={{ color: colors.primary }}>Privacy Policy</Text>
             </Text>
           </View>
-
-          {/* Skip to browse without signing in */}
-          <TouchableOpacity
-            style={styles.skipButton}
-            onPress={handleSkip}
-          >
-            <Text style={[styles.skipText, { color: colors.textTertiary }]}>
-              Browse without signing in
-            </Text>
-          </TouchableOpacity>
         </View>
       </SafeAreaView>
     </>
@@ -272,12 +246,11 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: Spacing.lg,
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.xl,
+    justifyContent: 'space-evenly',
+    paddingVertical: Spacing.xxl,
   },
   brandSection: {
     alignItems: 'center',
-    paddingTop: Spacing.xl,
   },
   logoContainer: {
     width: 100,
@@ -286,9 +259,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.md,
-  },
-  logoEmoji: {
-    fontSize: 48,
+    borderWidth: 2,
+    borderColor: 'rgba(0, 169, 165, 0.2)',
   },
   appName: {
     fontSize: 32,
@@ -313,9 +285,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  featureEmoji: {
-    fontSize: 24,
-  },
   featureText: {
     flex: 1,
   },
@@ -329,6 +298,15 @@ const styles = StyleSheet.create({
   },
   signInSection: {
     gap: Spacing.md,
+  },
+  welcomeMessage: {
+    alignItems: 'center',
+    marginBottom: Spacing.xs,
+  },
+  welcomeText: {
+    ...Typography.body,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   socialButton: {
     width: '100%',
@@ -347,7 +325,7 @@ const styles = StyleSheet.create({
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: Spacing.md,
+    marginVertical: Spacing.xs,
   },
   dividerLine: {
     flex: 1,
