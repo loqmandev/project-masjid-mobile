@@ -2,6 +2,7 @@ import { router, Stack } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -12,14 +13,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui/badge';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
+import { useBottomSheet } from '@/hooks/use-bottom-sheet';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useExploreFilters } from '@/hooks/use-explore-filters';
+import { useFacilities } from '@/hooks/use-facilities';
 import { useLocation } from '@/hooks/use-location';
 import { useNearbyMasjids } from '@/hooks/use-nearby-masjids';
-import { MasjidResponse } from '@/lib/api';
+import { FacilityOption, MasjidResponse } from '@/lib/api';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 export default function ExploreScreen() {
   const colorScheme = useColorScheme();
@@ -27,10 +32,18 @@ export default function ExploreScreen() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { appliedFacilities } = useExploreFilters();
+
+  // Selected facilities for filtering
+  const [selectedFacilities, setSelectedFacilities] = useState<Set<string>>(new Set());
+
+  // Bottom sheet for filters
+  const filterSheet = useBottomSheet();
 
   // Get user's current location
   const { location, isLoading: isLocationLoading, error: locationError, refresh: refreshLocation } = useLocation();
+
+  // Fetch facilities for filter
+  const { data: facilities, isLoading: isFacilitiesLoading } = useFacilities();
 
   // Fetch nearby masjids (5km radius)
   const {
@@ -42,14 +55,14 @@ export default function ExploreScreen() {
     latitude: location?.latitude ?? null,
     longitude: location?.longitude ?? null,
     radius: 5,
-    facilityCodes: Array.from(appliedFacilities),
+    facilityCodes: Array.from(selectedFacilities),
   });
 
   // Filter masjids based on search query
   const filteredMasjids = useMemo(() => {
     if (!nearbyMasjids) return [];
 
-    return nearbyMasjids.filter((masjid) => {
+    return nearbyMasjids.filter((masjid: MasjidResponse) => {
       // Search filter
       const matchesSearch =
         masjid.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -76,13 +89,32 @@ export default function ExploreScreen() {
 
   const isLoading = isLocationLoading || isMasjidsLoading;
   const error = locationError || masjidsError?.message;
-  const hasFacilityFilter = appliedFacilities.size > 0;
 
   const formatDistance = (distanceM: number): string => {
     if (distanceM < 1000) {
       return `${distanceM}m`;
     }
     return `${(distanceM / 1000).toFixed(1)}km`;
+  };
+
+  const handleOpenFilters = () => {
+    filterSheet.open();
+  };
+
+  const handleToggleFacility = (facilityCode: string) => {
+    setSelectedFacilities((prev) => {
+      const next = new Set(prev);
+      if (next.has(facilityCode)) {
+        next.delete(facilityCode);
+      } else {
+        next.add(facilityCode);
+      }
+      return next;
+    });
+  };
+
+  const handleClearFilters = () => {
+    setSelectedFacilities(new Set());
   };
 
   const renderMasjidItem = ({ item: masjid }: { item: MasjidResponse }) => (
@@ -126,7 +158,7 @@ export default function ExploreScreen() {
     </TouchableOpacity>
   );
 
-  const screenContent = (
+  return (
     <>
       <Stack.Screen
         options={{
@@ -144,7 +176,7 @@ export default function ExploreScreen() {
           <>
             <Text style={[styles.resultsCount, { color: colors.textSecondary }]}>
               {filteredMasjids.length} masjids within 5km
-              {hasFacilityFilter ? ' matching selected facilities' : ''}
+              {selectedFacilities.size > 0 ? ` • ${selectedFacilities.size} filter${selectedFacilities.size > 1 ? 's' : ''} applied` : ''}
             </Text>
             <TouchableOpacity onPress={() => router.push('/masjid-report')}>
               <Text style={[styles.reportLink, { color: colors.primary }]}>
@@ -189,8 +221,6 @@ export default function ExploreScreen() {
             <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
               {searchQuery
                 ? 'Try a different search term'
-                : hasFacilityFilter
-                  ? 'No masjids match the selected facilities'
                   : 'No masjids within 5km of your location'}
             </Text>
           </View>
@@ -217,24 +247,93 @@ export default function ExploreScreen() {
 
         {/* Floating Filter Button */}
         <TouchableOpacity
-          onPress={() => router.push('/explore-filters')}
+          onPress={handleOpenFilters}
           style={[styles.fab, { backgroundColor: colors.primary }]}
           activeOpacity={0.85}
         >
           <IconSymbol name="line.3.horizontal.decrease.circle.fill" size={22} color="#fff" />
-          {hasFacilityFilter && (
+          {selectedFacilities.size > 0 && (
             <View style={[styles.fabBadge, { backgroundColor: colors.card }]}>
               <Text style={[styles.fabBadgeText, { color: colors.primary }]}>
-                {appliedFacilities.size}
+                {selectedFacilities.size}
               </Text>
             </View>
           )}
         </TouchableOpacity>
       </SafeAreaView>
+
+      {/* Filter Bottom Sheet */}
+      <BottomSheet
+        ref={filterSheet.ref}
+        snapPoints={[SCREEN_HEIGHT * 0.65, SCREEN_HEIGHT * 0.9]}
+        backgroundColor={colors.card}
+        onClose={filterSheet.handleClose}
+        showHandle={true}
+      >
+        {/* Filter Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 }}>
+          <Text style={{ fontSize: 20, fontWeight: '600', color: colors.text }}>
+            Filter by Facilities
+          </Text>
+          {selectedFacilities.size > 0 && (
+            <TouchableOpacity onPress={handleClearFilters} style={{ paddingVertical: 4, paddingHorizontal: 8 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
+                Clear
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Facilities Grid - 2 Columns */}
+        {isFacilitiesLoading ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 24 }}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={{ fontSize: 14, color: colors.textSecondary, marginLeft: 8 }}>
+              Loading facilities...
+            </Text>
+          </View>
+        ) : facilities && facilities.length > 0 ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16 }}>
+            {facilities.map((facility: FacilityOption) => {
+              const isSelected = selectedFacilities.has(facility.code);
+              return (
+                <TouchableOpacity
+                  key={facility.code}
+                  onPress={() => handleToggleFacility(facility.code)}
+                  style={{
+                    width: '48%',
+                    paddingVertical: 12,
+                    paddingHorizontal: 8,
+                    borderRadius: 8,
+                    backgroundColor: isSelected
+                      ? (colorScheme === 'dark' ? colors.primary + '30' : colors.primary + '20')
+                      : (colorScheme === 'dark' ? '#2A2C2E' : '#F5F5F5'),
+                    borderWidth: 1,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                    alignItems: 'center',
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                >
+                  {isSelected && (
+                    <IconSymbol name="checkmark.circle.fill" size={16} color={colors.primary} />
+                  )}
+                  <Text style={{ fontSize: 14, color: colors.text }}>
+                    {facility.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', paddingVertical: 24 }}>
+            No facilities available
+          </Text>
+        )}
+      </BottomSheet>
     </>
   );
-
-  return screenContent;
 }
 
 const styles = StyleSheet.create({
@@ -414,5 +513,73 @@ const styles = StyleSheet.create({
   emptySubtext: {
     ...Typography.body,
     textAlign: 'center',
+  },
+  // Filter styles
+  filterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+  },
+  filterTitle: {
+    ...Typography.h3,
+    fontWeight: '600',
+  },
+  clearButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  clearText: {
+    ...Typography.bodySmall,
+    fontWeight: '600',
+  },
+  filterLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.xs,
+  },
+  filterLoadingText: {
+    ...Typography.bodySmall,
+  },
+  filterErrorText: {
+    ...Typography.bodySmall,
+  },
+  filterList: {
+    gap: Spacing.sm,
+    paddingBottom: Spacing.md,
+  },
+  filterRow: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  filterRowText: {
+    ...Typography.body,
+  },
+  filterGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  filterGridItem: {
+    width: '48%',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterGridItemText: {
+    ...Typography.bodySmall,
+    textAlign: 'center',
+  },
+  filterActions: {
+    paddingTop: Spacing.sm,
   },
 });

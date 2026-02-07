@@ -9,6 +9,7 @@ import { primary } from '@/constants/theme';
 import { ThemeProvider as AppThemeProvider, useColorScheme } from '@/hooks/use-color-scheme';
 
 import { PostHogProvider } from 'posthog-react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -156,7 +157,9 @@ export default function RootLayout() {
       >
         <QueryClientProvider client={queryClient}>
           <AppThemeProvider>
-            <RootLayoutContent />
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <RootLayoutContent />
+            </GestureHandlerRootView>
           </AppThemeProvider>
         </QueryClientProvider>
       </PostHogProvider>
