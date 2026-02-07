@@ -125,6 +125,20 @@ function RootLayoutContent() {
             headerBackTitle: 'Back',
           }}
         />
+        <Stack.Screen
+          name="explore-filters"
+          options={{
+            presentation: 'formSheet',
+            title: 'Filters',
+          }}
+        />
+        <Stack.Screen
+          name="masjid-report"
+          options={{
+            title: 'Report Masjid',
+            headerBackTitle: 'Back',
+          }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

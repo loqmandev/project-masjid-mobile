@@ -202,6 +202,24 @@ export default function MasjidDetailScreen() {
                 <Badge label={`JAKIM: ${masjid.jakimCode}`} variant="default" size="sm" />
               </View>
             )}
+            <TouchableOpacity
+              onPress={() => router.push({
+                pathname: '/masjid-report',
+                params: {
+                  masjidId: masjid.masjidId,
+                  masjidName: masjid.name,
+                  address: masjid.address,
+                  lat: masjid.lat.toString(),
+                  lng: masjid.lng.toString(),
+                },
+              })}
+              style={styles.reportLink}
+            >
+              <IconSymbol name="exclamationmark.circle" size={14} color={colors.primary} />
+              <Text style={[styles.reportLinkText, { color: colors.primary }]}>
+                Incorrect information? Report here
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Action Buttons */}
@@ -483,6 +501,16 @@ const styles = StyleSheet.create({
   },
   jakimRow: {
     marginTop: Spacing.sm,
+  },
+  reportLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  reportLinkText: {
+    ...Typography.bodySmall,
+    textDecorationLine: 'underline',
   },
   actionButtons: {
     flexDirection: 'row',

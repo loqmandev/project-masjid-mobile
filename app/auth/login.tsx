@@ -111,7 +111,7 @@ export default function LoginScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: '', headerTransparent: true, headerBackButtonMenuEnabled: true, headerBackButtonDisplayMode: 'minimal' }} />
+      <Stack.Screen options={{ title: '', headerTransparent: true, headerBackButtonMenuEnabled: true }} />
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.content}>
           {/* Logo/Branding Section */}

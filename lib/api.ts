@@ -5,6 +5,10 @@
 
 import { API_BASE_URL } from '@/constants/api';
 import { authClient } from '@/lib/auth-client';
+import type {
+  MasjidReportData,
+  MasjidReportResponse,
+} from '@/types/masjid-report';
 
 /**
  * Creates fetch options with authentication headers
@@ -735,4 +739,34 @@ export async function updateUserProfile(
   }
 
   return response.json();
+}
+
+/**
+ * Submit a masjid report (incorrect info or missing masjid)
+ * REQUIRES AUTHENTICATION
+ * Awards 50 points on successful submission
+ */
+export async function submitMasjidReport(
+  data: MasjidReportData
+): Promise<MasjidReportResponse> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/masjids/reports`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },  
+    body: JSON.stringify(data),
+  });
+
+  const responseData = await response.json();
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Please sign in to submit a report');
+    }
+    throw new Error(
+      responseData.message || `Report submission failed: ${response.status}`
+    );
+  }
+
+  return responseData;
 }
