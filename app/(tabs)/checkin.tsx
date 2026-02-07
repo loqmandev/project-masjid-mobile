@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -31,7 +31,7 @@ import { useLocation } from '@/hooks/use-location';
 import { useAnalytics } from '@/lib/analytics';
 import { checkinToMasjid, checkoutFromMasjid } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 
 type VisitState = 'idle' | 'nearby' | 'checked_in';
 
@@ -41,6 +41,36 @@ interface ActiveVisit {
   location: string;
   checkInTime: Date;
   minimumDuration: number; // minutes
+}
+
+/**
+ * Parse SQLite UTC datetime string to proper JavaScript Date.
+ * SQLite stores UTC as: "2026-02-02 01:59:23"
+ * JavaScript treats this as local time unless we add 'Z' to indicate UTC.
+ *
+ * @param dateString - SQLite datetime format (YYYY-MM-DD HH:MM:SS)
+ * @returns Date object properly parsed as UTC
+ */
+function parseSQLiteUTC(dateString: string): Date {
+  // Convert "2026-02-02 01:59:23" to "2026-02-02T01:59:23Z"
+  // The 'Z' suffix tells JavaScript this is UTC time
+  const isoString = dateString.replace(' ', 'T') + 'Z';
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) {
+    console.error('[CheckIn] Invalid check-in time:', dateString);
+    return new Date();
+  }
+  return date;
+}
+
+/**
+ * Format remaining seconds as MM:SS
+ * Moved outside component to avoid re-creation on every render
+ */
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 // Separate component for the animated check-in button to isolate animation lifecycle
@@ -115,8 +145,8 @@ export default function CheckInScreen() {
     invalidate: invalidateActiveCheckin,
   } = useActiveCheckin();
 
-  // Minimum duration for check-in (0 for testing, change to 5 for production)
-  const MINIMUM_DURATION_MINUTES = 0;
+  // Minimum duration for check-in (0 for testing, change to 10 for production)
+  const MINIMUM_DURATION_MINUTES = 10;
 
   // Convert backend active checkin to local format
   const activeVisit: ActiveVisit | null = activeCheckin
@@ -124,19 +154,10 @@ export default function CheckInScreen() {
         masjidId: activeCheckin.masjidId,
         masjidName: activeCheckin.masjidName,
         location: '', // Location not provided by backend
-        checkInTime: new Date(activeCheckin.checkInAt),
+        checkInTime: parseSQLiteUTC(activeCheckin.checkInAt),
         minimumDuration: MINIMUM_DURATION_MINUTES,
       }
     : null;
-
-  const { data: facilityContribution } = useQuery<
-    { pointsEarned: number; submittedAt: string } | null
-  >({
-    queryKey: ['facility-contribution', activeVisit?.masjidId],
-    queryFn: async () => null,
-    enabled: false,
-    initialData: null,
-  });
 
   // Location and nearby masjids
   const { location, isLoading: isLocationLoading, refresh: refreshLocation } = useLocation();
@@ -181,37 +202,59 @@ export default function CheckInScreen() {
     lastVisitState.current = visitState;
   }, [activeVisit, nearbyMasjid, track, visitState]);
 
-  // Calculate time remaining when active visit changes
+  // Calculate checkout target time when active visit changes
+  const checkoutTargetTimeRef = useRef<Date | null>(null);
+
   useEffect(() => {
     if (activeVisit) {
-      const elapsedSeconds = Math.floor(
-        (Date.now() - activeVisit.checkInTime.getTime()) / 1000
+      // Set the target checkout time to check-in time + minimum duration
+      checkoutTargetTimeRef.current = new Date(
+        activeVisit.checkInTime.getTime() + MINIMUM_DURATION_MINUTES * 60 * 1000
       );
-      const remainingSeconds = Math.max(
-        0,
-        activeVisit.minimumDuration * 60 - elapsedSeconds
-      );
-      setTimeRemaining(remainingSeconds);
     } else {
+      checkoutTargetTimeRef.current = null;
       setTimeRemaining(0);
     }
   }, [activeVisit]);
 
-  // Timer countdown for active visit
+  // Timer countdown for active visit - only depends on activeVisit, not timeRemaining
   useEffect(() => {
-    if (activeVisit && timeRemaining > 0) {
-      const interval = setInterval(() => {
-        setTimeRemaining((prev) => Math.max(0, prev - 1));
-      }, 1000);
-      return () => clearInterval(interval);
+    if (!activeVisit || !checkoutTargetTimeRef.current) {
+      setTimeRemaining(0);
+      return;
     }
-  }, [activeVisit, timeRemaining]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+    // Use ref to track interval so we can clear it when timer reaches 0
+    const intervalRef = { current: null as number | null };
+
+    // Calculate time remaining
+    const calculateTimeRemaining = () => {
+      const now = Date.now();
+      const target = checkoutTargetTimeRef.current!.getTime();
+      const remaining = Math.max(0, Math.floor((target - now) / 1000));
+      setTimeRemaining(remaining);
+
+      // Stop interval when timer reaches zero to save resources
+      if (remaining === 0 && intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+
+    // Initial calculation
+    calculateTimeRemaining();
+
+    // Only set up interval if there's time remaining
+    if (checkoutTargetTimeRef.current.getTime() > Date.now()) {
+      intervalRef.current = setInterval(calculateTimeRemaining, 1000);
+    }
+
+    return () => {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [activeVisit]);
 
   // Handle check-in
   const handleCheckIn = useCallback(async () => {
@@ -356,11 +399,19 @@ export default function CheckInScreen() {
     await refetchMasjids();
   }, [refreshLocation, refetchMasjids, track]);
 
-  const minimumDuration = activeVisit?.minimumDuration ?? 5;
-  const progressPercentage = activeVisit
-    ? ((minimumDuration * 60 - timeRemaining) / (minimumDuration * 60)) * 100
-    : 0;
-  const canCheckOut = timeRemaining === 0;
+  const minimumDuration = activeVisit?.minimumDuration ?? MINIMUM_DURATION_MINUTES;
+
+  // Memoize calculations to prevent unnecessary re-renders
+  const progressPercentage = useMemo(() => {
+    if (!activeVisit) return 0;
+    const totalSeconds = minimumDuration * 60;
+    return ((totalSeconds - timeRemaining) / totalSeconds) * 100;
+  }, [activeVisit, timeRemaining, minimumDuration]);
+
+  const canCheckOut = useMemo(() => {
+    // Use <= 1 to give a 1-second buffer for timing edge cases
+    return timeRemaining <= 1;
+  }, [timeRemaining]);
 
   const isLoadingState = isLoading && !activeVisit;
   let content: React.ReactNode;
@@ -481,9 +532,6 @@ export default function CheckInScreen() {
 
         {/* Masjid Info */}
         <View style={styles.centeredContent}>
-          <View style={[styles.masjidImageLarge, { backgroundColor: colors.primary + '15' }]}>
-            <IconSymbol name="mosque" size={64} color={colors.primary} />
-          </View>
 
           <Text style={[styles.masjidName, { color: colors.text }]}>
             {activeVisit?.masjidName}
@@ -602,28 +650,6 @@ export default function CheckInScreen() {
               </Text>
               <Text style={[styles.pointsValue, { color: colors.success }]}>
                 +{activeCheckin.bonusPoints} pts
-              </Text>
-            </View>
-          ) : null}
-          {facilityContribution ? (
-            <View style={styles.pointsRow}>
-              <Text style={[styles.pointsLabel, { color: colors.text }]}>
-                Facility Update
-              </Text>
-              <Text
-                style={[
-                  styles.pointsValue,
-                  {
-                    color:
-                      facilityContribution.pointsEarned > 0
-                        ? colors.success
-                        : colors.textSecondary,
-                  },
-                ]}
-              >
-                {facilityContribution.pointsEarned > 0
-                  ? `+${facilityContribution.pointsEarned} pts`
-                  : '0 pts'}
               </Text>
             </View>
           ) : null}
