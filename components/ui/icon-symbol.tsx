@@ -50,6 +50,7 @@ const MAPPING = {
   'arrow.triangle.turn.up.right.diamond.fill': 'directions',
   // Status
   'checkmark.seal.fill': 'verified',
+  'trophy': 'emoji-events',
   // Achievement/Journey icons
   'flame.fill': 'local-fire-department',
   'building.2.fill': 'apartment',
@@ -58,6 +59,15 @@ const MAPPING = {
   'medal.fill': 'military-tech',
   'hands.sparkles.fill': 'back-hand',
   'target': 'my-location',
+  // Settings icons
+  'bell.fill': 'notifications',
+  'clock.fill': 'access-time',
+  'eye.fill': 'visibility',
+  'trash.fill': 'delete',
+  'info.circle.fill': 'info',
+  'doc.text.fill': 'description',
+  'lock.shield.fill': 'security',
+  'envelope.fill': 'email',
 } as IconMapping;
 
 // Icons that should use FontAwesome6 instead of MaterialIcons

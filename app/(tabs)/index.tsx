@@ -1,5 +1,5 @@
 import { router, Stack } from 'expo-router';
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -8,8 +8,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { HeroSection } from '@/components/home/hero-section';
+import { StreakDots } from '@/components/home/streak-dots';
+import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ProgressBar } from '@/components/ui/progress-bar';
@@ -17,23 +20,23 @@ import { Colors, Spacing, Typography } from '@/constants/theme';
 import { useCheckinMasjids } from '@/hooks/use-checkin-masjids';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLocation } from '@/hooks/use-location';
+import { useNearbyMasjids } from '@/hooks/use-nearby-masjids';
 import { getNextAchievement, useUserAchievements } from '@/hooks/use-user-achievements';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { useSession } from '@/lib/auth-client';
+import { MasjidResponse } from '@/lib/api';
 
-// Helper functions
-function getEncouragementMessage(): string {
-  const messages = [
-    'Consistency in small steps.',
-    'Every step matters.',
-    'Continue your journey.',
-  ];
-  return messages[Math.floor(Math.random() * messages.length)];
+// Level calculation
+const POINTS_PER_LEVEL = 100;
+
+function calculateLevel(totalPoints: number): { level: number; currentXP: number; nextLevelXP: number } {
+  const level = Math.floor(totalPoints / POINTS_PER_LEVEL) + 1;
+  const currentXP = totalPoints % POINTS_PER_LEVEL;
+  const nextLevelXP = POINTS_PER_LEVEL;
+  return { level, currentXP, nextLevelXP };
 }
 
 function getProgressHint(current: number, required: number): string {
   const progressPercent = current / required;
-
   if (progressPercent === 0) return 'Your first step begins here.';
   if (progressPercent < 0.5) return 'The journey begins.';
   if (progressPercent < 0.8) return 'Getting closer.';
@@ -46,13 +49,22 @@ function getProgressMessage(current: number, required: number): string {
   return `${current}/${required} - Keep going.`;
 }
 
+function getTierBadgeVariant(tier: string): 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond' {
+  const tierMap: Record<string, 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond'> = {
+    bronze: 'bronze',
+    silver: 'silver',
+    gold: 'gold',
+    platinum: 'platinum',
+    diamond: 'diamond',
+  };
+  return tierMap[tier.toLowerCase()] || 'bronze';
+}
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { data: session } = useSession();
-  const insets = useSafeAreaInsets();
 
+  // User data
   const { data: userProfile } = useUserProfile();
   const { data: achievements } = useUserAchievements();
   const headerName = userProfile?.profile?.leaderboardAlias || 'Guest';
@@ -61,23 +73,64 @@ export default function HomeScreen() {
       .split(' ')
       .filter(Boolean)
       .slice(0, 2)
-      .map((word) => word[0])
+      .map((word: string) => word[0])
       .join('')
       .toUpperCase() || 'MJ';
 
+  // Level calculation
+  const totalPoints = userProfile?.profile?.totalPoints ?? 0;
+  const { level, currentXP, nextLevelXP } = calculateLevel(totalPoints);
+  const levelProgress = (currentXP / nextLevelXP) * 100;
+
+  // Stats
+  const uniqueMasjidsVisited = userProfile?.profile?.uniqueMasjidsVisited ?? 0;
+  const currentStreak = userProfile?.profile?.currentStreak ?? 0;
+  const longestStreak = userProfile?.profile?.longestStreak ?? 0;
+  const achievementCount = userProfile?.profile?.achievementCount ?? 0;
+  const lastVisitDate = userProfile?.profile?.lastVisitDate;
+
+  // Achievement
   const nextAchievement = getNextAchievement(achievements);
 
+  // Location
   const { location, isLoading: isLocationLoading, error: locationError } = useLocation();
 
+  // Masjids - combine checkin masjids and nearby masjids
   const {
     data: checkinMasjids,
-    isLoading: isMasjidsLoading,
-    error: masjidsError,
+    isLoading: isCheckinLoading,
+    error: checkinError,
     refetch: refetchMasjids,
   } = useCheckinMasjids({
     latitude: location?.latitude ?? null,
     longitude: location?.longitude ?? null,
   });
+
+  const { data: nearbyMasjids, isLoading: isNearbyLoading } = useNearbyMasjids({
+    latitude: location?.latitude ?? null,
+    longitude: location?.longitude ?? null,
+    radius: 5,
+  });
+
+  // Merge and prioritize: ready to check-in first, then by distance
+  const displayMasjids = useMemo(() => {
+    const checkinList: MasjidResponse[] = checkinMasjids ?? [];
+    const nearbyList: MasjidResponse[] = nearbyMasjids ?? [];
+
+    // Get ready-to-check-in masjids
+    const readyMasjids = checkinList.filter((m: MasjidResponse) => m.canCheckin);
+
+    // Get other masjids not in checkin list, sorted by distance
+    const otherMasjids = nearbyList
+      .filter((m: MasjidResponse) => !checkinList.some((c: MasjidResponse) => c.masjidId === m.masjidId))
+      .sort((a: MasjidResponse, b: MasjidResponse) => a.distanceM - b.distanceM);
+
+    // Combine: ready masjids first, then others, max 4
+    return [...readyMasjids, ...otherMasjids].slice(0, 4);
+  }, [checkinMasjids, nearbyMasjids]);
+
+  const isLoadingMasjids = isLocationLoading || isCheckinLoading || isNearbyLoading;
+  const hasMasjidError = locationError || checkinError;
 
   const handleMasjidPress = (masjidId: string) => {
     router.push(`/masjid/${masjidId}`);
@@ -98,190 +151,140 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Simplified Header */}
-        <View style={[styles.headerSection, { paddingTop: insets.top }]}>
-          <View style={[styles.headerBackground, { backgroundColor: colors.primary }]}>
-            {/* Top Bar */}
-            <View style={styles.headerTopBar}>
-              <View style={styles.headerGreetingSection}>
-                <Text style={styles.headerGreetingLabel}>Assalamualaikum,</Text>
-                <Text style={styles.headerUserName}>{headerName}!</Text>
-              </View>
-              <TouchableOpacity style={[styles.headerAvatar, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                <Text style={styles.headerAvatarText}>{initials}</Text>
-              </TouchableOpacity>
-            </View>
+        {/* Hero Section with stats */}
+        <HeroSection
+          userName={headerName}
+          initials={initials}
+          level={level}
+          levelProgress={levelProgress}
+          currentXP={currentXP}
+          nextLevelXP={nextLevelXP}
+          uniqueMasjidsVisited={uniqueMasjidsVisited}
+          totalPoints={totalPoints}
+          currentStreak={currentStreak}
+          achievementCount={achievementCount}
+          colorScheme={colorScheme ?? 'light'}
+        />
 
-            {/* Nearby Masjid Card in Header */}
-            {isLocationLoading || isMasjidsLoading ? (
-              <View style={[styles.headerMasjidCard, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
-                <View style={styles.headerMasjidContent}>
-                  <ActivityIndicator size="small" color="#fff" />
-                  <View style={styles.headerMasjidInfo}>
-                    <Text style={styles.headerMasjidTitle}>Finding nearby masjids</Text>
-                    <Text style={styles.headerMasjidSubtitle}>Getting your location...</Text>
-                  </View>
-                </View>
-              </View>
-            ) : locationError || masjidsError ? (
-              <TouchableOpacity
-                onPress={() => refetchMasjids()}
-                style={[styles.headerMasjidCard, { backgroundColor: 'rgba(255,255,255,0.18)' }]}
-                activeOpacity={0.7}
-              >
-                <View style={styles.headerMasjidContent}>
-                  <IconSymbol name="arrow.clockwise" size={22} color="#fff" />
-                  <View style={styles.headerMasjidInfo}>
-                    <Text style={styles.headerMasjidTitle}>Can't find masjids</Text>
-                    <Text style={styles.headerMasjidSubtitle}>Tap to retry</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ) : checkinMasjids && checkinMasjids.length > 0 ? (
-              <TouchableOpacity
-                onPress={() => handleMasjidPress(checkinMasjids[0].masjidId)}
-                style={[styles.headerMasjidCard, { backgroundColor: 'rgba(255,255,255,0.18)' }]}
-                activeOpacity={0.7}
-              >
-                <View style={styles.headerMasjidContent}>
-                  <View style={styles.headerMasjidIconContainer}>
-                    <IconSymbol name="mosque" size={28} color="#fff" />
-                  </View>
-                  <View style={styles.headerMasjidInfo}>
-                    <Text style={styles.headerMasjidTitle} numberOfLines={1}>
-                      {checkinMasjids[0].name}
-                    </Text>
-                    <Text style={styles.headerMasjidSubtitle}>
-                      {checkinMasjids[0].distanceM}m away • Ready to check in
-                    </Text>
-                  </View>
-                  <IconSymbol name="chevron.right" size={20} color="#fff" />
-                </View>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                onPress={handleViewAllNearby}
-                style={[styles.headerMasjidCard, { backgroundColor: 'rgba(255,255,255,0.18)' }]}
-                activeOpacity={0.7}
-              >
-                <View style={styles.headerMasjidContent}>
-                  <IconSymbol name="magnifyingglass" size={22} color="#fff" />
-                  <View style={styles.headerMasjidInfo}>
-                    <Text style={styles.headerMasjidTitle}>No nearby masjid</Text>
-                    <Text style={styles.headerMasjidSubtitle}>Tap to explore nearby</Text>
-                  </View>
-                  <IconSymbol name="chevron.right" size={20} color="#fff" />
-                </View>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {/* Personal Journey Summary Card */}
-        <Card variant="outlined" padding="lg" style={styles.journeyCard}>
-          <View style={styles.journeyHeader}>
-            <Text style={[styles.journeyTitle, { color: colors.text }]}>Journey</Text>
-          </View>
-
-          <View style={styles.journeyStats}>
-            {/* Current Streak */}
-            <View style={styles.journeyStat}>
-              <View style={[styles.statIconContainer, { backgroundColor: colors.primary + '15' }]}>
-                <IconSymbol name="flame.fill" size={22} color={colors.primary} />
-              </View>
-              <View>
-                <Text style={[styles.statValue, { color: colors.text }]}>
-                  {userProfile?.profile?.currentStreak ?? 0}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                  consecutive days
-                </Text>
+        {/* Nearby Masjid Card */}
+        <Card variant="elevated" padding="md" style={styles.nearbyMasjidCard}>
+          {isLoadingMasjids ? (
+            <View style={styles.masjidCardContent}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <View style={styles.masjidCardInfo}>
+                <Text style={[styles.masjidCardTitle, { color: colors.text }]}>Finding nearby masjids</Text>
+                <Text style={[styles.masjidCardSubtitle, { color: colors.textSecondary }]}>Getting your location...</Text>
               </View>
             </View>
-
-            {/* Total Masjids Visited */}
-            <View style={styles.journeyStat}>
-              <View style={[styles.statIconContainer, { backgroundColor: colors.primary + '15' }]}>
-                <IconSymbol name="mosque" size={22} color={colors.primary} />
+          ) : hasMasjidError ? (
+            <TouchableOpacity
+              onPress={() => refetchMasjids()}
+              style={styles.masjidCardContent}
+              activeOpacity={0.7}
+            >
+              <IconSymbol name="arrow.clockwise" size={22} color={colors.textSecondary} />
+              <View style={styles.masjidCardInfo}>
+                <Text style={[styles.masjidCardTitle, { color: colors.text }]}>Can't find masjids</Text>
+                <Text style={[styles.masjidCardSubtitle, { color: colors.textSecondary }]}>Tap to retry</Text>
               </View>
-              <View>
-                <Text style={[styles.statValue, { color: colors.text }]}>
-                  {userProfile?.profile?.uniqueMasjidsVisited ?? 0}
+            </TouchableOpacity>
+          ) : displayMasjids.length > 0 && displayMasjids[0].canCheckin ? (
+            <TouchableOpacity
+              onPress={() => handleMasjidPress(displayMasjids[0].masjidId)}
+              style={styles.masjidCardContent}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.masjidCardIcon, { backgroundColor: colors.primary + '15' }]}>
+                <IconSymbol name="mosque" size={28} color={colors.primary} />
+              </View>
+              <View style={styles.masjidCardInfo}>
+                <Text style={[styles.masjidCardTitle, { color: colors.text }]} numberOfLines={1}>
+                  {displayMasjids[0].name}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                  masjids visited
+                <Text style={[styles.masjidCardSubtitle, { color: colors.textSecondary }]}>
+                  {displayMasjids[0].distanceM}m away • Ready to check in
                 </Text>
               </View>
-            </View>
-
-            {/* Points Earned */}
-            <View style={styles.journeyStat}>
-              <View style={[styles.statIconContainer, { backgroundColor: colors.primary + '15' }]}>
-                <IconSymbol name="star.fill" size={22} color={colors.primary} />
+              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={handleViewAllNearby}
+              style={styles.masjidCardContent}
+              activeOpacity={0.7}
+            >
+              <IconSymbol name="magnifyingglass" size={22} color={colors.textSecondary} />
+              <View style={styles.masjidCardInfo}>
+                <Text style={[styles.masjidCardTitle, { color: colors.text }]}>No nearby masjid</Text>
+                <Text style={[styles.masjidCardSubtitle, { color: colors.textSecondary }]}>Tap to explore nearby</Text>
               </View>
-              <View>
-                <Text style={[styles.statValue, { color: colors.text }]}>
-                  {userProfile?.profile?.totalPoints ?? 0}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                  points earned
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Gentle encouragement message */}
-          {userProfile?.profile?.currentStreak === 0 && userProfile?.profile?.lastVisitDate && (
-            <Text style={[styles.encouragementMessage, { color: colors.textSecondary }]}>
-              {getEncouragementMessage()}
-            </Text>
+              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
           )}
         </Card>
 
-        {/* Achievement Progress */}
+        {/* Current Achievement Focus */}
         {nextAchievement && nextAchievement.achievement.requiredCount && (
-          <View style={styles.section}>
-            <Card variant="outlined" padding="lg" style={styles.progressCard}>
-              <View style={styles.journeyHeader}>
-                <Text style={[styles.journeyTitle, { color: colors.text }]}>Achievement</Text>
-              </View>
-              <View style={styles.progressHeader}>
-                <IconSymbol
-                  name={'medal'}
-                  size={24}
-                  color={colors.primary}
+          <Card variant="elevated" padding="lg" style={styles.achievementCard}>
+            <View style={styles.achievementHeader}>
+              <Text style={[styles.achievementTitle, { color: colors.text }]}>Next Achievement</Text>
+              {nextAchievement.progress?.isUnlocked && (
+                <Badge
+                  label={nextAchievement.achievement.badgeTier.charAt(0).toUpperCase() +
+                    nextAchievement.achievement.badgeTier.slice(1)}
+                  variant={getTierBadgeVariant(nextAchievement.achievement.badgeTier)}
+                  size="sm"
                 />
-                <View style={styles.progressInfo}>
-                  <Text style={[styles.progressName, { color: colors.text }]}>
-                    {nextAchievement.achievement.name}
-                  </Text>
-                  <Text style={[styles.progressHint, { color: colors.textSecondary }]}>
-                    {getProgressHint(
-                      Number(nextAchievement.progress?.currentProgress ?? 0),
-                      Number(nextAchievement.achievement.requiredCount)
-                    )}
-                  </Text>
-                </View>
+              )}
+            </View>
+
+            <View style={styles.achievementContent}>
+              <View style={[styles.achievementIcon, { backgroundColor: colors.gold + '15' }]}>
+                <IconSymbol name="medal" size={32} color={colors.gold} />
               </View>
+              <View style={styles.achievementInfo}>
+                <Text style={[styles.achievementName, { color: colors.text }]}>
+                  {nextAchievement.achievement.name}
+                </Text>
+                <Text style={[styles.achievementHint, { color: colors.textSecondary }]}>
+                  {getProgressHint(
+                    Number(nextAchievement.progress?.currentProgress ?? 0),
+                    Number(nextAchievement.achievement.requiredCount)
+                  )}
+                </Text>
+              </View>
+            </View>
 
-              <ProgressBar
-                progress={
-                  (Number(nextAchievement.progress?.currentProgress ?? 0) /
-                    Number(nextAchievement.achievement.requiredCount)) *
-                  100
-                }
-                variant="primary"
-                size="md"
-              />
+            <ProgressBar
+              progress={
+                (Number(nextAchievement.progress?.currentProgress ?? 0) /
+                  Number(nextAchievement.achievement.requiredCount)) *
+                100
+              }
+              variant="gold"
+              size="md"
+            />
 
-              <Text style={[styles.progressMessage, { color: colors.textSecondary }]}>
-                {getProgressMessage(
-                  Number(nextAchievement.progress?.currentProgress ?? 0),
-                  Number(nextAchievement.achievement.requiredCount)
-                )}
-              </Text>
-            </Card>
-          </View>
+            <Text style={[styles.achievementMessage, { color: colors.textSecondary }]}>
+              {getProgressMessage(
+                Number(nextAchievement.progress?.currentProgress ?? 0),
+                Number(nextAchievement.achievement.requiredCount)
+              )}
+            </Text>
+          </Card>
+        )}
+
+
+
+        {/* Streak Visualization */}
+        {currentStreak > 0 && (
+          <Card variant="elevated" padding="md" style={styles.streakCard}>
+            <StreakDots
+              currentStreak={currentStreak}
+              longestStreak={longestStreak}
+              lastVisitDate={lastVisitDate ?? undefined}
+            />
+          </Card>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -296,192 +299,175 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: Spacing.md,
     paddingTop: 0,
     paddingBottom: Spacing.xxl,
+    gap: Spacing.md,
   },
 
-  // Header Section
-  headerSection: {
-    marginBottom: Spacing.lg,
-    overflow: 'hidden',
-    marginHorizontal: -Spacing.md,
+  // Achievement Card
+  achievementCard: {
+    marginHorizontal: Spacing.md,
+    borderRadius: 20,
   },
-  headerBackground: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl + Spacing.lg,
-    paddingTop: Spacing.lg,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-    minHeight: 180,
-  },
-  headerTopBar: {
+  achievementHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.lg,
+    alignItems: 'center',
+    marginBottom: Spacing.md,
   },
-  headerAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
+  achievementTitle: {
+    ...Typography.h3,
+    fontWeight: '600',
+  },
+  achievementContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+    gap: Spacing.md,
+  },
+  achievementIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerAvatarText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  headerGreetingSection: {
+  achievementInfo: {
     flex: 1,
   },
-  headerGreetingLabel: {
+  achievementName: {
     ...Typography.body,
-    color: 'rgba(255,255,255,0.85)',
-    fontWeight: '500',
-    marginBottom: 4,
+    fontWeight: '600',
+    marginBottom: 2,
   },
-  headerUserName: {
-    ...Typography.h1,
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 28,
+  achievementHint: {
+    ...Typography.caption,
   },
-  headerMessageCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: Spacing.md,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
+  achievementMessage: {
+    ...Typography.caption,
+    marginTop: Spacing.sm,
   },
-  headerMessageContent: {
-    flex: 1,
+
+  // Nearby Masjid Card
+  nearbyMasjidCard: {
+    marginHorizontal: Spacing.md,
   },
-  headerMessageText: {
-    ...Typography.body,
-    color: '#fff',
-    fontWeight: '500',
-    fontStyle: 'italic',
-  },
-  // Header Masjid Card
-  headerMasjidCard: {
-    padding: Spacing.md,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-  },
-  headerMasjidContent: {
+  masjidCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
   },
-  headerMasjidIconContainer: {
+  masjidCardIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerMasjidInfo: {
+  masjidCardInfo: {
     flex: 1,
   },
-  headerMasjidTitle: {
+  masjidCardTitle: {
     ...Typography.body,
     fontWeight: '700',
     fontSize: 16,
-    color: '#fff',
     marginBottom: 2,
   },
-  headerMasjidSubtitle: {
+  masjidCardSubtitle: {
     ...Typography.caption,
-    color: 'rgba(255,255,255,0.8)',
-  },
-
-  // Personal Journey Card
-  journeyCard: {
-    marginBottom: Spacing.lg,
-    borderRadius: 16,
-  },
-  journeyHeader: {
-    marginBottom: Spacing.md,
-  },
-  journeyTitle: {
-    ...Typography.h3,
-    fontWeight: '600',
-  },
-  journeyStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: Spacing.sm,
-  },
-  journeyStat: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xs,
-  },
-  statValue: {
-    ...Typography.h2,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  statLabel: {
-    ...Typography.caption,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  encouragementMessage: {
-    ...Typography.caption,
-    textAlign: 'center',
-    marginTop: Spacing.md,
-    fontStyle: 'italic',
   },
 
   // Section
   section: {
     marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
   },
   sectionTitle: {
     ...Typography.h3,
     fontWeight: '600',
-    marginBottom: Spacing.sm,
   },
-
-  // Achievement Progress
-  progressCard: {
-    borderRadius: 16,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-    gap: Spacing.md,
-  },
-  progressInfo: {
-    flex: 1,
-  },
-  progressName: {
-    ...Typography.body,
+  viewAllLink: {
+    ...Typography.bodySmall,
     fontWeight: '600',
   },
-  progressHint: {
+
+  // Masjid Horizontal Scroll
+  masjidScroll: {
+    paddingRight: Spacing.md,
+    gap: Spacing.sm,
+  },
+
+  // Empty State
+  emptyStateContainer: {
+    alignItems: 'center',
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: 16,
+  },
+  emptyStateText: {
+    ...Typography.body,
+    fontWeight: '600',
+    marginTop: Spacing.sm,
+  },
+
+  // Loading State (deprecated - kept for other potential uses)
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+  },
+  loadingText: {
+    ...Typography.bodySmall,
+  },
+
+  // Error State
+  errorContainer: {
+    alignItems: 'center',
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: 16,
+  },
+  errorText: {
+    ...Typography.body,
+    fontWeight: '600',
+    marginTop: Spacing.sm,
+  },
+  retryText: {
+    ...Typography.bodySmall,
+    fontWeight: '600',
+    marginTop: Spacing.xs,
+  },
+
+  // Empty State
+  emptyNearbyContainer: {
+    alignItems: 'center',
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: 16,
+  },
+  emptyNearbyText: {
+    ...Typography.body,
+    fontWeight: '600',
+    marginTop: Spacing.sm,
+  },
+  emptyNearbySubtext: {
     ...Typography.caption,
     marginTop: 2,
   },
-  progressMessage: {
-    ...Typography.caption,
-    marginTop: Spacing.sm,
+
+  // Streak Card
+  streakCard: {
+    marginHorizontal: Spacing.md,
+    borderRadius: 16,
   },
 });
