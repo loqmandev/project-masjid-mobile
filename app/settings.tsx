@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import {
   Alert,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -59,12 +60,30 @@ export default function SettingsScreen() {
   };
 
   const handleRateApp = () => {
-    // TODO: Implement rate app (link to app store)
-    Alert.alert('Rate App', 'This will open the app store (not implemented yet)');
+    const APP_STORE_ID = '6757920248'; // iOS App Store ID
+    const PLAY_STORE_PACKAGE = 'my.lonasoft.jejakmasjidmobile'; // Android package name
+
+    const url = Platform.select({
+      ios: `itms-apps://itunes.apple.com/app/id${APP_STORE_ID}?action=write-review`,
+      android: `market://details?id=${PLAY_STORE_PACKAGE}`,
+      // Fallback for web or other platforms
+      default: `https://apps.apple.com/app/id${APP_STORE_ID}`,
+    });
+
+    if (url) {
+      Linking.openURL(url).catch((err) => {
+        console.error('Failed to open app store:', err);
+        Alert.alert(
+          'Unable to Open Store',
+          'Could not open the app store. Please visit the store manually to rate the app.',
+          [{ text: 'OK' }]
+        );
+      });
+    }
   };
 
   const handleContactSupport = () => {
-    Linking.openURL('mailto:support@jejakmasjid.com');
+    Linking.openURL('mailto:support@jejakmasjid.my');
   };
 
   const renderSectionHeader = (title: string) => (
@@ -161,13 +180,10 @@ export default function SettingsScreen() {
           {renderMenuItem('person.fill', 'Edit Profile', () => {
             router.push('/edit-profile');
           })}
-          {renderMenuItem('link', 'Linked Accounts', () => {
-            // TODO: Navigate to linked accounts
-          })}
         </Card>
 
-        {/* Notifications Section */}
-        {renderSectionHeader('NOTIFICATIONS')}
+        {/* Notifications Section TODO: For next release */}
+        {/* {renderSectionHeader('NOTIFICATIONS')}
         <Card variant="outlined" padding="xs" style={styles.sectionCard}>
           {renderToggleItem(
             'bell.fill',
@@ -181,7 +197,7 @@ export default function SettingsScreen() {
             checkoutReminders,
             setCheckoutReminders
           )}
-        </Card>
+        </Card> */}
 
         {/* Privacy Section */}
         {renderSectionHeader('PRIVACY')}
@@ -282,7 +298,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
-    borderBottomWidth: 1,
   },
   menuItemLeft: {
     flexDirection: 'row',
