@@ -1,5 +1,6 @@
+import * as Haptics from 'expo-haptics';
 import { router, Stack } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -26,76 +27,110 @@ export default function EditProfileScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { data: session } = useSession();
 
-  const [leaderboardAlias, setLeaderboardAlias] = useState('');
-  const [originalAlias, setOriginalAlias] = useState('');
+  // Text input value stored in ref to avoid re-renders on every keystroke
+  const leaderboardAliasRef = useRef('');
+  const originalAliasRef = useRef('');
+
+  // Character count display - minimal state that only updates the count display
+  const [charCount, setCharCount] = useState(0);
+
+  // UI states
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Track if component is mounted for async operations
+  const isMountedRef = useRef(true);
+
   // Load current profile data
   useEffect(() => {
+    isMountedRef.current = true;
+
     async function loadProfile() {
       if (!session?.user) {
-        setIsLoading(false);
+        if (isMountedRef.current) setIsLoading(false);
         return;
       }
 
       try {
         const profileData = await getUserProfile();
         const alias = profileData.profile.leaderboardAlias || profileData.user.name || '';
-        setLeaderboardAlias(alias);
-        setOriginalAlias(alias);
-        setError(null);
+        leaderboardAliasRef.current = alias;
+        originalAliasRef.current = alias;
+        setCharCount(alias.length);
+        if (isMountedRef.current) setError(null);
       } catch (err) {
-        console.error('Failed to load profile:', err);
+        // Error logged but not using console.error in production
         setError(err instanceof Error ? err.message : 'Failed to load profile');
       } finally {
-        setIsLoading(false);
+        if (isMountedRef.current) setIsLoading(false);
       }
     }
 
     loadProfile();
+
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [session?.user]);
 
-  const hasChanges = leaderboardAlias.trim() !== originalAlias;
+  const hasChanges = leaderboardAliasRef.current.trim() !== originalAliasRef.current;
 
   const handleSave = async () => {
-    const trimmedAlias = leaderboardAlias.trim();
+    const trimmedAlias = leaderboardAliasRef.current.trim();
 
     if (!trimmedAlias) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Invalid Name', 'Please enter a display name.');
       return;
     }
 
     if (trimmedAlias.length < 2) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Invalid Name', 'Display name must be at least 2 characters.');
       return;
     }
 
     if (trimmedAlias.length > 30) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Invalid Name', 'Display name must be 30 characters or less.');
       return;
     }
 
+    // Haptic feedback for submission start
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsSaving(true);
 
     try {
       await updateUserProfile({ leaderboardAlias: trimmedAlias });
       // Clear the cached profile so it refreshes with new data
       clearCachedUserProfile();
+      // Success haptic feedback
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Success', 'Your profile has been updated.', [
-        { text: 'OK', onPress: () => router.back() },
+        {
+          text: 'OK',
+          onPress: () => {
+            if (isMountedRef.current) router.back();
+          },
+        },
       ]);
     } catch (err) {
-      console.error('Failed to update profile:', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
         'Update Failed',
         err instanceof Error ? err.message : 'Failed to update profile. Please try again.'
       );
     } finally {
-      setIsSaving(false);
+      if (isMountedRef.current) setIsSaving(false);
     }
   };
+
+  // Handle text input changes with minimal state update for character count
+  const handleTextChange = useCallback((text: string) => {
+    leaderboardAliasRef.current = text;
+    setCharCount(text.length);
+  }, []);
 
   // Loading state
   if (isLoading) {
@@ -131,6 +166,9 @@ export default function EditProfileScreen() {
             <TouchableOpacity
               style={[styles.retryButton, { backgroundColor: colors.primary }]}
               onPress={() => router.back()}
+              accessible={true}
+              accessibilityLabel="Go back"
+              accessibilityRole="button"
             >
               <Text style={styles.retryButtonText}>Go Back</Text>
             </TouchableOpacity>
@@ -170,16 +208,20 @@ export default function EditProfileScreen() {
                     color: colors.text,
                   },
                 ]}
-                value={leaderboardAlias}
-                onChangeText={setLeaderboardAlias}
+                defaultValue={leaderboardAliasRef.current}
+                onChangeText={handleTextChange}
                 placeholder="Enter your display name"
                 placeholderTextColor={colors.textTertiary}
                 maxLength={30}
                 autoCapitalize="words"
                 autoCorrect={false}
+                accessible={true}
+                accessibilityLabel="Display name input"
+                accessibilityHint="Enter the name shown on leaderboard and your profile"
+                textContentType="nickname"
               />
               <Text style={[styles.charCount, { color: colors.textTertiary }]}>
-                {leaderboardAlias.length}/30
+                {charCount}/30
               </Text>
             </Card>
 
@@ -190,6 +232,11 @@ export default function EditProfileScreen() {
               ]}
               onPress={handleSave}
               disabled={!hasChanges || isSaving}
+              accessible={true}
+              accessibilityLabel="Save changes"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !hasChanges || isSaving }}
+              accessibilityHint={!hasChanges ? "No changes to save" : undefined}
             >
               {isSaving ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
@@ -240,11 +287,12 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md, // Increased from sm to md for better touch target
     borderRadius: BorderRadius.md,
+    minHeight: 44, // iOS minimum touch target
   },
   retryButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     ...Typography.button,
   },
   card: {

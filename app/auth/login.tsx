@@ -26,23 +26,32 @@ export default function LoginScreen() {
   const hasTrackedView = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isOAuthInProgress, setIsOAuthInProgress] = useState(false);
+
+  // Track if user intentionally navigated to login screen (not OAuth callback)
+  const [isIntentionalVisit, setIsIntentionalVisit] = useState(false);
 
   useEffect(() => {
     if (hasTrackedView.current) return;
     screen('login');
     track('login_screen_viewed', { return_to: params.returnTo ?? '/(tabs)' });
     hasTrackedView.current = true;
+    // Mark as intentional visit after a small delay to prevent race conditions
+    setTimeout(() => setIsIntentionalVisit(true), 100);
   }, [params.returnTo, screen, track]);
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated - only after we've confirmed this is an intentional visit
   useEffect(() => {
-    if (session && !isPending) {
+    if (isIntentionalVisit && session && !isPending) {
       const returnTo = params.returnTo || '/(tabs)';
       router.replace(`/auth/enter-name?returnTo=${encodeURIComponent(returnTo)}` as any);
     }
-  }, [session, isPending, params.returnTo]);
+  }, [session, isPending, params.returnTo, isIntentionalVisit]);
 
   const handleGoogleSignIn = async () => {
+    if (isOAuthInProgress) return; // Prevent multiple simultaneous attempts
+
+    setIsOAuthInProgress(true);
     setIsLoading(true);
     setAuthError(null);
     track('google_sign_in_attempted');
@@ -56,10 +65,14 @@ export default function LoginScreen() {
       }
     } finally {
       setIsLoading(false);
+      setIsOAuthInProgress(false);
     }
   };
 
   const handleAppleSignIn = async () => {
+    if (isOAuthInProgress) return; // Prevent multiple simultaneous attempts
+
+    setIsOAuthInProgress(true);
     setIsLoading(true);
     setAuthError(null);
     track('apple_sign_in_attempted');
@@ -93,6 +106,7 @@ export default function LoginScreen() {
       }
     } finally {
       setIsLoading(false);
+      setIsOAuthInProgress(false);
     }
   };
 
@@ -297,6 +311,7 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
   },
   signInSection: {
+    marginTop: Spacing.lg,
     gap: Spacing.md,
   },
   welcomeMessage: {

@@ -1,5 +1,5 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -10,28 +10,28 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { BorderRadius, Colors, primary, Spacing, Typography } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useMasjidDetails } from '@/hooks/use-masjid-details';
-import { useMasjidPhotos } from '@/hooks/use-masjid-photos';
-import { useAnalytics } from '@/lib/analytics';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useMasjidDetails } from "@/hooks/use-masjid-details";
+import { useMasjidPhotos } from "@/hooks/use-masjid-photos";
+import { useAnalytics } from "@/lib/analytics";
 
-type TabType = 'facilities' | 'photos' | 'events';
+type TabType = "facilities" | "photos" | "events";
 
 export default function MasjidDetailScreen() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? "light"];
   const { id } = useLocalSearchParams<{ id: string }>();
   const { track, screen } = useAnalytics();
   const hasTrackedView = useRef(false);
-  const [activeTab, setActiveTab] = useState<TabType>('facilities');
+  const [activeTab, setActiveTab] = useState<TabType>("facilities");
 
   // Fetch masjid details
   const {
@@ -49,19 +49,19 @@ export default function MasjidDetailScreen() {
 
   useEffect(() => {
     if (!masjid || hasTrackedView.current) return;
-    screen('masjid_detail', { masjid_id: masjid.id ?? id });
-    track('masjid_detail_viewed', { masjid_id: masjid.id ?? id });
+    screen("masjid_detail", { masjid_id: masjid.id ?? id });
+    track("masjid_detail_viewed", { masjid_id: masjid.id ?? id });
     hasTrackedView.current = true;
   }, [id, masjid, screen, track]);
 
   const handleCheckIn = () => {
-    track('masjid_checkin_clicked', { masjid_id: masjid?.id ?? id });
-    router.push('/(tabs)/checkin');
+    track("masjid_checkin_clicked", { masjid_id: masjid?.id ?? id });
+    router.push("/(tabs)/checkin");
   };
 
   const handleDirections = () => {
     if (!masjid) return;
-    track('masjid_directions_clicked', { masjid_id: masjid.id });
+    track("masjid_directions_clicked", { masjid_id: masjid.id });
 
     const { lat, lng, name } = masjid;
     const encodedName = encodeURIComponent(name);
@@ -76,7 +76,7 @@ export default function MasjidDetailScreen() {
     Linking.openURL(url).catch(() => {
       // Fallback to web URL if app URL fails
       Linking.openURL(
-        `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+        `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
       );
     });
   };
@@ -86,24 +86,24 @@ export default function MasjidDetailScreen() {
     if (!masjid?.facilities) return [];
 
     const iconByCode: Record<string, string> = {
-      PRAYER_MALE: '🕌',
-      PRAYER_FEMALE: '🕌',
-      PRAYER_AC: '❄️',
-      WOMEN_FRIENDLY_LAYOUT: '👩',
-      WUDHU_MALE: '💧',
-      WUDHU_FEMALE: '💧',
-      WUDHU_OKU: '♿',
-      TOILET_MALE: '🚻',
-      TOILET_FEMALE: '🚻',
-      TOILET_OKU: '♿',
-      WHEELCHAIR_ACCESS: '♿',
-      PARKING_COMPOUND: '🅿️',
-      PARKING_STREET: '🅿️',
-      WATER_DISPENSER: '🚰',
-      PHONE_CHARGER: '🔌',
-      REST_AREA: '🪑',
-      WORKING_SPACE: '💻',
-      EVENT_SPACE: '🎪',
+      PRAYER_MALE: "🕌",
+      PRAYER_FEMALE: "🕌",
+      PRAYER_AC: "❄️",
+      WOMEN_FRIENDLY_LAYOUT: "👩",
+      WUDHU_MALE: "💧",
+      WUDHU_FEMALE: "💧",
+      WUDHU_OKU: "♿",
+      TOILET_MALE: "🚻",
+      TOILET_FEMALE: "🚻",
+      TOILET_OKU: "♿",
+      WHEELCHAIR_ACCESS: "♿",
+      PARKING_COMPOUND: "🅿️",
+      PARKING_STREET: "🅿️",
+      WATER_DISPENSER: "🚰",
+      PHONE_CHARGER: "🔌",
+      REST_AREA: "🪑",
+      WORKING_SPACE: "💻",
+      EVENT_SPACE: "🎪",
     };
 
     const facilitiesData = masjid.facilities as unknown;
@@ -112,7 +112,7 @@ export default function MasjidDetailScreen() {
     return facilitiesData.map((facility: { code: string; label: string }) => ({
       key: facility.code,
       name: facility.label,
-      icon: iconByCode[facility.code] ?? '✅',
+      icon: iconByCode[facility.code] ?? "✅",
     }));
   };
 
@@ -120,8 +120,14 @@ export default function MasjidDetailScreen() {
   if (isLoading) {
     return (
       <>
-        <Stack.Screen options={{ title: '', headerTransparent: true }} />
-        <SafeAreaView style={[styles.container, styles.centerContent, { backgroundColor: colors.background }]}>
+        <Stack.Screen options={{ title: "", headerTransparent: true }} />
+        <SafeAreaView
+          style={[
+            styles.container,
+            styles.centerContent,
+            { backgroundColor: colors.background },
+          ]}
+        >
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
             Loading masjid details...
@@ -135,15 +141,27 @@ export default function MasjidDetailScreen() {
   if (error || !masjid) {
     return (
       <>
-        <Stack.Screen options={{ title: '', headerTransparent: true,  headerBackButtonDisplayMode: 'minimal' }} />
-        <SafeAreaView style={[styles.container, styles.centerContent, { backgroundColor: colors.background }]}>
+        <Stack.Screen
+          options={{
+            title: "",
+            headerTransparent: true,
+            headerBackButtonDisplayMode: "minimal",
+          }}
+        />
+        <SafeAreaView
+          style={[
+            styles.container,
+            styles.centerContent,
+            { backgroundColor: colors.background },
+          ]}
+        >
           <Text style={styles.errorIcon}>😕</Text>
           <Text style={[styles.errorText, { color: colors.error }]}>
-            {error?.message || 'Masjid not found'}
+            {error?.message || "Masjid not found"}
           </Text>
           <TouchableOpacity
             onPress={() => {
-              track('masjid_detail_refetch', { masjid_id: id });
+              track("masjid_detail_refetch", { masjid_id: id });
               refetch();
             }}
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
@@ -161,24 +179,45 @@ export default function MasjidDetailScreen() {
     <>
       <Stack.Screen
         options={{
-          title: '',
+          title: "",
           headerTransparent: true,
-          headerBackTitle: 'Back',
+          headerBackTitle: "Back",
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={["bottom"]}
+      >
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           {/* Hero Image */}
-          <View style={[styles.heroImage, { backgroundColor: primary[100] }]}>
-            <Text style={styles.heroEmoji}>🕌</Text>
+          <View
+            style={[
+              styles.heroImage,
+              { backgroundColor: colors.backgroundSecondary },
+            ]}
+          >
+            <View
+              style={[
+                styles.heroIconContainer,
+                { backgroundColor: colors.primary + "20" },
+              ]}
+            >
+              <IconSymbol name="camera.fill" size={40} color={colors.primary} />
+            </View>
             {masjid.verified && (
               <View style={styles.verifiedBadge}>
-                <IconSymbol name="checkmark.seal.fill" size={16} color={colors.success} />
-                <Text style={[styles.verifiedText, { color: colors.success }]}>Verified</Text>
+                <IconSymbol
+                  name="checkmark.seal.fill"
+                  size={16}
+                  color={colors.success}
+                />
+                <Text style={[styles.verifiedText, { color: colors.success }]}>
+                  Verified
+                </Text>
               </View>
             )}
           </View>
@@ -189,8 +228,14 @@ export default function MasjidDetailScreen() {
               {masjid.name}
             </Text>
             <View style={styles.locationRow}>
-              <IconSymbol name="location.fill" size={14} color={colors.textSecondary} />
-              <Text style={[styles.locationText, { color: colors.textSecondary }]}>
+              <IconSymbol
+                name="location.fill"
+                size={14}
+                color={colors.textSecondary}
+              />
+              <Text
+                style={[styles.locationText, { color: colors.textSecondary }]}
+              >
                 {masjid.districtName}, {masjid.stateName}
               </Text>
             </View>
@@ -199,23 +244,33 @@ export default function MasjidDetailScreen() {
             </Text>
             {masjid.jakimCode && (
               <View style={styles.jakimRow}>
-                <Badge label={`JAKIM: ${masjid.jakimCode}`} variant="default" size="sm" />
+                <Badge
+                  label={`JAKIM: ${masjid.jakimCode}`}
+                  variant="default"
+                  size="sm"
+                />
               </View>
             )}
             <TouchableOpacity
-              onPress={() => router.push({
-                pathname: '/masjid-report',
-                params: {
-                  masjidId: masjid.masjidId,
-                  masjidName: masjid.name,
-                  address: masjid.address,
-                  lat: masjid.lat.toString(),
-                  lng: masjid.lng.toString(),
-                },
-              })}
+              onPress={() =>
+                router.push({
+                  pathname: "/masjid-report",
+                  params: {
+                    masjidId: masjid.masjidId,
+                    masjidName: masjid.name,
+                    address: masjid.address,
+                    lat: masjid.lat.toString(),
+                    lng: masjid.lng.toString(),
+                  },
+                })
+              }
               style={styles.reportLink}
             >
-              <IconSymbol name="exclamationmark.circle" size={14} color={colors.primary} />
+              <IconSymbol
+                name="exclamationmark.circle"
+                size={14}
+                color={colors.primary}
+              />
               <Text style={[styles.reportLinkText, { color: colors.primary }]}>
                 Incorrect information? Report here
               </Text>
@@ -229,30 +284,55 @@ export default function MasjidDetailScreen() {
               variant="primary"
               onPress={handleCheckIn}
               style={styles.checkInButton}
-              icon={<IconSymbol name="checkmark.circle.fill" size={20} color="#fff" />}
+              icon={
+                <IconSymbol
+                  name="checkmark.circle.fill"
+                  size={20}
+                  color="#fff"
+                />
+              }
             />
             <Button
               title="Directions"
               variant="outline"
               onPress={handleDirections}
               style={styles.directionsButton}
-              icon={<IconSymbol name="arrow.triangle.turn.up.right.diamond.fill" size={20} color={colors.primary} />}
+              icon={
+                <IconSymbol
+                  name="arrow.triangle.turn.up.right.diamond.fill"
+                  size={20}
+                  color={colors.primary}
+                />
+              }
             />
           </View>
 
           {/* Tabs */}
-          <View style={[styles.tabContainer, { backgroundColor: colors.backgroundSecondary }]}>
+          <View
+            style={[
+              styles.tabContainer,
+              { backgroundColor: colors.backgroundSecondary },
+            ]}
+          >
             <TouchableOpacity
               style={[
                 styles.tab,
-                activeTab === 'facilities' && [styles.tabActive, { backgroundColor: colors.card }],
+                activeTab === "facilities" && [
+                  styles.tabActive,
+                  { backgroundColor: colors.card },
+                ],
               ]}
-              onPress={() => setActiveTab('facilities')}
+              onPress={() => setActiveTab("facilities")}
             >
               <Text
                 style={[
                   styles.tabText,
-                  { color: activeTab === 'facilities' ? colors.primary : colors.textSecondary },
+                  {
+                    color:
+                      activeTab === "facilities"
+                        ? colors.primary
+                        : colors.textSecondary,
+                  },
                 ]}
               >
                 Facilities
@@ -261,14 +341,22 @@ export default function MasjidDetailScreen() {
             <TouchableOpacity
               style={[
                 styles.tab,
-                activeTab === 'photos' && [styles.tabActive, { backgroundColor: colors.card }],
+                activeTab === "photos" && [
+                  styles.tabActive,
+                  { backgroundColor: colors.card },
+                ],
               ]}
-              onPress={() => setActiveTab('photos')}
+              onPress={() => setActiveTab("photos")}
             >
               <Text
                 style={[
                   styles.tabText,
-                  { color: activeTab === 'photos' ? colors.primary : colors.textSecondary },
+                  {
+                    color:
+                      activeTab === "photos"
+                        ? colors.primary
+                        : colors.textSecondary,
+                  },
                 ]}
               >
                 Photos
@@ -277,14 +365,22 @@ export default function MasjidDetailScreen() {
             <TouchableOpacity
               style={[
                 styles.tab,
-                activeTab === 'events' && [styles.tabActive, { backgroundColor: colors.card }],
+                activeTab === "events" && [
+                  styles.tabActive,
+                  { backgroundColor: colors.card },
+                ],
               ]}
-              onPress={() => setActiveTab('events')}
+              onPress={() => setActiveTab("events")}
             >
               <Text
                 style={[
                   styles.tabText,
-                  { color: activeTab === 'events' ? colors.primary : colors.textSecondary },
+                  {
+                    color:
+                      activeTab === "events"
+                        ? colors.primary
+                        : colors.textSecondary,
+                  },
                 ]}
               >
                 Events
@@ -292,7 +388,7 @@ export default function MasjidDetailScreen() {
             </TouchableOpacity>
           </View>
 
-          {activeTab === 'facilities' && (
+          {activeTab === "facilities" && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
                 Facilities
@@ -308,21 +404,28 @@ export default function MasjidDetailScreen() {
                       ]}
                     >
                       <Text style={styles.facilityIcon}>{facility.icon}</Text>
-                      <Text style={[styles.facilityName, { color: colors.primary }]}>
+                      <Text
+                        style={[styles.facilityName, { color: colors.primary }]}
+                      >
                         {facility.name}
                       </Text>
                     </View>
                   ))}
                 </View>
               ) : (
-                <Text style={[styles.noFacilitiesText, { color: colors.textTertiary }]}>
+                <Text
+                  style={[
+                    styles.noFacilitiesText,
+                    { color: colors.textTertiary },
+                  ]}
+                >
                   No facilities information available
                 </Text>
               )}
             </View>
           )}
 
-          {activeTab === 'photos' && (
+          {activeTab === "photos" && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
                 Photos
@@ -330,21 +433,31 @@ export default function MasjidDetailScreen() {
               {isPhotosLoading ? (
                 <View style={styles.loadingInline}>
                   <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={[styles.loadingInlineText, { color: colors.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.loadingInlineText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
                     Loading photos...
                   </Text>
                 </View>
               ) : isPhotosError ? (
                 <View style={styles.errorInline}>
-                  <Text style={[styles.errorInlineText, { color: colors.error }]}>
+                  <Text
+                    style={[styles.errorInlineText, { color: colors.error }]}
+                  >
                     Failed to load photos
                   </Text>
                   <TouchableOpacity
                     onPress={() => {
-                      track('masjid_photos_refetch', { masjid_id: masjid.id });
+                      track("masjid_photos_refetch", { masjid_id: masjid.id });
                       refetchPhotos();
                     }}
-                    style={[styles.retryButtonInline, { backgroundColor: colors.primary }]}
+                    style={[
+                      styles.retryButtonInline,
+                      { backgroundColor: colors.primary },
+                    ]}
                   >
                     <Text style={styles.retryButtonText}>Retry</Text>
                   </TouchableOpacity>
@@ -353,22 +466,45 @@ export default function MasjidDetailScreen() {
                 <View style={styles.photoGrid}>
                   {masjidPhotos.map((photo) => (
                     <View key={photo.id} style={styles.photoItem}>
-                      <Image source={{ uri: photo.url }} style={styles.photoImage} />
+                      <Image
+                        source={{ uri: photo.url }}
+                        style={styles.photoImage}
+                      />
                     </View>
                   ))}
                 </View>
               ) : (
-                <Card variant="outlined" padding="md" style={styles.placeholderCard}>
+                <Card
+                  variant="outlined"
+                  padding="md"
+                  style={styles.placeholderCard}
+                >
                   <View style={styles.placeholderHeader}>
-                    <View style={[styles.placeholderIcon, { backgroundColor: colors.backgroundSecondary }]}>
+                    <View
+                      style={[
+                        styles.placeholderIcon,
+                        { backgroundColor: colors.backgroundSecondary },
+                      ]}
+                    >
                       <Text style={styles.placeholderEmoji}>📸</Text>
                     </View>
                     <View style={styles.placeholderContent}>
-                      <Text style={[styles.placeholderTitle, { color: colors.text }]}>
+                      <Text
+                        style={[
+                          styles.placeholderTitle,
+                          { color: colors.text },
+                        ]}
+                      >
                         No photos yet
                       </Text>
-                      <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
-                        Photos can be added after checking in. We’ll review before publishing.
+                      <Text
+                        style={[
+                          styles.placeholderText,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Photos can be added after checking in. We’ll review
+                        before publishing.
                       </Text>
                     </View>
                   </View>
@@ -377,26 +513,51 @@ export default function MasjidDetailScreen() {
             </View>
           )}
 
-          {activeTab === 'events' && (
+          {activeTab === "events" && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
                 Events
               </Text>
-              <Card variant="outlined" padding="md" style={styles.placeholderCard}>
+              <Card
+                variant="outlined"
+                padding="md"
+                style={styles.placeholderCard}
+              >
                 <View style={styles.placeholderHeader}>
-                  <View style={[styles.placeholderIcon, { backgroundColor: colors.backgroundSecondary }]}>
+                  <View
+                    style={[
+                      styles.placeholderIcon,
+                      { backgroundColor: colors.backgroundSecondary },
+                    ]}
+                  >
                     <Text style={styles.placeholderEmoji}>🗓️</Text>
                   </View>
                   <View style={styles.placeholderContent}>
-                    <Text style={[styles.placeholderTitle, { color: colors.text }]}>
+                    <Text
+                      style={[styles.placeholderTitle, { color: colors.text }]}
+                    >
                       Coming soon
                     </Text>
-                    <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
+                    <Text
+                      style={[
+                        styles.placeholderText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
                       Events will show upcoming programs and prayer schedules.
                     </Text>
                     <View style={styles.lockHint}>
-                      <IconSymbol name="lock.fill" size={12} color={colors.textTertiary} />
-                      <Text style={[styles.lockHintText, { color: colors.textTertiary }]}>
+                      <IconSymbol
+                        name="lock.fill"
+                        size={12}
+                        color={colors.textTertiary}
+                      />
+                      <Text
+                        style={[
+                          styles.lockHintText,
+                          { color: colors.textTertiary },
+                        ]}
+                      >
                         Available after check-in
                       </Text>
                     </View>
@@ -422,8 +583,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   scrollView: {
     flex: 1,
@@ -444,7 +605,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...Typography.body,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: Spacing.md,
   },
   retryButton: {
@@ -453,24 +614,28 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   retryButtonText: {
-    color: '#fff',
+    color: "#fff",
     ...Typography.button,
   },
   heroImage: {
     height: 220,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
-  heroEmoji: {
-    fontSize: 80,
+  heroIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   verifiedBadge: {
-    position: 'absolute',
+    position: "absolute",
     bottom: Spacing.md,
     right: Spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.9)",
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
@@ -478,7 +643,7 @@ const styles = StyleSheet.create({
   },
   verifiedText: {
     ...Typography.caption,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   infoSection: {
     padding: Spacing.md,
@@ -488,8 +653,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.xs,
     marginBottom: Spacing.xs,
   },
@@ -503,17 +668,17 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   reportLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.xs,
     marginTop: Spacing.sm,
   },
   reportLinkText: {
     ...Typography.bodySmall,
-    textDecorationLine: 'underline',
+    textDecorationLine: "underline",
   },
   actionButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: Spacing.md,
     gap: Spacing.sm,
     marginBottom: Spacing.lg,
@@ -525,7 +690,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginHorizontal: Spacing.md,
     padding: 4,
     borderRadius: BorderRadius.lg,
@@ -534,11 +699,11 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     paddingVertical: Spacing.sm,
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: BorderRadius.md,
   },
   tabActive: {
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -546,7 +711,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     ...Typography.bodySmall,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   section: {
     paddingHorizontal: Spacing.md,
@@ -557,13 +722,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   facilitiesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: Spacing.sm,
   },
   facilityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
@@ -574,26 +739,26 @@ const styles = StyleSheet.create({
   },
   facilityName: {
     ...Typography.caption,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   noFacilitiesText: {
     ...Typography.bodySmall,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   placeholderCard: {
     gap: Spacing.md,
   },
   placeholderHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.md,
   },
   placeholderIcon: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   placeholderEmoji: {
     fontSize: 24,
@@ -603,18 +768,18 @@ const styles = StyleSheet.create({
   },
   placeholderTitle: {
     ...Typography.body,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   placeholderText: {
     ...Typography.caption,
     marginTop: Spacing.xs,
   },
   placeholderButton: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   loadingInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
   },
@@ -622,7 +787,7 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
   },
   errorInline: {
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
     gap: Spacing.sm,
   },
   errorInlineText: {
@@ -634,24 +799,24 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   photoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: Spacing.sm,
   },
   photoItem: {
-    width: '48%',
+    width: "48%",
     aspectRatio: 1,
     borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
-    backgroundColor: '#F2F2F2',
+    overflow: "hidden",
+    backgroundColor: "#F2F2F2",
   },
   photoImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   lockHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.xs,
     marginTop: Spacing.xs,
   },

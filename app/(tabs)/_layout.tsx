@@ -1,18 +1,18 @@
-import { Tabs, router } from 'expo-router';
-import React from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Tabs, router } from "expo-router";
+import React from "react";
+import { Platform, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, primary } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useAnalytics } from '@/lib/analytics';
-import { useSession } from '@/lib/auth-client';
+import { HapticTab } from "@/components/haptic-tab";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { Colors, primary } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useAnalytics } from "@/lib/analytics";
+import { useSession } from "@/lib/auth-client";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? "light"];
   const { data: session, isPending } = useSession();
   const { track } = useAnalytics();
   const insets = useSafeAreaInsets();
@@ -22,9 +22,9 @@ export default function TabLayout() {
       if (!isPending && session) return;
       e.preventDefault();
       if (!isPending && !session) {
-        track('auth_gate_triggered', { route });
+        track("auth_gate_triggered", { route });
         router.push({
-          pathname: '/auth/login',
+          pathname: "/auth/login",
           params: { returnTo: `/(tabs)/${route}` },
         });
       }
@@ -41,19 +41,20 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: colors.background,
           borderTopColor: colors.border,
-          height: Platform.OS === 'ios' ? 88 : 64 + insets.bottom,
-          paddingBottom: Platform.OS === 'ios' ? 28 : insets.bottom + 8,
+          height: Platform.OS === "ios" ? 88 : 64 + insets.bottom,
+          paddingBottom: Platform.OS === "ios" ? 28 : insets.bottom + 8,
           paddingTop: 8,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '500',
+          fontWeight: "500",
         },
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: "Home",
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol size={24} name="house.fill" color={color} />
           ),
@@ -62,33 +63,46 @@ export default function TabLayout() {
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
+          title: "Explore",
           headerSearchBarOptions: {
-            placeholder: 'Search masjids, events, articles...',
+            placeholder: "Search masjids, events, articles...",
           },
           tabBarIcon: ({ color, focused }) => (
-            <IconSymbol size={24} name="magnifyingglass.circle.fill" color={color} />
+            <IconSymbol
+              size={24}
+              name="magnifyingglass.circle.fill"
+              color={color}
+            />
           ),
         }}
       />
       <Tabs.Screen
         name="checkin"
         options={{
-          title: 'Check In',
+          title: "Check In",
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.checkInButton, focused && styles.checkInButtonActive]}>
-              <IconSymbol size={28} name="checkmark.circle.fill" color={focused ? '#fff' : colors.primary} />
+            <View
+              style={[
+                styles.checkInButton,
+                focused && styles.checkInButtonActive,
+              ]}
+            >
+              <IconSymbol
+                size={28}
+                name="checkmark.circle.fill"
+                color={focused ? "#fff" : colors.primary}
+              />
             </View>
           ),
           tabBarLabel: () => null,
         }}
-        listeners={requireAuth('checkin')}
+        listeners={requireAuth("checkin")}
       />
       <Tabs.Screen
         name="leaderboard"
         options={{
-          title: 'Ranks',
+          title: "Ranks",
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol size={24} name="trophy.fill" color={color} />
           ),
@@ -97,12 +111,11 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: "Profile",
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol size={24} name="person.fill" color={color} />
           ),
         }}
-        listeners={requireAuth('profile')}
       />
     </Tabs>
   );
@@ -114,10 +127,10 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     backgroundColor: primary[100],
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: -20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,

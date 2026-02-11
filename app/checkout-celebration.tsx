@@ -6,7 +6,6 @@ import { Confetti, ConfettiMethods } from 'react-native-fast-confetti';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withSequence,
   withSpring,
   withTiming,
@@ -24,6 +23,7 @@ type CelebrationParams = {
   isPrayerTime: string;
   isFirstVisit: string;
   masjidName: string;
+  unlockedAchievements?: string; // Comma-separated achievement IDs
 };
 
 // Animated counter component that counts up from 0 to target
@@ -85,50 +85,12 @@ function AnimatedPointsCounter({ targetPoints }: { targetPoints: number }) {
   );
 }
 
-// Animated emoji that scales in with delay
-function AnimatedEmoji({
-  emoji,
-  delay,
-  style,
-}: {
-  emoji: string;
-  delay: number;
-  style?: object;
-}) {
-  const scale = useSharedValue(0);
-  const rotation = useSharedValue(-15);
-
-  useEffect(() => {
-    scale.value = withDelay(
-      delay,
-      withSpring(1, { damping: 8, stiffness: 150 })
-    );
-    rotation.value = withDelay(
-      delay,
-      withSequence(
-        withTiming(15, { duration: 200 }),
-        withTiming(-10, { duration: 150 }),
-        withTiming(0, { duration: 100 })
-      )
-    );
-  }, [delay]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }, { rotate: `${rotation.value}deg` }],
-  }));
-
-  return (
-    <Animated.Text style={[styles.celebrationEmoji, style, animatedStyle]}>
-      {emoji}
-    </Animated.Text>
-  );
-}
-
 export default function CheckoutCelebrationScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const params = useLocalSearchParams<CelebrationParams>();
   const confettiRef = React.useRef<ConfettiMethods>(null);
+  const navigateTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Parse params
   const pointsEarned = parseInt(params.pointsEarned || '0', 10);
@@ -155,6 +117,7 @@ export default function CheckoutCelebrationScreen() {
 
     // Play confetti animation
     confettiRef.current?.restart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const overlayStyle = useAnimatedStyle(() => ({
@@ -167,15 +130,37 @@ export default function CheckoutCelebrationScreen() {
   }));
 
   const handleContinue = () => {
+    // Clear any existing timeout
+    if (navigateTimeoutRef.current) {
+      clearTimeout(navigateTimeoutRef.current);
+    }
+
     // Animate out then navigate to main page
     overlayOpacity.value = withTiming(0, { duration: 200 });
     containerOpacity.value = withTiming(0, { duration: 200 });
     containerScale.value = withTiming(0.9, { duration: 200 });
 
-    setTimeout(() => {
-      router.replace('/(tabs)');
+    navigateTimeoutRef.current = setTimeout(() => {
+      // Pass unlocked achievement IDs to home page if any
+      if (params.unlockedAchievements) {
+        router.replace({
+          pathname: '/(tabs)',
+          params: { unlocked: params.unlockedAchievements },
+        });
+      } else {
+        router.replace('/(tabs)');
+      }
     }, 250);
   };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (navigateTimeoutRef.current) {
+        clearTimeout(navigateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Determine celebration message
   const getMessage = () => {
@@ -202,7 +187,11 @@ export default function CheckoutCelebrationScreen() {
     <View style={styles.container}>
       {/* Dark overlay */}
       <Animated.View
-        style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.7)' }, overlayStyle]}
+        style={[
+          styles.overlay,
+          { backgroundColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.7)' },
+          overlayStyle,
+        ]}
       />
 
       {/* Confetti animation */}
@@ -217,6 +206,9 @@ export default function CheckoutCelebrationScreen() {
       {/* Content */}
       <Animated.View
         style={[styles.content, { backgroundColor: colors.card }, containerStyle]}
+        accessible={true}
+        accessibilityLabel="Check-in celebration"
+        accessibilityRole="alert"
       >
         {/* Main celebration text */}
         <Text style={[styles.celebrationTitle, { color: gold[500] }]}>
@@ -228,7 +220,7 @@ export default function CheckoutCelebrationScreen() {
         </Text>
 
         {/* Points counter */}
-        <View style={styles.pointsContainer}>
+        <View style={styles.pointsContainer} accessibilityLiveRegion="polite">
           <AnimatedPointsCounter targetPoints={pointsEarned} />
           <Text style={[styles.pointsLabel, { color: colors.textSecondary }]}>
             points earned
@@ -285,6 +277,8 @@ export default function CheckoutCelebrationScreen() {
           size="lg"
           onPress={handleContinue}
           style={styles.continueButton}
+          accessibilityLabel="Continue to home"
+          accessibilityRole="button"
         />
       </Animated.View>
     </View>
@@ -303,7 +297,6 @@ const styles = StyleSheet.create({
   content: {
     width: '85%',
     maxWidth: 340,
-    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: Spacing.xl,
     alignItems: 'center',
@@ -312,24 +305,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 10,
-  },
-  emojiContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  celebrationEmoji: {
-    fontSize: 40,
-  },
-  emojiLeft: {
-    marginRight: Spacing.sm,
-  },
-  emojiCenter: {
-    fontSize: 56,
-  },
-  emojiRight: {
-    marginLeft: Spacing.sm,
   },
   celebrationTitle: {
     fontSize: 28,

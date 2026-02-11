@@ -1,11 +1,11 @@
 import React from 'react';
 import { StyleSheet, View, ViewProps } from 'react-native';
 
-import { Colors, BorderRadius, Spacing } from '@/constants/theme';
+import { BorderRadius, Spacing, primary, gold, semantic } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface CardProps extends ViewProps {
-  variant?: 'default' | 'outlined' | 'elevated';
+  variant?: 'default' | 'outlined' | 'primary' | 'gold' | 'error';
   padding?: keyof typeof Spacing;
 }
 
@@ -17,34 +17,28 @@ export function Card({
   ...props
 }: CardProps) {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const isDark = colorScheme === 'dark';
 
-  const variantStyles = {
-    default: {
-      backgroundColor: colors.card,
-      borderWidth: 0,
-    },
-    outlined: {
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    elevated: {
-      backgroundColor: colors.card,
-      borderWidth: 0,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 4,
-    },
+  const getVariantStyle = () => {
+    switch (variant) {
+      case 'outlined':
+        return isDark ? styles.outlinedDark : styles.outlinedLight;
+      case 'primary':
+        return isDark ? styles.primaryDark : styles.primary;
+      case 'gold':
+        return isDark ? styles.goldDark : styles.gold;
+      case 'error':
+        return isDark ? styles.errorDark : styles.error;
+      default:
+        return isDark ? styles.defaultDark : styles.defaultLight;
+    }
   };
 
   return (
     <View
       style={[
         styles.card,
-        variantStyles[variant],
+        getVariantStyle(),
         { padding: Spacing[padding] },
         style,
       ]}
@@ -57,7 +51,62 @@ export function Card({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+  },
+  // Light mode - default (subtle border)
+  defaultLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8E8',
+  },
+  // Dark mode - default (subtle border)
+  defaultDark: {
+    backgroundColor: '#1C1E1F',
+    borderColor: '#2A2D2E',
+  },
+  // Light mode - outlined (more visible border)
+  outlinedLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E0E0E0',
+    borderLeftWidth: 3,
+  },
+  // Dark mode - outlined
+  outlinedDark: {
+    backgroundColor: '#1C1E1F',
+    borderColor: '#3A3D3E',
+    borderLeftWidth: 3,
+  },
+  // Primary variant (teal accent border)
+  primary: {
+    backgroundColor: '#FFFFFF',
+    borderColor: primary[500],
+    borderLeftWidth: 4,
+  },
+  primaryDark: {
+    backgroundColor: '#1C1E1F',
+    borderColor: primary[400],
+    borderLeftWidth: 4,
+  },
+  // Gold variant (for achievements)
+  gold: {
+    backgroundColor: '#FFFBF0',
+    borderColor: gold[300],
+    borderLeftWidth: 4,
+  },
+  goldDark: {
+    backgroundColor: '#1C1E1F',
+    borderColor: gold[400],
+    borderLeftWidth: 4,
+  },
+  // Error variant (for error states)
+  error: {
+    backgroundColor: '#FEF2F2',
+    borderColor: semantic.error,
+    borderLeftWidth: 4,
+  },
+  errorDark: {
+    backgroundColor: '#1C1E1F',
+    borderColor: semantic.error,
+    borderLeftWidth: 4,
   },
 });
