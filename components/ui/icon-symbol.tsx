@@ -6,6 +6,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { SymbolViewProps, SymbolWeight } from 'expo-symbols';
 import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
+import { MosqueIcon } from './mosque-icon';
 
 type IconMapping = Record<SymbolViewProps['name'], ComponentProps<typeof MaterialIcons>['name']>;
 type IconSymbolName = keyof typeof MAPPING;
@@ -110,6 +111,11 @@ export function IconSymbol({
   style?: StyleProp<TextStyle>;
   weight?: SymbolWeight;
 }) {
+  // Use custom mosque icon
+  if (name === 'mosque') {
+    return <MosqueIcon size={size} color={color as string} style={style} />;
+  }
+
   // Check if this icon should use MaterialCommunityIcons
   if (name in MATERIAL_COMMUNITY_ICONS) {
     return <MaterialCommunityIcons color={color} size={size} name={MATERIAL_COMMUNITY_ICONS[name as MaterialCommunityIconName]} style={style} />;
