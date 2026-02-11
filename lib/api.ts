@@ -395,6 +395,7 @@ export interface CheckoutResponse {
   message: string;
   pointsEarned?: number;
   checkIn?: ActiveCheckin;
+  unlockedAchievements?: string[];
 }
 
 /**
@@ -753,7 +754,7 @@ export async function submitMasjidReport(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-    },  
+    },
     body: JSON.stringify(data),
   });
 
@@ -769,4 +770,46 @@ export async function submitMasjidReport(
   }
 
   return responseData;
+}
+
+/**
+ * Monthly activity day data
+ */
+export interface MonthlyActivityDay {
+  day: number;
+  hasActivity: boolean;
+  count: number;
+}
+
+/**
+ * Monthly activity response from backend
+ */
+export interface MonthlyActivityResponse {
+  year: number;
+  month: number;
+  days: MonthlyActivityDay[];
+  totalActiveDays: number;
+  totalVisits: number;
+}
+
+/**
+ * Fetch user's monthly activity calendar data
+ * REQUIRES AUTHENTICATION
+ */
+export async function getUserMonthlyActivity(
+  year: number,
+  month: number
+): Promise<MonthlyActivityResponse> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/user/monthly-activity?year=${year}&month=${month}`
+  );
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Please sign in to view activity');
+    }
+    throw new Error(`Failed to fetch monthly activity: ${response.status}`);
+  }
+
+  return response.json();
 }

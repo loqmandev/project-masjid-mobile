@@ -1,7 +1,6 @@
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CircularProgressWithAvatar } from './circular-progress';
 import { StatRow } from './stat-row';
 
@@ -32,11 +31,10 @@ export function HeroSection({
   achievementCount,
   colorScheme,
 }: HeroSectionProps) {
-  const insets = useSafeAreaInsets();
   const colors = Colors[colorScheme];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <View style={[styles.background, { backgroundColor: colors.primary }]}>
         {/* Top Bar */}
         <View style={styles.topBar}>
@@ -102,7 +100,6 @@ const styles = StyleSheet.create({
   background: {
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.xl,
-    paddingTop: Spacing.lg,
     minHeight: 160,
   },
   topBar: {
