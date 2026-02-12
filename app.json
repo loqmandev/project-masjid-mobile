@@ -11,14 +11,12 @@
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "bundleIdentifier": "my.lonasoft.jejakmasjidmobile",
-      "buildNumber": "19",
+      "buildNumber": "21",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": [
-              "jejakmasjidmobile"
-            ]
+            "CFBundleURLSchemes": ["jejakmasjidmobile"]
           }
         ]
       },
@@ -50,9 +48,7 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-apple-authentication"
-      ],
+      ["expo-apple-authentication"],
       [
         "expo-splash-screen",
         {

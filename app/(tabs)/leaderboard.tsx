@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Stack } from "expo-router";
 
 import { Card } from "@/components/ui/card";
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
@@ -260,6 +261,12 @@ export default function LeaderboardScreen() {
 
   return (
     <>
+      <Stack.Screen
+        options={{
+          headerLargeTitle: true,
+          headerLargeTitleShadowVisible: false,
+        }}
+      />
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
       >

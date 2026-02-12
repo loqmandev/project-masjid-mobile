@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { primary } from '@/constants/theme';
+import { Colors, primary } from '@/constants/theme';
 import { ThemeProvider as AppThemeProvider, useColorScheme } from '@/hooks/use-color-scheme';
 
 import { PostHogProvider } from 'posthog-react-native';
@@ -50,6 +50,7 @@ export const unstable_settings = {
 
 function RootLayoutContent() {
   const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? JejakMasjidDarkTheme : JejakMasjidLightTheme}>
@@ -127,13 +128,6 @@ function RootLayoutContent() {
           }}
         />
         <Stack.Screen
-          name="explore-filters"
-          options={{
-            presentation: 'formSheet',
-            title: 'Filters',
-          }}
-        />
-        <Stack.Screen
           name="masjid-report"
           options={{
             title: 'Report Masjid',
@@ -141,7 +135,7 @@ function RootLayoutContent() {
           }}
         />
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} translucent={false} backgroundColor={colors.primary} />
     </ThemeProvider>
   );
 }

@@ -69,6 +69,18 @@ const MAPPING = {
   'doc.text.fill': 'description',
   'lock.shield.fill': 'security',
   'envelope.fill': 'email',
+  // Facility icons
+  'person.praying': 'mosque',
+  'snowflake': 'ac-unit',
+  'person.wave.2': 'diversity-3',
+  'drop.fill': 'water-drop',
+  'wheelchair': 'accessible',
+  'figure.w.cafe.and.toilet': 'wc',
+  'local.parking': 'local-parking',
+  'water.drop': 'water-drop',
+  'cpu': 'devices',
+  'chair.lounge.fill': 'event-seat',
+  'calendar': 'event',
 } as IconMapping;
 
 // Icons that should use FontAwesome6 instead of MaterialIcons

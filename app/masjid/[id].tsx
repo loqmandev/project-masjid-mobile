@@ -1,5 +1,6 @@
+import * as Haptics from "expo-haptics";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -54,13 +55,24 @@ export default function MasjidDetailScreen() {
     hasTrackedView.current = true;
   }, [id, masjid, screen, track]);
 
-  const handleCheckIn = () => {
+  const handleCheckIn = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     track("masjid_checkin_clicked", { masjid_id: masjid?.id ?? id });
     router.push("/(tabs)/checkin");
-  };
+  }, [masjid?.id, id, track]);
 
-  const handleDirections = () => {
+  const handleTabChange = useCallback(
+    (tab: TabType) => {
+      Haptics.selectionAsync();
+      track("masjid_tab_changed", { tab, masjid_id: masjid?.id });
+      setActiveTab(tab);
+    },
+    [masjid?.id, track],
+  );
+
+  const handleDirections = useCallback(() => {
     if (!masjid) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     track("masjid_directions_clicked", { masjid_id: masjid.id });
 
     const { lat, lng, name } = masjid;
@@ -79,31 +91,32 @@ export default function MasjidDetailScreen() {
         `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
       );
     });
-  };
+  }, [masjid, track]);
 
   // Get available facilities
   const getAvailableFacilities = () => {
     if (!masjid?.facilities) return [];
 
+    // Map facility codes to SF Symbol icon names
     const iconByCode: Record<string, string> = {
-      PRAYER_MALE: "🕌",
-      PRAYER_FEMALE: "🕌",
-      PRAYER_AC: "❄️",
-      WOMEN_FRIENDLY_LAYOUT: "👩",
-      WUDHU_MALE: "💧",
-      WUDHU_FEMALE: "💧",
-      WUDHU_OKU: "♿",
-      TOILET_MALE: "🚻",
-      TOILET_FEMALE: "🚻",
-      TOILET_OKU: "♿",
-      WHEELCHAIR_ACCESS: "♿",
-      PARKING_COMPOUND: "🅿️",
-      PARKING_STREET: "🅿️",
-      WATER_DISPENSER: "🚰",
-      PHONE_CHARGER: "🔌",
-      REST_AREA: "🪑",
-      WORKING_SPACE: "💻",
-      EVENT_SPACE: "🎪",
+      PRAYER_MALE: "person.praying",
+      PRAYER_FEMALE: "person.praying",
+      PRAYER_AC: "snowflake",
+      WOMEN_FRIENDLY_LAYOUT: "person.wave.2",
+      WUDHU_MALE: "drop.fill",
+      WUDHU_FEMALE: "drop.fill",
+      WUDHU_OKU: "wheelchair",
+      TOILET_MALE: "figure.w.cafe.and.toilet",
+      TOILET_FEMALE: "figure.w.cafe.and.toilet",
+      TOILET_OKU: "wheelchair",
+      WHEELCHAIR_ACCESS: "wheelchair",
+      PARKING_COMPOUND: "local.parking",
+      PARKING_STREET: "local.parking",
+      WATER_DISPENSER: "water.drop",
+      PHONE_CHARGER: "cpu",
+      REST_AREA: "chair.lounge.fill",
+      WORKING_SPACE: "laptopcomputer",
+      EVENT_SPACE: "calendar",
     };
 
     const facilitiesData = masjid.facilities as unknown;
@@ -112,7 +125,7 @@ export default function MasjidDetailScreen() {
     return facilitiesData.map((facility: { code: string; label: string }) => ({
       key: facility.code,
       name: facility.label,
-      icon: iconByCode[facility.code] ?? "✅",
+      iconName: iconByCode[facility.code] ?? "checkmark",
     }));
   };
 
@@ -165,6 +178,10 @@ export default function MasjidDetailScreen() {
               refetch();
             }}
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
+            accessible={true}
+            accessibilityLabel="Retry loading masjid details"
+            accessibilityHint="Double tap to retry"
+            accessibilityRole="button"
           >
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
@@ -265,6 +282,10 @@ export default function MasjidDetailScreen() {
                 })
               }
               style={styles.reportLink}
+              accessible={true}
+              accessibilityLabel="Report incorrect masjid information"
+              accessibilityHint="Double tap to report an issue"
+              accessibilityRole="button"
             >
               <IconSymbol
                 name="exclamationmark.circle"
@@ -322,7 +343,12 @@ export default function MasjidDetailScreen() {
                   { backgroundColor: colors.card },
                 ],
               ]}
-              onPress={() => setActiveTab("facilities")}
+              onPress={() => handleTabChange("facilities")}
+              accessible={true}
+              accessibilityLabel="Facilities tab"
+              accessibilityHint="Show masjid facilities"
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === "facilities" }}
             >
               <Text
                 style={[
@@ -346,7 +372,12 @@ export default function MasjidDetailScreen() {
                   { backgroundColor: colors.card },
                 ],
               ]}
-              onPress={() => setActiveTab("photos")}
+              onPress={() => handleTabChange("photos")}
+              accessible={true}
+              accessibilityLabel="Photos tab"
+              accessibilityHint="Show masjid photos"
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === "photos" }}
             >
               <Text
                 style={[
@@ -370,7 +401,12 @@ export default function MasjidDetailScreen() {
                   { backgroundColor: colors.card },
                 ],
               ]}
-              onPress={() => setActiveTab("events")}
+              onPress={() => handleTabChange("events")}
+              accessible={true}
+              accessibilityLabel="Events tab"
+              accessibilityHint="Show masjid events"
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === "events" }}
             >
               <Text
                 style={[
@@ -394,7 +430,12 @@ export default function MasjidDetailScreen() {
                 Facilities
               </Text>
               {availableFacilities.length > 0 ? (
-                <View style={styles.facilitiesGrid}>
+                <View
+                  style={styles.facilitiesGrid}
+                  accessible={true}
+                  accessibilityLabel="Available facilities"
+                  accessibilityRole="list"
+                >
                   {availableFacilities.map((facility) => (
                     <View
                       key={facility.key}
@@ -402,8 +443,14 @@ export default function MasjidDetailScreen() {
                         styles.facilityItem,
                         { backgroundColor: colors.primaryLight },
                       ]}
+                      accessible={true}
+                      accessibilityLabel={facility.name}
                     >
-                      <Text style={styles.facilityIcon}>{facility.icon}</Text>
+                      <IconSymbol
+                        name={facility.iconName as any}
+                        size={16}
+                        color={colors.primary}
+                      />
                       <Text
                         style={[styles.facilityName, { color: colors.primary }]}
                       >
@@ -458,17 +505,32 @@ export default function MasjidDetailScreen() {
                       styles.retryButtonInline,
                       { backgroundColor: colors.primary },
                     ]}
+                    accessible={true}
+                    accessibilityLabel="Retry loading photos"
+                    accessibilityHint="Double tap to retry"
+                    accessibilityRole="button"
                   >
                     <Text style={styles.retryButtonText}>Retry</Text>
                   </TouchableOpacity>
                 </View>
               ) : masjidPhotos && masjidPhotos.length > 0 ? (
-                <View style={styles.photoGrid}>
-                  {masjidPhotos.map((photo) => (
-                    <View key={photo.id} style={styles.photoItem}>
+                <View
+                  style={styles.photoGrid}
+                  accessible={true}
+                  accessibilityLabel="Masjid photos"
+                  accessibilityRole="list"
+                >
+                  {masjidPhotos.map((photo: { id: string; url: string }) => (
+                    <View
+                      key={photo.id}
+                      style={styles.photoItem}
+                      accessible={true}
+                      accessibilityLabel={`Photo ${photo.id}`}
+                    >
                       <Image
-                        source={{ uri: photo.url }}
+                        source={{ uri: photo.url, cache: "force-cache" }}
                         style={styles.photoImage}
+                        resizeMode="cover"
                       />
                     </View>
                   ))}
@@ -486,7 +548,11 @@ export default function MasjidDetailScreen() {
                         { backgroundColor: colors.backgroundSecondary },
                       ]}
                     >
-                      <Text style={styles.placeholderEmoji}>📸</Text>
+                      <IconSymbol
+                        name="camera.fill"
+                        size={24}
+                        color={colors.textSecondary}
+                      />
                     </View>
                     <View style={styles.placeholderContent}>
                       <Text
@@ -530,7 +596,11 @@ export default function MasjidDetailScreen() {
                       { backgroundColor: colors.backgroundSecondary },
                     ]}
                   >
-                    <Text style={styles.placeholderEmoji}>🗓️</Text>
+                    <IconSymbol
+                      name="calendar"
+                      size={24}
+                      color={colors.textSecondary}
+                    />
                   </View>
                   <View style={styles.placeholderContent}>
                     <Text
@@ -563,12 +633,6 @@ export default function MasjidDetailScreen() {
                     </View>
                   </View>
                 </View>
-                <Button
-                  title="Notify me"
-                  variant="outline"
-                  onPress={() => {}}
-                  style={styles.placeholderButton}
-                />
               </Card>
             </View>
           )}
@@ -672,6 +736,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.xs,
     marginTop: Spacing.sm,
+    minHeight: 44, // Minimum touch target
+    justifyContent: "center",
   },
   reportLinkText: {
     ...Typography.bodySmall,
@@ -698,7 +764,8 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md, // Increased from sm for better touch target
+    minHeight: 44, // iOS minimum touch target
     alignItems: "center",
     borderRadius: BorderRadius.md,
   },
@@ -730,12 +797,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md, // Increased from sm for better touch target
+    minHeight: 44, // iOS minimum touch target
     borderRadius: BorderRadius.full,
     gap: Spacing.xs,
-  },
-  facilityIcon: {
-    fontSize: 16,
   },
   facilityName: {
     ...Typography.caption,
@@ -795,7 +860,8 @@ const styles = StyleSheet.create({
   },
   retryButtonInline: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.md, // Increased from xs for better touch target
+    minHeight: 44, // iOS minimum touch target
     borderRadius: BorderRadius.md,
   },
   photoGrid: {

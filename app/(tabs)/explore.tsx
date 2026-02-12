@@ -1,6 +1,6 @@
-import * as Haptics from 'expo-haptics';
-import { router, Stack, useFocusEffect } from 'expo-router';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import * as Haptics from "expo-haptics";
+import { router, Stack, useFocusEffect } from "expo-router";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -10,48 +10,55 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Badge } from '@/components/ui/badge';
-import { BottomSheet } from '@/components/ui/bottom-sheet';
-import { Card } from '@/components/ui/card';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
-import { useBottomSheet } from '@/hooks/use-bottom-sheet';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useFacilities } from '@/hooks/use-facilities';
-import { useLocation } from '@/hooks/use-location';
-import { useNearbyMasjids } from '@/hooks/use-nearby-masjids';
-import { FacilityOption, MasjidResponse } from '@/lib/api';
+import { Badge } from "@/components/ui/badge";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { Card } from "@/components/ui/card";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
+import { useBottomSheet } from "@/hooks/use-bottom-sheet";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useFacilities } from "@/hooks/use-facilities";
+import { useLocation } from "@/hooks/use-location";
+import { useNearbyMasjids } from "@/hooks/use-nearby-masjids";
+import { FacilityOption, MasjidResponse } from "@/lib/api";
 
-const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 export default function ExploreScreen() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? "light"];
 
   // Search query stored in ref to avoid re-renders on every keystroke
-  const searchQueryRef = useRef('');
+  const searchQueryRef = useRef("");
   const [searchDisplayCount, setSearchDisplayCount] = useState(0); // Minimal state for triggering filter updates
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Selected facilities for filtering
-  const [selectedFacilities, setSelectedFacilities] = useState<Set<string>>(new Set());
+  const [selectedFacilities, setSelectedFacilities] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Bottom sheet for filters
   const filterSheet = useBottomSheet();
 
   // Get user's current location
-  const { location, isLoading: isLocationLoading, error: locationError, refresh: refreshLocation } = useLocation();
+  const {
+    location,
+    isLoading: isLocationLoading,
+    error: locationError,
+    refresh: refreshLocation,
+  } = useLocation();
 
   // Refresh location and masjids when explore tab gains focus
   useFocusEffect(
     useCallback(() => {
       // Force refresh location when explore screen comes into focus
       refreshLocation(true);
-    }, [refreshLocation])
+    }, [refreshLocation]),
   );
 
   // Fetch facilities for filter
@@ -90,7 +97,7 @@ export default function ExploreScreen() {
   // Handle search input changes without re-render
   const handleSearchChange = useCallback((text: string) => {
     searchQueryRef.current = text;
-    setSearchDisplayCount(prev => prev + 1); // Trigger filter re-computation
+    setSearchDisplayCount((prev) => prev + 1); // Trigger filter re-computation
   }, []);
 
   // Handle masjid press with haptic feedback
@@ -152,152 +159,215 @@ export default function ExploreScreen() {
 
   const handleReportPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/masjid-report');
+    router.push("/masjid-report");
   }, []);
 
   // Render masjid list item
-  const renderMasjidItem = useCallback(({ item }: { item: MasjidResponse }) => {
-    const distance = formatDistance(item.distanceM);
-    return (
-      <TouchableOpacity
-        onPress={() => handleMasjidPress(item.masjidId)}
-        activeOpacity={0.7}
-        accessible={true}
-        accessibilityLabel={`${item.name}, ${distance} away`}
-        accessibilityHint="Double tap to view details"
-        accessibilityRole="button"
-      >
-        <Card variant="outlined" padding="md" style={styles.masjidCard}>
-          <View style={styles.masjidCardContent}>
-            {/* Main Content */}
-            <View style={styles.masjidMainContent}>
-              <View style={styles.masjidHeader}>
-                <Text style={[styles.masjidName, { color: colors.text }]} numberOfLines={2}>
-                  {item.name}
-                </Text>
-                {item.canCheckin && (
-                  <View style={[styles.checkinIndicator, { backgroundColor: colors.success + '20' }]}>
-                    <IconSymbol name="checkmark.circle.fill" size={16} color={colors.success} />
-                  </View>
-                )}
+  const renderMasjidItem = useCallback(
+    ({ item }: { item: MasjidResponse }) => {
+      const distance = formatDistance(item.distanceM);
+      return (
+        <TouchableOpacity
+          onPress={() => handleMasjidPress(item.masjidId)}
+          activeOpacity={0.7}
+          accessible={true}
+          accessibilityLabel={`${item.name}, ${distance} away`}
+          accessibilityHint="Double tap to view details"
+          accessibilityRole="button"
+        >
+          <Card variant="outlined" padding="md" style={styles.masjidCard}>
+            <View style={styles.masjidCardContent}>
+              {/* Main Content */}
+              <View style={styles.masjidMainContent}>
+                <View style={styles.masjidHeader}>
+                  <Text
+                    style={[styles.masjidName, { color: colors.text }]}
+                    numberOfLines={2}
+                  >
+                    {item.name}
+                  </Text>
+                  {item.canCheckin && (
+                    <View
+                      style={[
+                        styles.checkinIndicator,
+                        { backgroundColor: colors.success + "20" },
+                      ]}
+                    >
+                      <IconSymbol
+                        name="checkmark.circle.fill"
+                        size={16}
+                        color={colors.success}
+                      />
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.masjidMetaRow}>
+                  <IconSymbol
+                    name="location.fill"
+                    size={14}
+                    color={colors.textTertiary}
+                  />
+                  <Text
+                    style={[styles.masjidMeta, { color: colors.textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {distance} • {item.districtName}, {item.stateName}
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.masjidMetaRow}>
-                <IconSymbol name="location.fill" size={14} color={colors.textTertiary} />
-                <Text style={[styles.masjidMeta, { color: colors.textSecondary }]}>
-                  {distance} • {item.districtName}, {item.stateName}
-                </Text>
+              {/* Status Badge */}
+              <View style={styles.statusBadgeContainer}>
+                <Badge
+                  label={item.canCheckin ? "Ready" : "Too far"}
+                  variant={item.canCheckin ? "success" : "default"}
+                  size="sm"
+                />
               </View>
             </View>
-
-            {/* Status Badge */}
-            <View style={styles.statusBadgeContainer}>
-              <Badge
-                label={item.canCheckin ? 'Ready' : 'Too far'}
-                variant={item.canCheckin ? 'success' : 'default'}
-                size="sm"
-              />
-            </View>
-          </View>
-        </Card>
-      </TouchableOpacity>
-    );
-  }, [handleMasjidPress, formatDistance, colors]);
+          </Card>
+        </TouchableOpacity>
+      );
+    },
+    [handleMasjidPress, formatDistance, colors],
+  );
 
   return (
     <>
       <Stack.Screen
         options={{
+          headerLargeTitle: true,
+          headerLargeTitleShadowVisible: false,
           headerSearchBarOptions: {
-            placeholder: 'Search masjid name...',
+            placeholder: "Search masjid name...",
             onChangeText: (event) => handleSearchChange(event.nativeEvent.text),
-            onSearchButtonPress: (event) => handleSearchChange(event.nativeEvent.text),
-            onCancelButtonPress: () => handleSearchChange(''),
+            onSearchButtonPress: (event) =>
+              handleSearchChange(event.nativeEvent.text),
+            onCancelButtonPress: () => handleSearchChange(""),
           },
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        {/* Results Count */}
-        {!isLoading && !error && (
-          <>
-            <Text style={[styles.resultsCount, { color: colors.textSecondary }]}>
-              {filteredMasjids.length} masjids within 5km
-              {selectedFacilities.size > 0 ? ` • ${selectedFacilities.size} filter${selectedFacilities.size > 1 ? 's' : ''} applied` : ''}
-            </Text>
-            <TouchableOpacity onPress={handleReportPress} style={styles.reportLinkContainer}>
-              <Text style={[styles.reportLink, { color: colors.primary }]}>
-                Incorrect information? Report here
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* Loading State */}
-        {isLoading && (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-              {isLocationLoading ? 'Getting your location...' : 'Finding nearby masjids...'}
-            </Text>
-          </View>
-        )}
-
-        {/* Error State */}
-        {error && !isLoading && (
-          <View style={styles.centerContainer}>
-            <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
-            <TouchableOpacity
-              onPress={handleRetry}
-              style={[styles.retryButton, { backgroundColor: colors.primary }]}
-              accessible={true}
-              accessibilityLabel="Retry loading masjids"
-              accessibilityRole="button"
-            >
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Empty State */}
-        {!isLoading && !error && filteredMasjids.length === 0 && (
-          <View style={styles.centerContainer}>
-            <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary + '15' }]}>
-              <IconSymbol name="map.fill" size={48} color={colors.primary} />
-            </View>
-            <Text style={[styles.emptyText, { color: colors.text }]}>
-              No masjids found
-            </Text>
-            <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-              {searchQueryRef.current
-                ? 'Try a different search term'
-                  : 'No masjids within 5km of your location'}
-            </Text>
-          </View>
-        )}
-
-        {/* Masjid List */}
-        {!isLoading && !error && filteredMasjids.length > 0 && (
-          <FlatList
-            data={filteredMasjids}
-            renderItem={renderMasjidItem}
-            keyExtractor={(item) => item.masjidId}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            removeClippedSubviews={true}
-            maxToRenderPerBatch={10}
-            windowSize={5}
-            initialNumToRender={10}
-            updateCellsBatchingPeriod={50}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handlePullRefresh}
-                tintColor={colors.primary}
-                colors={[colors.primary]}
-              />
-            }
-          />
-        )}
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        {/* Masjid List - always rendered for iOS large title collapse */}
+        <FlatList
+          data={isLoading ? [] : filteredMasjids}
+          renderItem={renderMasjidItem}
+          keyExtractor={(item) => item.masjidId}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          initialNumToRender={10}
+          updateCellsBatchingPeriod={50}
+          getItemLayout={(_, index) => ({
+            length: 88, // card height for 2-line names + margin
+            offset: 88 * index,
+            index,
+          })}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handlePullRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+          // Results count header
+          ListHeaderComponent={
+            !isLoading && !error ? (
+              <View>
+                <Text
+                  style={[styles.resultsCount, { color: colors.textSecondary }]}
+                >
+                  {filteredMasjids.length} masjids within 5km
+                  {selectedFacilities.size > 0
+                    ? ` • ${selectedFacilities.size} filter${selectedFacilities.size > 1 ? "s" : ""} applied`
+                    : ""}
+                </Text>
+                <TouchableOpacity
+                  onPress={handleReportPress}
+                  style={styles.reportLinkContainer}
+                >
+                  <Text style={[styles.reportLink, { color: colors.primary }]}>
+                    Incorrect information? Report here
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : null
+          }
+          // Loading state as empty component
+          ListEmptyComponent={
+            <>
+              {isLoading && (
+                <View style={styles.centerContainer}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text
+                    style={[
+                      styles.loadingText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {isLocationLoading
+                      ? "Getting your location..."
+                      : "Finding nearby masjids..."}
+                  </Text>
+                </View>
+              )}
+              {error && !isLoading && (
+                <View style={styles.centerContainer}>
+                  <Text style={[styles.errorText, { color: colors.error }]}>
+                    {error}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={handleRetry}
+                    style={[
+                      styles.retryButton,
+                      { backgroundColor: colors.primary },
+                    ]}
+                    accessible={true}
+                    accessibilityLabel="Retry loading masjids"
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {!isLoading && !error && filteredMasjids.length === 0 && (
+                <View style={styles.centerContainer}>
+                  <View
+                    style={[
+                      styles.emptyIconContainer,
+                      { backgroundColor: colors.primary + "15" },
+                    ]}
+                  >
+                    <IconSymbol
+                      name="map.fill"
+                      size={48}
+                      color={colors.primary}
+                    />
+                  </View>
+                  <Text style={[styles.emptyText, { color: colors.text }]}>
+                    No masjids found
+                  </Text>
+                  <Text
+                    style={[
+                      styles.emptySubtext,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {searchQueryRef.current
+                      ? "Try a different search term"
+                      : "No masjids within 5km of your location"}
+                  </Text>
+                </View>
+              )}
+            </>
+          }
+        />
 
         {/* Floating Filter Button */}
         <TouchableOpacity
@@ -310,7 +380,11 @@ export default function ExploreScreen() {
           accessibilityRole="button"
           accessibilityState={{ expanded: false }}
         >
-          <IconSymbol name="line.3.horizontal.decrease.circle.fill" size={22} color="#FFFFFF" />
+          <IconSymbol
+            name="line.3.horizontal.decrease.circle.fill"
+            size={22}
+            color="#FFFFFF"
+          />
           {selectedFacilities.size > 0 && (
             <View style={[styles.fabBadge, { backgroundColor: colors.card }]}>
               <Text style={[styles.fabBadgeText, { color: colors.primary }]}>
@@ -353,7 +427,12 @@ export default function ExploreScreen() {
         {isFacilitiesLoading ? (
           <View style={styles.filterLoadingContainer}>
             <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[styles.filterLoadingText, { color: colors.textSecondary }]}>
+            <Text
+              style={[
+                styles.filterLoadingText,
+                { color: colors.textSecondary },
+              ]}
+            >
               Loading facilities...
             </Text>
           </View>
@@ -369,8 +448,12 @@ export default function ExploreScreen() {
                     styles.filterGridItem,
                     {
                       backgroundColor: isSelected
-                        ? (colorScheme === 'dark' ? colors.primary + '30' : colors.primary + '20')
-                        : (colorScheme === 'dark' ? '#2A2C2E' : '#F5F5F5'),
+                        ? colorScheme === "dark"
+                          ? colors.primary + "30"
+                          : colors.primary + "20"
+                        : colorScheme === "dark"
+                          ? "#2A2C2E"
+                          : "#F5F5F5",
                       borderColor: isSelected ? colors.primary : colors.border,
                     },
                   ]}
@@ -379,7 +462,9 @@ export default function ExploreScreen() {
                   accessibilityRole="checkbox"
                   accessibilityState={{ selected: isSelected }}
                 >
-                  <Text style={[styles.filterGridItemText, { color: colors.text }]}>
+                  <Text
+                    style={[styles.filterGridItemText, { color: colors.text }]}
+                  >
                     {facility.label}
                   </Text>
                 </TouchableOpacity>
@@ -387,7 +472,9 @@ export default function ExploreScreen() {
             })}
           </View>
         ) : (
-          <Text style={[styles.filterEmptyText, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.filterEmptyText, { color: colors.textSecondary }]}
+          >
             No facilities available
           </Text>
         )}
@@ -401,9 +488,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
   },
@@ -411,48 +498,48 @@ const styles = StyleSheet.create({
     ...Typography.h2,
   },
   headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.md,
   },
   radiusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   radiusText: {
     ...Typography.bodySmall,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   fab: {
-    position: 'absolute',
+    position: "absolute",
     right: Spacing.lg,
     bottom: Spacing.lg,
     width: 52,
     height: 52,
     borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 6,
   },
   fabBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: -4,
     right: -4,
     minWidth: 20,
     height: 20,
     borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 4,
   },
   fabBadgeText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   resultsCount: {
     ...Typography.bodySmall,
@@ -461,13 +548,13 @@ const styles = StyleSheet.create({
   },
   reportLink: {
     ...Typography.bodySmall,
-    textDecorationLine: 'underline',
+    textDecorationLine: "underline",
   },
   reportLinkContainer: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     minHeight: 44, // Ensure touch target
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   listContent: {
     paddingHorizontal: Spacing.md,
@@ -475,25 +562,26 @@ const styles = StyleSheet.create({
   },
   masjidCard: {
     marginBottom: Spacing.sm,
+    minHeight: 80, // Accommodates 2-line name + meta
   },
   masjidCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   masjidMainContent: {
     flex: 1,
     marginRight: Spacing.md,
   },
   masjidHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: Spacing.xs,
   },
   masjidName: {
     ...Typography.body,
-    fontWeight: '600',
+    fontWeight: "600",
     flex: 1,
     marginRight: Spacing.sm,
   },
@@ -501,12 +589,12 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   masjidMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.xs,
   },
   masjidMeta: {
@@ -514,22 +602,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statusBadgeContainer: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   firstVisitorBadge: {
     gap: 2,
   },
   firstVisitorText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#FF9800',
+    fontWeight: "600",
+    color: "#FF9800",
   },
   bonusText: {
     fontSize: 11,
   },
   visitedInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.sm,
   },
   lastVisited: {
@@ -537,8 +625,8 @@ const styles = StyleSheet.create({
   },
   centerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: Spacing.lg,
   },
   loadingText: {
@@ -547,7 +635,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...Typography.body,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: Spacing.md,
   },
   retryButton: {
@@ -557,54 +645,54 @@ const styles = StyleSheet.create({
     minHeight: 44, // iOS minimum touch target
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     ...Typography.button,
   },
   emptyIconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: Spacing.md,
   },
   emptyText: {
     ...Typography.h3,
-    textAlign: 'center',
-    fontWeight: '600',
+    textAlign: "center",
+    fontWeight: "600",
     marginBottom: Spacing.xs,
   },
   emptySubtext: {
     ...Typography.body,
-    textAlign: 'center',
+    textAlign: "center",
   },
   // Filter styles
   filterHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.md,
   },
   filterTitle: {
     ...Typography.h3,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   clearButton: {
     paddingVertical: Spacing.sm, // Increased from 4
     paddingHorizontal: Spacing.md, // Increased from 8
     minHeight: 44, // iOS minimum touch target
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   clearText: {
     ...Typography.bodySmall,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   filterLoadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: Spacing.lg,
   },
   filterLoadingText: {
@@ -613,28 +701,28 @@ const styles = StyleSheet.create({
   },
   filterEmptyText: {
     ...Typography.body,
-    textAlign: 'center',
+    textAlign: "center",
     paddingVertical: Spacing.xl,
   },
   filterGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
   },
   filterGridItem: {
-    width: '48%',
+    width: "48%",
     paddingVertical: Spacing.md, // Was 12, now using theme constant
     paddingHorizontal: Spacing.sm,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     minHeight: 44, // iOS minimum touch target
   },
   filterGridItemText: {
     ...Typography.body,
-    textAlign: 'center',
+    textAlign: "center",
   },
   filterActions: {
     paddingTop: Spacing.sm,

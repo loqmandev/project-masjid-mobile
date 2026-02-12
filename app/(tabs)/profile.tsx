@@ -560,6 +560,8 @@ export default function ProfileScreen() {
     >
       <Stack.Screen
         options={{
+          headerLargeTitle: true,
+          headerLargeTitleShadowVisible: false,
           headerRight: () => (
             <TouchableOpacity
               onPress={() => handleMenuPress("/settings")}
