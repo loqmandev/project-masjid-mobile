@@ -177,8 +177,6 @@ export default function HomeScreen() {
       // Parse achievement IDs from params
       const unlockedIds = params.unlocked.split(",").filter(Boolean);
 
-      console.log("Unlocked achievement IDs from params:", unlockedIds);
-
       if (unlockedIds.length > 0) {
         // Find the achievement definitions from the achievements data
         const unlockedAchievements = unlockedIds
@@ -190,11 +188,6 @@ export default function HomeScreen() {
             return found?.achievement;
           })
           .filter(Boolean) as AchievementDefinition[];
-
-        console.log(
-          "Unlocked achievements to show in modal:",
-          unlockedAchievements,
-        );
 
         if (unlockedAchievements.length > 0) {
           setPendingAchievements(unlockedAchievements);

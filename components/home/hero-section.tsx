@@ -1,8 +1,8 @@
-import { Colors, Spacing, Typography } from '@/constants/theme';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { CircularProgressWithAvatar } from './circular-progress';
-import { StatRow } from './stat-row';
+import { Colors, Spacing, Typography } from "@/constants/theme";
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { CircularProgressWithAvatar } from "./circular-progress";
+import { StatRow } from "./stat-row";
 
 interface HeroSectionProps {
   userName: string;
@@ -15,7 +15,7 @@ interface HeroSectionProps {
   totalPoints: number;
   currentStreak: number;
   achievementCount: number;
-  colorScheme: 'light' | 'dark';
+  colorScheme: "light" | "dark";
 }
 
 export function HeroSection({
@@ -95,7 +95,7 @@ export function HeroSection({
 
 const styles = StyleSheet.create({
   container: {
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   background: {
     paddingHorizontal: Spacing.md,
@@ -107,29 +107,29 @@ const styles = StyleSheet.create({
   },
   greetingLabel: {
     ...Typography.body,
-    color: 'rgba(255,255,255,0.85)',
-    fontWeight: '500',
+    color: "rgba(255,255,255,0.85)",
+    fontWeight: "500",
     marginBottom: 4,
   },
   userName: {
     ...Typography.h1,
-    color: '#fff',
-    fontWeight: '700',
+    color: "#fff",
+    fontWeight: "700",
     fontSize: 24,
   },
   contentRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: Spacing.sm,
     gap: Spacing.xl,
-    alignItems: 'center',
+    alignItems: "center",
   },
   progressContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   statsContainer: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
     minHeight: 150,
   },
 });
