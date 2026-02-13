@@ -1,10 +1,10 @@
-import { Platform } from 'react-native';
+import { Platform } from "react-native";
 
-const ACTIVE_VISIT_KEY = 'active-visit';
-const LOCATION_CACHE_KEY = 'cached-location';
-const USER_PROFILE_CACHE_KEY = 'user-profile-cache';
-const THEME_PREFERENCE_KEY = 'theme-preference';
-const ONBOARDING_COMPLETED_KEY = 'onboarding-completed';
+const ACTIVE_VISIT_KEY = "active-visit";
+const LOCATION_CACHE_KEY = "cached-location";
+const USER_PROFILE_CACHE_KEY = "user-profile-cache";
+const THEME_PREFERENCE_KEY = "theme-preference";
+const ONBOARDING_COMPLETED_KEY = "onboarding-completed";
 
 let nativeStorage: any | null = null;
 
@@ -27,16 +27,16 @@ type StoredActiveVisit = {
 };
 
 function getNativeStorage() {
-  if (Platform.OS === 'web') return null;
+  if (Platform.OS === "web") return null;
   if (nativeStorage) return nativeStorage;
   // Lazy require to avoid web bundling issues.
-  const { MMKV } = require('react-native-mmkv');
+  const { MMKV } = require("react-native-mmkv");
   nativeStorage = new MMKV();
   return nativeStorage;
 }
 
 export function loadActiveVisit(): StoredActiveVisit | null {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     const raw = globalThis?.localStorage?.getItem(ACTIVE_VISIT_KEY);
     if (!raw) return null;
     try {
@@ -58,7 +58,7 @@ export function loadActiveVisit(): StoredActiveVisit | null {
 }
 
 export function saveActiveVisit(visit: StoredActiveVisit) {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     globalThis?.localStorage?.setItem(ACTIVE_VISIT_KEY, JSON.stringify(visit));
     return;
   }
@@ -69,7 +69,7 @@ export function saveActiveVisit(visit: StoredActiveVisit) {
 }
 
 export function clearActiveVisit() {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     globalThis?.localStorage?.removeItem(ACTIVE_VISIT_KEY);
     return;
   }
@@ -89,7 +89,7 @@ function getDistanceInMeters(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
 ): number {
   const R = 6371000; // Earth's radius in meters
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -108,7 +108,7 @@ function getDistanceInMeters(
  * Load cached location from storage
  */
 export function loadCachedLocation(): CachedLocation | null {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     const raw = globalThis?.localStorage?.getItem(LOCATION_CACHE_KEY);
     if (!raw) return null;
     try {
@@ -139,8 +139,11 @@ export function saveCachedLocation(latitude: number, longitude: number): void {
     timestamp: Date.now(),
   };
 
-  if (Platform.OS === 'web') {
-    globalThis?.localStorage?.setItem(LOCATION_CACHE_KEY, JSON.stringify(cached));
+  if (Platform.OS === "web") {
+    globalThis?.localStorage?.setItem(
+      LOCATION_CACHE_KEY,
+      JSON.stringify(cached),
+    );
     return;
   }
 
@@ -155,7 +158,7 @@ export function saveCachedLocation(latitude: number, longitude: number): void {
  */
 export function isCachedLocationValid(
   cached: CachedLocation,
-  newLocation?: { latitude: number; longitude: number }
+  newLocation?: { latitude: number; longitude: number },
 ): boolean {
   const age = Date.now() - cached.timestamp;
 
@@ -170,7 +173,7 @@ export function isCachedLocationValid(
       cached.latitude,
       cached.longitude,
       newLocation.latitude,
-      newLocation.longitude
+      newLocation.longitude,
     );
     return distance <= LOCATION_CACHE_MAX_DISTANCE_M;
   }
@@ -184,7 +187,7 @@ export function isCachedLocationValid(
  */
 export function roundCoordinatesForCacheKey(
   latitude: number,
-  longitude: number
+  longitude: number,
 ): { lat: number; lng: number } {
   const precision = 0.0005; // ~50m at equator
   return {
@@ -205,7 +208,7 @@ export type CachedUserProfile<T> = {
  * Load cached user profile from storage
  */
 export function loadCachedUserProfile<T>(): CachedUserProfile<T> | null {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     const raw = globalThis?.localStorage?.getItem(USER_PROFILE_CACHE_KEY);
     if (!raw) return null;
     try {
@@ -236,8 +239,11 @@ export function saveCachedUserProfile<T>(data: T, userId: string): void {
     timestamp: Date.now(),
   };
 
-  if (Platform.OS === 'web') {
-    globalThis?.localStorage?.setItem(USER_PROFILE_CACHE_KEY, JSON.stringify(cached));
+  if (Platform.OS === "web") {
+    globalThis?.localStorage?.setItem(
+      USER_PROFILE_CACHE_KEY,
+      JSON.stringify(cached),
+    );
     return;
   }
 
@@ -250,7 +256,7 @@ export function saveCachedUserProfile<T>(data: T, userId: string): void {
  * Clear cached user profile (call on logout or user change)
  */
 export function clearCachedUserProfile(): void {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     globalThis?.localStorage?.removeItem(USER_PROFILE_CACHE_KEY);
     return;
   }
@@ -264,7 +270,7 @@ export function clearCachedUserProfile(): void {
  * Clear cached location
  */
 export function clearCachedLocation(): void {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     globalThis?.localStorage?.removeItem(LOCATION_CACHE_KEY);
     return;
   }
@@ -285,34 +291,34 @@ export function clearAppCache(): void {
 
 // ============ Theme Preference ============
 
-export type ThemePreference = 'light' | 'dark' | 'system';
+export type ThemePreference = "light" | "dark" | "system";
 
 /**
  * Load theme preference from storage
  */
 export function loadThemePreference(): ThemePreference {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     const raw = globalThis?.localStorage?.getItem(THEME_PREFERENCE_KEY);
-    if (raw === 'light' || raw === 'dark' || raw === 'system') {
+    if (raw === "light" || raw === "dark" || raw === "system") {
       return raw;
     }
-    return 'system';
+    return "system";
   }
 
   const storage = getNativeStorage();
-  if (!storage) return 'system';
+  if (!storage) return "system";
   const raw = storage.getString(THEME_PREFERENCE_KEY);
-  if (raw === 'light' || raw === 'dark' || raw === 'system') {
+  if (raw === "light" || raw === "dark" || raw === "system") {
     return raw;
   }
-  return 'system';
+  return "system";
 }
 
 /**
  * Save theme preference to storage
  */
 export function saveThemePreference(preference: ThemePreference): void {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     globalThis?.localStorage?.setItem(THEME_PREFERENCE_KEY, preference);
     return;
   }
@@ -325,33 +331,44 @@ export function saveThemePreference(preference: ThemePreference): void {
 // ============ Onboarding ============
 
 export function loadOnboardingCompleted(): boolean {
-  if (Platform.OS === 'web') {
-    return globalThis?.localStorage?.getItem(ONBOARDING_COMPLETED_KEY) === 'true';
+  if (Platform.OS === "web") {
+    return (
+      globalThis?.localStorage?.getItem(ONBOARDING_COMPLETED_KEY) === "true"
+    );
   }
 
   const storage = getNativeStorage();
   if (!storage) return false;
-  return storage.getString(ONBOARDING_COMPLETED_KEY) === 'true';
+  return storage.getString(ONBOARDING_COMPLETED_KEY) === "true";
 }
 
 export function saveOnboardingCompleted(): void {
-  if (Platform.OS === 'web') {
-    globalThis?.localStorage?.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+  if (Platform.OS === "web") {
+    globalThis?.localStorage?.setItem(ONBOARDING_COMPLETED_KEY, "true");
     return;
   }
 
   const storage = getNativeStorage();
   if (!storage) return;
-  storage.set(ONBOARDING_COMPLETED_KEY, 'true');
+  storage.set(ONBOARDING_COMPLETED_KEY, "true");
 }
 
 export function clearOnboardingCompleted(): void {
-  if (Platform.OS === 'web') {
-    globalThis?.localStorage?.removeItem(ONBOARDING_COMPLETED_KEY);
-    return;
-  }
-
   const storage = getNativeStorage();
   if (!storage) return;
+  storage.delete(ONBOARDING_COMPLETED_KEY);
+}
+
+/**
+ * Clear ALL app data (call on account deletion or full logout)
+ * Clears: active visit, location cache, user profile cache, onboarding, theme preference
+ */
+export function clearAllAppData(): void {
+  const storage = getNativeStorage();
+  if (!storage) return;
+  storage.delete(ACTIVE_VISIT_KEY);
+  storage.delete(LOCATION_CACHE_KEY);
+  storage.delete(USER_PROFILE_CACHE_KEY);
+  storage.delete(THEME_PREFERENCE_KEY);
   storage.delete(ONBOARDING_COMPLETED_KEY);
 }

@@ -813,3 +813,33 @@ export async function getUserMonthlyActivity(
 
   return response.json();
 }
+
+/**
+ * Delete account response from backend
+ */
+export interface DeleteAccountResponse {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * Delete user account permanently
+ * REQUIRES AUTHENTICATION
+ * This action cannot be undone and all user data will be permanently lost
+ */
+export async function deleteAccount(): Promise<DeleteAccountResponse> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/user/account`, {
+    method: 'DELETE',
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Please sign in to delete your account');
+    }
+    throw new Error(data.message || `Failed to delete account: ${response.status}`);
+  }
+
+  return data;
+}

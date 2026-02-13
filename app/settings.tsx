@@ -3,11 +3,13 @@ import React, { useState } from 'react';
 import {
   Alert,
   Linking,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -17,16 +19,29 @@ import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-color-scheme';
-import { clearAppCache, ThemePreference } from '@/lib/storage';
+import { clearAllAppData, clearAppCache, ThemePreference } from '@/lib/storage';
+import { deleteAccount } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { signOut } from '@/lib/auth-client';
 
 export default function SettingsScreen() {
   const { colorScheme, themePreference, setThemePreference } = useTheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const queryClient = useQueryClient();
 
   // Settings state (UI only for now)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for future implementation
   const [pushNotifications, setPushNotifications] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for future implementation
   const [checkoutReminders, setCheckoutReminders] = useState(true);
   const [profileVisibility, setProfileVisibility] = useState(true);
+
+  // Delete account modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const REQUIRED_CONFIRMATION_TEXT = 'Delete my account';
 
   const handleClearCache = () => {
     Alert.alert(
@@ -48,12 +63,57 @@ export default function SettingsScreen() {
       'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently lost.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => {
-          // TODO: Implement account deletion
+        { text: 'Continue', style: 'destructive', onPress: () => {
+          setShowDeleteModal(true);
+          setDeleteConfirmText('');
         }},
       ]
     );
   };
+
+  const handleConfirmDelete = async () => {
+    if (deleteConfirmText !== REQUIRED_CONFIRMATION_TEXT) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deleteAccount();
+
+      // Clear all app data
+      clearAllAppData();
+
+      // Clear React Query cache
+      queryClient.clear();
+
+      // Sign out from auth
+      await signOut();
+
+      Alert.alert(
+        'Account Deleted',
+        'Your account has been permanently deleted.',
+        [{ text: 'OK' }]
+      );
+
+      // Navigate to login
+      router.replace('/auth/login');
+    } catch (error) {
+      setIsDeleting(false);
+      Alert.alert(
+        'Deletion Failed',
+        error instanceof Error ? error.message : 'Failed to delete account. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeleteConfirmText('');
+    setIsDeleting(false);
+  };
+
+  const isDeleteEnabled = deleteConfirmText === REQUIRED_CONFIRMATION_TEXT && !isDeleting;
 
   const handleOpenLink = (url: string) => {
     Linking.openURL(url);
@@ -267,6 +327,114 @@ export default function SettingsScreen() {
         {/* Bottom Spacing */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Delete Account Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={handleCloseDeleteModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <IconSymbol name="exclamationmark.triangle.fill" size={28} color={colors.error} />
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Confirm Account Deletion
+              </Text>
+            </View>
+
+            {/* Modal Body */}
+            <View style={styles.modalBody}>
+              <Text style={[styles.modalMessage, { color: colors.text }]}>
+                This action cannot be undone. All your data including:
+              </Text>
+              <View style={styles.dataLossList}>
+                <Text style={[styles.dataLossItem, { color: colors.textSecondary }]}>
+                  • Profile and settings
+                </Text>
+                <Text style={[styles.dataLossItem, { color: colors.textSecondary }]}>
+                  • Check-in history
+                </Text>
+                <Text style={[styles.dataLossItem, { color: colors.textSecondary }]}>
+                  • Points and achievements
+                </Text>
+                <Text style={[styles.dataLossItem, { color: colors.textSecondary }]}>
+                  • Leaderboard rankings
+                </Text>
+              </View>
+              <Text style={[styles.modalMessage, { color: colors.text }]}>
+                will be permanently lost.
+              </Text>
+
+              <Text style={[styles.confirmationLabel, { color: colors.text }]}>
+                To confirm, type &quot;{REQUIRED_CONFIRMATION_TEXT}&quot; below:
+              </Text>
+
+              <TextInput
+                style={[
+                  styles.confirmationInput,
+                  {
+                    backgroundColor: colors.background,
+                    color: colors.text,
+                    borderColor: deleteConfirmText === REQUIRED_CONFIRMATION_TEXT
+                      ? colors.error
+                      : colors.border,
+                  },
+                ]}
+                value={deleteConfirmText}
+                onChangeText={setDeleteConfirmText}
+                placeholder={REQUIRED_CONFIRMATION_TEXT}
+                placeholderTextColor={colors.textTertiary}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isDeleting}
+                accessible={true}
+                accessibilityLabel="Confirm account deletion"
+                accessibilityHint="Type the confirmation text to enable deletion"
+              />
+            </View>
+
+            {/* Modal Footer */}
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton, { borderColor: colors.border }]}
+                onPress={handleCloseDeleteModal}
+                disabled={isDeleting}
+                accessible={true}
+                accessibilityLabel="Cancel account deletion"
+              >
+                <Text style={[styles.modalButtonText, { color: colors.text }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.deleteButtonModal,
+                  { backgroundColor: isDeleteEnabled ? colors.error : colors.border },
+                ]}
+                onPress={handleConfirmDelete}
+                disabled={!isDeleteEnabled}
+                accessible={true}
+                accessibilityLabel="Confirm delete account"
+                accessibilityState={{ disabled: !isDeleteEnabled }}
+              >
+                {isDeleting ? (
+                  <Text style={[styles.modalButtonText, { color: '#fff' }]}>
+                    Deleting...
+                  </Text>
+                ) : (
+                  <Text style={[styles.modalButtonText, { color: isDeleteEnabled ? '#fff' : colors.textTertiary }]}>
+                    Delete Account
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       </SafeAreaView>
     </>
   );
@@ -347,5 +515,87 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: Spacing.xxl,
+  },
+
+  // Delete Account Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.lg,
+  },
+  modalContent: {
+    borderRadius: BorderRadius.lg,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  modalTitle: {
+    ...Typography.h3,
+    fontWeight: '700',
+    marginTop: Spacing.md,
+    textAlign: 'center',
+  },
+  modalBody: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+  },
+  modalMessage: {
+    ...Typography.body,
+    lineHeight: 22,
+  },
+  dataLossList: {
+    marginVertical: Spacing.md,
+    gap: Spacing.xs,
+  },
+  dataLossItem: {
+    ...Typography.bodySmall,
+    lineHeight: 20,
+  },
+  confirmationLabel: {
+    ...Typography.bodySmall,
+    fontWeight: '600',
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  confirmationInput: {
+    ...Typography.body,
+    borderWidth: 2,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    minHeight: 48, // Touch target minimum
+    textAlign: 'center',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    minHeight: 48, // Touch target minimum
+  },
+  cancelButton: {
+    backgroundColor: 'transparent',
+  },
+  deleteButtonModal: {
+    backgroundColor: Colors.light.error,
+  },
+  modalButtonText: {
+    ...Typography.body,
+    fontWeight: '600',
   },
 });
