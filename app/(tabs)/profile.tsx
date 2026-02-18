@@ -41,10 +41,11 @@ import {
 } from "@/lib/api";
 import { authClient, useSession } from "@/lib/auth-client";
 import {
-  clearCachedUserProfile,
+  clearAllAppData,
   loadCachedUserProfile,
   saveCachedUserProfile,
 } from "@/lib/storage";
+import { useQueryClient } from "@tanstack/react-query";
 
 // Cache validity duration (5 minutes)
 const PROFILE_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
@@ -308,6 +309,7 @@ export default function ProfileScreen() {
   const { data: session } = useSession();
   const { track, screen } = useAnalytics();
   const hasTrackedView = useRef(false);
+  const queryClient = useQueryClient();
 
   // Current date for month navigation - memoized to avoid dependency warnings
   const today = useMemo(() => new Date(), []);
@@ -457,8 +459,11 @@ export default function ProfileScreen() {
   const handleSignOut = async () => {
     try {
       track("profile_signout");
-      // Clear cached user profile before signing out
-      clearCachedUserProfile();
+      // Clear ALL app data including profile cache, demo mode, etc.
+      clearAllAppData();
+      // Clear all React Query cache to remove stale data
+      queryClient.clear();
+      // Sign out from auth
       await authClient.signOut();
       router.replace("/(tabs)");
     } catch (error) {
