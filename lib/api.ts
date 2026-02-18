@@ -5,10 +5,30 @@
 
 import { API_BASE_URL } from '@/constants/api';
 import { authClient } from '@/lib/auth-client';
+import { saveDemoMode, clearDemoMode } from '@/lib/storage';
 import type {
   MasjidReportData,
   MasjidReportResponse,
 } from '@/types/masjid-report';
+
+/**
+ * Demo mode header name sent by backend
+ */
+const DEMO_MODE_HEADER = 'x-demo-mode';
+
+/**
+ * Check if response indicates demo mode and update storage accordingly
+ */
+function handleDemoModeHeader(response: Response): void {
+  const isDemo = response.headers.get(DEMO_MODE_HEADER) === 'true';
+  if (isDemo) {
+    saveDemoMode(true);
+  } else {
+    // If we get a non-demo response, clear demo mode
+    // This handles the case when user switches from demo to real account
+    clearDemoMode();
+  }
+}
 
 /**
  * Creates fetch options with authentication headers
@@ -32,12 +52,34 @@ function createAuthenticatedFetchOptions(
 /**
  * Authenticated fetch wrapper for protected endpoints
  */
-function authenticatedFetch(
+async function authenticatedFetch(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
   const authOptions = createAuthenticatedFetchOptions(options);
-  return fetch(url, authOptions);
+  const response = await fetch(url, authOptions);
+
+  // Check for demo mode header and update storage
+  handleDemoModeHeader(response);
+
+  return response;
+}
+
+/**
+ * Public fetch wrapper that also checks for demo mode header
+ * Used for endpoints that may return demo-mode header even without auth
+ */
+async function publicFetch(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const authOptions = createAuthenticatedFetchOptions(options);
+  const response = await fetch(url, authOptions);
+
+  // Check for demo mode header and update storage
+  handleDemoModeHeader(response);
+
+  return response;
 }
 
 /**
@@ -106,7 +148,7 @@ export async function getCheckinEligibleMasjids(
   lat: number,
   lng: number
 ): Promise<MasjidResponse[]> {
-  const response = await fetch(
+  const response = await publicFetch(
     `${API_BASE_URL}/masjids/checkin?lat=${lat}&lng=${lng}`
   );
 
@@ -134,7 +176,7 @@ export async function getNearbyMasjids(
   if (facilityCode) {
     params.set('facility_code', facilityCode);
   }
-  const response = await fetch(
+  const response = await publicFetch(
     `${API_BASE_URL}/masjids/nearby?${params.toString()}`
   );
 
@@ -149,7 +191,7 @@ export async function getNearbyMasjids(
  * Fetch masjid details by ID
  */
 export async function getMasjidById(masjidId: string): Promise<MasjidDetails> {
-  const response = await fetch(`${API_BASE_URL}/masjids/${masjidId}`);
+  const response = await publicFetch(`${API_BASE_URL}/masjids/${masjidId}`);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch masjid details: ${response.status}`);
@@ -162,7 +204,7 @@ export async function getMasjidById(masjidId: string): Promise<MasjidDetails> {
  * Fetch facility lookup list
  */
 export async function getFacilities(): Promise<FacilityOption[]> {
-  const response = await fetch(`${API_BASE_URL}/api/facilities`);
+  const response = await publicFetch(`${API_BASE_URL}/api/facilities`);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch facilities: ${response.status}`);
@@ -177,7 +219,7 @@ export async function getFacilities(): Promise<FacilityOption[]> {
 export async function getMasjidFacilities(
   masjidId: string
 ): Promise<FacilityOption[]> {
-  const response = await fetch(`${API_BASE_URL}/masjids/${masjidId}/facilities`);
+  const response = await publicFetch(`${API_BASE_URL}/masjids/${masjidId}/facilities`);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch masjid facilities: ${response.status}`);
@@ -319,7 +361,7 @@ export async function getMasjidPhotosAll(
   if (options?.category) params.set('category', options.category);
 
   const query = params.toString();
-  const response = await fetch(
+  const response = await publicFetch(
     `${API_BASE_URL}/api/masjids/${masjidId}/photos/all${query ? `?${query}` : ''}`
   );
 

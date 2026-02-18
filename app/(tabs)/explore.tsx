@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Badge } from "@/components/ui/badge";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Card } from "@/components/ui/card";
+import { DemoBanner } from "@/components/ui/demo-banner";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
 import { useBottomSheet } from "@/hooks/use-bottom-sheet";
@@ -24,18 +25,27 @@ import { useFacilities } from "@/hooks/use-facilities";
 import { useLocation } from "@/hooks/use-location";
 import { useNearbyMasjids } from "@/hooks/use-nearby-masjids";
 import { FacilityOption, MasjidResponse } from "@/lib/api";
+import { useSession } from "@/lib/auth-client";
+import { DEMO_LOCATION, DEMO_MASJIDS, isDemoEmail } from "@/lib/demo-mode";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 export default function ExploreScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
+  const { data: session } = useSession();
+
+  // Check if user is in demo mode
+  const isDemoMode = session?.user?.email
+    ? isDemoEmail(session.user.email)
+    : false;
 
   // Search query stored in ref to avoid re-renders on every keystroke
   const searchQueryRef = useRef("");
   const [searchDisplayCount, setSearchDisplayCount] = useState(0); // Minimal state for triggering filter updates
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showDemoData, setShowDemoData] = useState(false);
 
   // Selected facilities for filtering
   const [selectedFacilities, setSelectedFacilities] = useState<Set<string>>(
@@ -56,23 +66,27 @@ export default function ExploreScreen() {
   // Refresh location and masjids when explore tab gains focus
   useFocusEffect(
     useCallback(() => {
-      // Force refresh location when explore screen comes into focus
-      refreshLocation(true);
-    }, [refreshLocation]),
+      // Skip location refresh in demo mode - use demo location instead
+      if (!isDemoMode) {
+        refreshLocation(true);
+      }
+      setShowDemoData(false);
+    }, [refreshLocation, isDemoMode]),
   );
 
   // Fetch facilities for filter
   const { data: facilities, isLoading: isFacilitiesLoading } = useFacilities();
 
   // Fetch nearby masjids (5km radius)
+  // Use demo location when in demo mode
   const {
     data: nearbyMasjids,
     isLoading: isMasjidsLoading,
     error: masjidsError,
     refetch: refetchMasjids,
   } = useNearbyMasjids({
-    latitude: location?.latitude ?? null,
-    longitude: location?.longitude ?? null,
+    latitude: isDemoMode ? DEMO_LOCATION.latitude : (location?.latitude ?? null),
+    longitude: isDemoMode ? DEMO_LOCATION.longitude : (location?.longitude ?? null),
     radius: 5,
     facilityCodes: Array.from(selectedFacilities),
   });
@@ -80,6 +94,18 @@ export default function ExploreScreen() {
   // Filter masjids based on search query
   // Note: searchDisplayCount is intentionally included to trigger re-filter when search changes
   const filteredMasjids = useMemo(() => {
+    // Use demo data if location failed and demo mode is enabled
+    if (showDemoData && (!nearbyMasjids || nearbyMasjids.length === 0)) {
+      const searchQuery = searchQueryRef.current.toLowerCase();
+      return DEMO_MASJIDS.filter((masjid: MasjidResponse) => {
+        return (
+          masjid.name.toLowerCase().includes(searchQuery) ||
+          masjid.districtName.toLowerCase().includes(searchQuery) ||
+          masjid.stateName.toLowerCase().includes(searchQuery)
+        );
+      });
+    }
+
     if (!nearbyMasjids) return [];
 
     const searchQuery = searchQueryRef.current.toLowerCase();
@@ -92,7 +118,7 @@ export default function ExploreScreen() {
       return matchesSearch;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nearbyMasjids, searchDisplayCount]);
+  }, [nearbyMasjids, searchDisplayCount, showDemoData, isDemoMode]);
 
   // Handle search input changes without re-render
   const handleSearchChange = useCallback((text: string) => {
@@ -280,10 +306,38 @@ export default function ExploreScreen() {
           ListHeaderComponent={
             !isLoading && !error ? (
               <View>
+                {isDemoMode && <DemoBanner />}
+                {showDemoData &&
+                  (!nearbyMasjids || nearbyMasjids.length === 0) && (
+                    <View
+                      style={[
+                        styles.demoBanner,
+                        { backgroundColor: colors.primary + "15" },
+                      ]}
+                    >
+                      <IconSymbol
+                        name="star.fill"
+                        size={14}
+                        color={colors.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.demoBannerText,
+                          { color: colors.primary },
+                        ]}
+                      >
+                        Demo mode - showing sample masjids
+                      </Text>
+                    </View>
+                  )}
                 <Text
                   style={[styles.resultsCount, { color: colors.textSecondary }]}
                 >
-                  {filteredMasjids.length} masjids within 5km
+                  {filteredMasjids.length} masjids{" "}
+                  {showDemoData &&
+                  (!nearbyMasjids || nearbyMasjids.length === 0)
+                    ? "(demo)"
+                    : "within 5km"}
                   {selectedFacilities.size > 0
                     ? ` • ${selectedFacilities.size} filter${selectedFacilities.size > 1 ? "s" : ""} applied`
                     : ""}
@@ -540,6 +594,21 @@ const styles = StyleSheet.create({
   fabBadgeText: {
     fontSize: 11,
     fontWeight: "700",
+  },
+  demoBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    borderRadius: BorderRadius.sm,
+  },
+  demoBannerText: {
+    ...Typography.bodySmall,
+    fontWeight: "600",
   },
   resultsCount: {
     ...Typography.bodySmall,

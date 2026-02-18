@@ -22,6 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { DemoBanner } from '@/components/ui/demo-banner';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
@@ -32,6 +33,7 @@ import { useLocation } from '@/hooks/use-location';
 import { useAnalytics } from '@/lib/analytics';
 import { checkinToMasjid, checkoutFromMasjid } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
+import { DEMO_MASJIDS, DEMO_LOCATION, isDemoEmail } from '@/lib/demo-mode';
 import { useQueryClient } from '@tanstack/react-query';
 
 type VisitState = 'idle' | 'nearby' | 'checked_in';
@@ -139,6 +141,9 @@ export default function CheckInScreen() {
   const { track, screen } = useAnalytics();
   const hasTrackedView = useRef(false);
 
+  // Check if user is in demo mode
+  const isDemoMode = session?.user?.email ? isDemoEmail(session.user.email) : false;
+
   // State
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
@@ -167,18 +172,25 @@ export default function CheckInScreen() {
 
   // Location and nearby masjids
   const { location, isLoading: isLocationLoading, refresh: refreshLocation } = useLocation();
+
+  // Use demo location for demo users, or real location otherwise
+  const effectiveLocation = isDemoMode ? DEMO_LOCATION : location;
+
   const {
     data: checkinMasjids,
     isLoading: isMasjidsLoading,
     refetch: refetchMasjids,
   } = useCheckinMasjids({
-    latitude: location?.latitude ?? null,
-    longitude: location?.longitude ?? null,
+    latitude: effectiveLocation?.latitude ?? null,
+    longitude: effectiveLocation?.longitude ?? null,
     enabled: !activeVisit,
   });
 
   // Get the first available masjid for check-in
-  const nearbyMasjid = checkinMasjids?.[0];
+  // For demo mode, use the demo masjids
+  const nearbyMasjid = isDemoMode
+    ? DEMO_MASJIDS[0] // Always show Masjid Negara as first option for demo
+    : checkinMasjids?.[0];
 
   // Determine visit state
   const getVisitState = (): VisitState => {
@@ -282,8 +294,19 @@ export default function CheckInScreen() {
       return;
     }
 
-    if (!nearbyMasjid || !location) {
+    if (!nearbyMasjid) {
       track('checkin_blocked', { reason: 'no_nearby_or_location' });
+      return;
+    }
+
+    // For demo mode, use demo location; otherwise require real location
+    const checkInLocation = isDemoMode
+      ? DEMO_LOCATION
+      : location;
+
+    if (!checkInLocation && !isDemoMode) {
+      track('checkin_blocked', { reason: 'no_location' });
+      Alert.alert('Location Required', 'Please enable location services to check in.');
       return;
     }
 
@@ -292,11 +315,12 @@ export default function CheckInScreen() {
       track('checkin_attempted', {
         masjid_id: nearbyMasjid.masjidId,
         distance_m: nearbyMasjid.distanceM,
+        isDemo: isDemoMode,
       });
       const result = await checkinToMasjid(
         nearbyMasjid.masjidId,
-        location.latitude,
-        location.longitude
+        checkInLocation!.latitude,
+        checkInLocation!.longitude
       );
 
       if (result.success) {
@@ -304,6 +328,7 @@ export default function CheckInScreen() {
         track('checkin_success', {
           masjid_id: nearbyMasjid.masjidId,
           distance_m: nearbyMasjid.distanceM,
+          isDemo: isDemoMode,
         });
         // Invalidate and refetch active checkin from backend
         invalidateActiveCheckin();
@@ -321,23 +346,34 @@ export default function CheckInScreen() {
     } finally {
       setIsCheckingIn(false);
     }
-  }, [session, activeVisit, nearbyMasjid, location, invalidateActiveCheckin, queryClient, track]);
+  }, [session, activeVisit, nearbyMasjid, location, isDemoMode, invalidateActiveCheckin, queryClient, track]);
 
   // Handle check-out
   const handleCheckOut = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    if (!activeVisit || !location || !activeCheckin) return;
+    if (!activeVisit || !activeCheckin) return;
+
+    // For demo mode, use demo location; otherwise require real location
+    const checkOutLocation = isDemoMode
+      ? DEMO_LOCATION
+      : location;
+
+    if (!checkOutLocation && !isDemoMode) {
+      Alert.alert('Location Required', 'Please enable location services to check out.');
+      return;
+    }
 
     setIsCheckingOut(true);
     try {
       track('checkout_attempted', {
         masjid_id: activeVisit.masjidId,
+        isDemo: isDemoMode,
       });
       const result = await checkoutFromMasjid(
         activeVisit.masjidId,
-        location.latitude,
-        location.longitude
+        checkOutLocation!.latitude,
+        checkOutLocation!.longitude
       );
 
       if (result.success) {
@@ -347,6 +383,7 @@ export default function CheckInScreen() {
           points_earned: result.pointsEarned ?? activeCheckin.actualPointsEarned ?? 10,
           is_prayer_time: activeCheckin.isPrayerTime ?? false,
           is_first_visit: activeCheckin.isFirstVisitToMasjid ?? false,
+          isDemo: isDemoMode,
         });
         // Invalidate queries to refresh data
         invalidateActiveCheckin();
@@ -379,7 +416,7 @@ export default function CheckInScreen() {
     } finally {
       setIsCheckingOut(false);
     }
-  }, [activeVisit, activeCheckin, location, invalidateActiveCheckin, queryClient, refetchMasjids, track]);
+  }, [activeVisit, activeCheckin, location, isDemoMode, invalidateActiveCheckin, queryClient, refetchMasjids, track]);
 
   // Handle explore
   const handleExplore = useCallback(() => {
@@ -697,6 +734,7 @@ export default function CheckInScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {isDemoMode && <DemoBanner />}
         {content}
       </ScrollView>
     </SafeAreaView>

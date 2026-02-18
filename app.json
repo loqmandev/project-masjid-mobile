@@ -3,7 +3,6 @@
     "name": "Jejak Masjid",
     "slug": "jejak-masjid-mobile",
     "version": "1.0.0",
-    "orientation": "portrait",
     "scheme": "jejakmasjidmobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -11,9 +10,13 @@
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "bundleIdentifier": "my.lonasoft.jejakmasjidmobile",
-      "buildNumber": "21",
+      "buildNumber": "23",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Jejak Masjid uses your location to find nearby masjids for check-in. For example, when you visit Masjid Negara, we verify your location to award points for your visit. This enables you to discover masjids within 5km of your current location.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Jejak Masjid uses your location to find nearby masjids for check-in. For example, when you visit Masjid Negara, we verify your location to award points for your visit. This enables you to discover masjids within 5km of your current location.",
+        "NSPhotoLibraryUsageDescription": "This allows you to select photos from your library to upload and share with the community. For example, you can add photos of a masjid you visited.",
+        "NSCameraUsageDescription": "This allows you to take photos to upload and share with the community. For example, you can capture photos of a masjid during your visit.",
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": ["jejakmasjidmobile"]

@@ -168,7 +168,7 @@ export default function EnterNameScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.content}>
-            <Text style={[styles.heading, { color: colors.text }]}>Enter you name</Text>
+            <Text style={[styles.heading, { color: colors.text }]}>Enter your name</Text>
             <TextInput
               style={[
                 styles.input,

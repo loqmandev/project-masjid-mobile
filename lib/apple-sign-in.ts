@@ -60,12 +60,17 @@ export async function signInWithApple(): Promise<AppleSignInResult> {
       user: credential.user,
     };
 
+    // Validate identityToken before sending to backend
+    if (!credential.identityToken) {
+      return { success: false, error: 'Failed to get authentication token from Apple' };
+    }
+
     // Send the token to backend for verification via better-auth
     // Using idToken instead of redirect for native iOS flow
     await authClient.signIn.social({
       provider: 'apple',
       idToken: {
-        token: credential.identityToken!,
+        token: credential.identityToken,
       },
     });
 

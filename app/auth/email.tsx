@@ -17,6 +17,7 @@ import { Colors, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAnalytics } from '@/lib/analytics';
 import { authClient } from '@/lib/auth-client';
+import { isDemoEmail } from '@/lib/demo-mode';
 
 export default function EmailScreen() {
   const colorScheme = useColorScheme();
@@ -25,6 +26,7 @@ export default function EmailScreen() {
   const [loading, setLoading] = useState(false);
   const params = useLocalSearchParams<{ returnTo?: string }>();
   const { track } = useAnalytics();
+  const isDemo = isDemoEmail(email.trim());
 
   const handleContinue = async () => {
     if (!email.trim()) {
@@ -37,21 +39,29 @@ export default function EmailScreen() {
       return;
     }
 
-    track('email_submitted', { email });
+    track('email_submitted', { email, isDemo: isDemoEmail(email.trim()) });
     setLoading(true);
 
     try {
+      const trimmedEmail = email.trim();
 
-      const result = await authClient.emailOtp.sendVerificationOtp({ email: email.trim(), type: 'sign-in' } as any);
+      // Use standard Better Auth endpoint - backend middleware handles demo account
+      const result = await authClient.emailOtp.sendVerificationOtp({
+        email: trimmedEmail,
+        type: 'sign-in',
+      } as any);
 
       if (result.error) {
-        track('email_otp_send_failed', { reason: result.error.message ?? 'unknown' });
+        track('email_otp_send_failed', {
+          reason: result.error.message ?? 'unknown',
+          isDemo: isDemoEmail(trimmedEmail)
+        });
         Alert.alert('Failed', result.error.message || 'Unable to send verification code');
       } else {
-        track('email_otp_sent', { email });
+        track('email_otp_sent', { email: trimmedEmail, isDemo: isDemoEmail(trimmedEmail) });
         router.push({
           pathname: '/auth/verify-otp',
-          params: { email: email.trim(), returnTo: params.returnTo || '/(tabs)' },
+          params: { email: trimmedEmail, returnTo: params.returnTo || '/(tabs)' },
         });
       }
     } catch (error) {
@@ -86,9 +96,9 @@ export default function EmailScreen() {
             </View>
 
             <View style={styles.form}>
-              <View style={[styles.inputContainer, { borderColor: colors.border }]}>
+              <View style={[styles.inputContainer, { borderColor: isDemo ? colors.primary : colors.border }]}>
                 <TextInput
-                  style={[styles.input, { color: colors.text }]}
+                  style={[styles.input, { color: isDemo ? colors.primary : colors.text }]}
                   placeholder="your@email.com"
                   placeholderTextColor={colors.textTertiary}
                   value={email}
@@ -99,6 +109,14 @@ export default function EmailScreen() {
                   autoFocus
                 />
               </View>
+
+              {isDemo && (
+                <View style={[styles.demoHint, { backgroundColor: colors.primary + '15' }]}>
+                  <Text style={[styles.demoHintText, { color: colors.primary }]}>
+                    Demo Account • OTP will be displayed on next screen
+                  </Text>
+                </View>
+              )}
 
               <Button
                 title={loading ? 'Sending...' : 'Continue'}
@@ -164,5 +182,17 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     width: '100%',
+  },
+  demoHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: 8,
+  },
+  demoHintText: {
+    ...Typography.bodySmall,
+    fontWeight: '600',
   },
 });

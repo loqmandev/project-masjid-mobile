@@ -33,6 +33,8 @@ import {
 import { useUserProfile } from "@/hooks/use-user-profile";
 import type { AchievementDefinition } from "@/lib/api";
 import { MasjidResponse } from "@/lib/api";
+import { DEMO_LOCATION, isDemoEmail } from "@/lib/demo-mode";
+import { useSession } from "@/lib/auth-client";
 
 // Level calculation
 const POINTS_PER_LEVEL = 100;
@@ -94,7 +96,13 @@ export default function HomeScreen() {
   // User data
   const { data: userProfile } = useUserProfile();
   const { data: achievements } = useUserAchievements();
+  const { data: session } = useSession();
   const headerName = userProfile?.profile?.leaderboardAlias || "Guest";
+
+  // Check if user is in demo mode
+  const isDemoMode = session?.user?.email
+    ? isDemoEmail(session.user.email)
+    : false;
   const initials =
     headerName
       .split(" ")
@@ -127,19 +135,20 @@ export default function HomeScreen() {
   } = useLocation();
 
   // Masjids - combine checkin masjids and nearby masjids
+  // Use demo location when in demo mode
   const {
     data: checkinMasjids,
     isLoading: isCheckinLoading,
     error: checkinError,
     refetch: refetchMasjids,
   } = useCheckinMasjids({
-    latitude: location?.latitude ?? null,
-    longitude: location?.longitude ?? null,
+    latitude: isDemoMode ? DEMO_LOCATION.latitude : (location?.latitude ?? null),
+    longitude: isDemoMode ? DEMO_LOCATION.longitude : (location?.longitude ?? null),
   });
 
   const { data: nearbyMasjids, isLoading: isNearbyLoading } = useNearbyMasjids({
-    latitude: location?.latitude ?? null,
-    longitude: location?.longitude ?? null,
+    latitude: isDemoMode ? DEMO_LOCATION.latitude : (location?.latitude ?? null),
+    longitude: isDemoMode ? DEMO_LOCATION.longitude : (location?.longitude ?? null),
     radius: 5,
   });
 
@@ -229,7 +238,6 @@ export default function HomeScreen() {
 
   return (
     <>
-      {/* <StatusBar style="light" translucent={false} /> */}
       {/* Status bar background for Android edge-to-edge */}
       <View style={{ backgroundColor: colors.primary }}>
         <SafeAreaView edges={["top"]}>

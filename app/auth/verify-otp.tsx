@@ -16,8 +16,16 @@ import { Colors, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAnalytics } from '@/lib/analytics';
 import { authClient, useSession } from '@/lib/auth-client';
+import { isDemoEmail } from '@/lib/demo-mode';
+import { API_BASE_URL } from '@/constants/api';
 
 const OTP_LENGTH = 6;
+
+interface DemoOtpResponse {
+  email: string;
+  otp: string;
+  expiresIn: number;
+}
 
 export default function VerifyOTPScreen() {
   const colorScheme = useColorScheme();
@@ -26,6 +34,7 @@ export default function VerifyOTPScreen() {
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
+  const [demoOtp, setDemoOtp] = useState<string | null>(null);
   const params = useLocalSearchParams<{ email?: string; returnTo?: string }>();
   const { track } = useAnalytics();
   const { data: session, isPending } = useSession();
@@ -33,6 +42,7 @@ export default function VerifyOTPScreen() {
   const previousOtp = useRef(Array(OTP_LENGTH).fill(''));
 
   const email = params.email || '';
+  const isDemo = isDemoEmail(email);
 
   useEffect(() => {
     let timer: any;
@@ -43,6 +53,13 @@ export default function VerifyOTPScreen() {
     }
     return () => clearTimeout(timer);
   }, [countdown, canResend]);
+
+  // Fetch demo OTP for demo accounts
+  useEffect(() => {
+    if (isDemo && email) {
+      fetchDemoOtp();
+    }
+  }, [email, isDemo]);
 
   useEffect(() => {
     if (session && !isPending) {
@@ -84,18 +101,27 @@ export default function VerifyOTPScreen() {
       return;
     }
 
-    track('otp_verify_attempted', { email });
+    track('otp_verify_attempted', { email, isDemo: isDemoEmail(email) });
     setLoading(true);
     Keyboard.dismiss();
 
     try {
-      const result = await authClient.signIn.emailOtp({ email, otp: otpCode } as any);
+      // Use standard Better Auth endpoint for both demo and normal users
+      // Backend middleware handles demo account by pre-seeding OTP
+      const result = await authClient.signIn.emailOtp({
+        email,
+        otp: otpCode,
+      } as any);
 
       if (result.error) {
-        track('otp_verify_failed', { reason: result.error.message ?? 'unknown' });
+        track('otp_verify_failed', {
+          reason: result.error.message ?? 'unknown',
+          isDemo: isDemoEmail(email)
+        });
         Alert.alert('Verification Failed', result.error.message || 'Invalid verification code');
       } else {
-        track('otp_verify_success', { email });
+        // Success - backend will set X-Demo-Mode header for demo users
+        track('otp_verify_success', { email, isDemo: isDemoEmail(email) });
       }
     } catch (error) {
       track('otp_verify_failed', { reason: 'exception' });
@@ -108,7 +134,7 @@ export default function VerifyOTPScreen() {
   const handleResend = async () => {
     if (!canResend) return;
 
-    track('otp_resend', { email });
+    track('otp_resend', { email, isDemo });
     setLoading(true);
 
     try {
@@ -120,7 +146,15 @@ export default function VerifyOTPScreen() {
         setCountdown(60);
         setCanResend(false);
         setOtp(Array(OTP_LENGTH).fill(''));
-        Alert.alert('Success', 'A new verification code has been sent to your email');
+        // Fetch new demo OTP for demo accounts
+        if (isDemo) {
+          await fetchDemoOtp();
+        }
+        if (isDemo) {
+          Alert.alert('Success', 'New verification code generated');
+        } else {
+          Alert.alert('Success', 'A new verification code has been sent to your email');
+        }
       }
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
@@ -131,6 +165,28 @@ export default function VerifyOTPScreen() {
 
   const handleBack = () => {
     router.back();
+  };
+
+  const fetchDemoOtp = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/demo-otp?email=${encodeURIComponent(email)}`);
+      if (response.ok) {
+        const data: DemoOtpResponse = await response.json();
+        setDemoOtp(data.otp);
+      }
+    } catch {
+      // Silent fail - demo endpoint might not be available
+    }
+  };
+
+  const handleAutoFill = () => {
+    if (demoOtp && demoOtp.length === OTP_LENGTH) {
+      const newOtp = demoOtp.split('');
+      setOtp(newOtp);
+      previousOtp.current = newOtp;
+      // Focus the last input
+      inputRefs.current[OTP_LENGTH - 1]?.focus();
+    }
   };
 
   return (
@@ -146,6 +202,21 @@ export default function VerifyOTPScreen() {
             We sent a 6-digit code to{' '}
             <Text style={{ color: colors.primary }}>{email}</Text>
           </Text>
+          {isDemo && demoOtp && (
+            <View style={[styles.demoBadge, { backgroundColor: colors.primary + '15' }]}>
+              <Text style={[styles.demoBadgeText, { color: colors.primary }]}>
+                Demo OTP: {demoOtp}
+              </Text>
+              <TouchableOpacity
+                onPress={handleAutoFill}
+                style={[styles.autoFillButton, { backgroundColor: colors.primary }]}
+              >
+                <Text style={[styles.autoFillButtonText, { color: '#fff' }]}>
+                  Auto-fill
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         <View style={styles.otpContainer}>
@@ -267,6 +338,30 @@ const styles = StyleSheet.create({
   },
   resendButtonText: {
     ...Typography.body,
+    fontWeight: '600',
+  },
+  demoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: 8,
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  demoBadgeText: {
+    ...Typography.bodySmall,
+    fontWeight: '600',
+    flex: 1,
+  },
+  autoFillButton: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: 6,
+  },
+  autoFillButtonText: {
+    ...Typography.caption,
     fontWeight: '600',
   },
 });

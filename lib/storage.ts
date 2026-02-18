@@ -5,6 +5,7 @@ const LOCATION_CACHE_KEY = "cached-location";
 const USER_PROFILE_CACHE_KEY = "user-profile-cache";
 const THEME_PREFERENCE_KEY = "theme-preference";
 const ONBOARDING_COMPLETED_KEY = "onboarding-completed";
+const DEMO_MODE_KEY = "demo-mode";
 
 let nativeStorage: any | null = null;
 
@@ -359,9 +360,61 @@ export function clearOnboardingCompleted(): void {
   storage.delete(ONBOARDING_COMPLETED_KEY);
 }
 
+// ============ Demo Mode ============
+
+/**
+ * Check if the current session is in demo mode
+ * Demo mode is set when the backend returns X-Demo-Mode: true header
+ */
+export function loadDemoMode(): boolean {
+  if (Platform.OS === "web") {
+    return globalThis?.localStorage?.getItem(DEMO_MODE_KEY) === "true";
+  }
+
+  const storage = getNativeStorage();
+  if (!storage) return false;
+  return storage.getString(DEMO_MODE_KEY) === "true";
+}
+
+/**
+ * Save demo mode state to storage
+ */
+export function saveDemoMode(isDemo: boolean): void {
+  if (Platform.OS === "web") {
+    if (isDemo) {
+      globalThis?.localStorage?.setItem(DEMO_MODE_KEY, "true");
+    } else {
+      globalThis?.localStorage?.removeItem(DEMO_MODE_KEY);
+    }
+    return;
+  }
+
+  const storage = getNativeStorage();
+  if (!storage) return;
+  if (isDemo) {
+    storage.set(DEMO_MODE_KEY, "true");
+  } else {
+    storage.delete(DEMO_MODE_KEY);
+  }
+}
+
+/**
+ * Clear demo mode state (call on logout)
+ */
+export function clearDemoMode(): void {
+  if (Platform.OS === "web") {
+    globalThis?.localStorage?.removeItem(DEMO_MODE_KEY);
+    return;
+  }
+
+  const storage = getNativeStorage();
+  if (!storage) return;
+  storage.delete(DEMO_MODE_KEY);
+}
+
 /**
  * Clear ALL app data (call on account deletion or full logout)
- * Clears: active visit, location cache, user profile cache, onboarding, theme preference
+ * Clears: active visit, location cache, user profile cache, onboarding, theme preference, demo mode
  */
 export function clearAllAppData(): void {
   const storage = getNativeStorage();
@@ -371,4 +424,5 @@ export function clearAllAppData(): void {
   storage.delete(USER_PROFILE_CACHE_KEY);
   storage.delete(THEME_PREFERENCE_KEY);
   storage.delete(ONBOARDING_COMPLETED_KEY);
+  storage.delete(DEMO_MODE_KEY);
 }

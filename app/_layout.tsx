@@ -1,15 +1,24 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { View } from "react-native";
+import "react-native-reanimated";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { Colors, primary } from '@/constants/theme';
-import { ThemeProvider as AppThemeProvider, useColorScheme } from '@/hooks/use-color-scheme';
+import { primary } from "@/constants/theme";
+import {
+  ThemeProvider as AppThemeProvider,
+  useColorScheme,
+} from "@/hooks/use-color-scheme";
+import { DemoModeProvider, useDemoMode } from "@/hooks/use-demo-mode";
 
-import { PostHogProvider } from 'posthog-react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { PostHogProvider } from "posthog-react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,10 +35,10 @@ const JejakMasjidLightTheme = {
   colors: {
     ...DefaultTheme.colors,
     primary: primary[500],
-    background: '#FFFFFF',
-    card: '#FFFFFF',
-    text: '#212121',
-    border: '#EEEEEE',
+    background: "#FFFFFF",
+    card: "#FFFFFF",
+    text: "#212121",
+    border: "#EEEEEE",
   },
 };
 const JejakMasjidDarkTheme = {
@@ -37,105 +46,111 @@ const JejakMasjidDarkTheme = {
   colors: {
     ...DarkTheme.colors,
     primary: primary[400],
-    background: '#151718',
-    card: '#1E2022',
-    text: '#ECEDEE',
-    border: '#424242',
+    background: "#151718",
+    card: "#1E2022",
+    text: "#ECEDEE",
+    border: "#424242",
   },
 };
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: "(tabs)",
 };
 
 function RootLayoutContent() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const isDemoMode = useDemoMode();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? JejakMasjidDarkTheme : JejakMasjidLightTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="auth/login"
-          options={{
-            title: 'Login',
-            headerBackTitle: 'Back',
-          }}
-        />
-        <Stack.Screen
-          name="auth/email"
-          options={{
-            headerShown: false,
-            presentation: 'fullScreenModal',
-          }}
-        />
-        <Stack.Screen
-          name="auth/verify-otp"
-          options={{
-            headerShown: false,
-            presentation: 'fullScreenModal',
-          }}
-        />
-        <Stack.Screen
-          name="auth/enter-name"
-          options={{
-            headerShown: false,
-            presentation: 'fullScreenModal',
-          }}
-        />
-        <Stack.Screen
-          name="masjid/[id]"
-          options={{
-            title: 'Masjid Details',
-            headerBackTitle: 'Back',
-          }}
-        />
-        <Stack.Screen
-          name="achievements"
-          options={{
-            title: 'Achievements',
-            headerBackTitle: 'Back',
-          }}
-        />
-        <Stack.Screen
-          name="modal"
-          options={{
-            presentation: 'modal',
-            title: 'Modal',
-          }}
-        />
-        <Stack.Screen
-          name="checkout-celebration"
-          options={{
-            headerShown: false,
-            presentation: 'transparentModal',
-            animation: 'fade',
-          }}
-        />
-        <Stack.Screen
-          name="checkin/update-facilities"
-          options={{
-            title: 'Update Facilities',
-            headerBackTitle: 'Back',
-          }}
-        />
-        <Stack.Screen
-          name="checkin/add-photos"
-          options={{
-            title: 'Add Photos',
-            headerBackTitle: 'Back',
-          }}
-        />
-        <Stack.Screen
-          name="masjid-report"
-          options={{
-            title: 'Report Masjid',
-            headerBackTitle: 'Back',
-          }}
-        />
-      </Stack>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} translucent={false} backgroundColor={colors.primary} />
+    <ThemeProvider
+      value={
+        colorScheme === "dark" ? JejakMasjidDarkTheme : JejakMasjidLightTheme
+      }
+    >
+      <View style={{ flex: 1 }}>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="auth/login"
+            options={{
+              title: "Login",
+              headerBackTitle: "Back",
+            }}
+          />
+          <Stack.Screen
+            name="auth/email"
+            options={{
+              headerShown: false,
+              presentation: "fullScreenModal",
+            }}
+          />
+          <Stack.Screen
+            name="auth/verify-otp"
+            options={{
+              headerShown: false,
+              presentation: "fullScreenModal",
+            }}
+          />
+          <Stack.Screen
+            name="auth/enter-name"
+            options={{
+              headerShown: false,
+              presentation: "fullScreenModal",
+            }}
+          />
+          <Stack.Screen
+            name="masjid/[id]"
+            options={{
+              title: "Masjid Details",
+              headerBackTitle: "Back",
+            }}
+          />
+          <Stack.Screen
+            name="achievements"
+            options={{
+              title: "Achievements",
+              headerBackTitle: "Back",
+            }}
+          />
+          <Stack.Screen
+            name="modal"
+            options={{
+              presentation: "modal",
+              title: "Modal",
+            }}
+          />
+          <Stack.Screen
+            name="checkout-celebration"
+            options={{
+              headerShown: false,
+              presentation: "transparentModal",
+              animation: "fade",
+            }}
+          />
+          <Stack.Screen
+            name="checkin/update-facilities"
+            options={{
+              title: "Update Facilities",
+              headerBackTitle: "Back",
+            }}
+          />
+          <Stack.Screen
+            name="checkin/add-photos"
+            options={{
+              title: "Add Photos",
+              headerBackTitle: "Back",
+            }}
+          />
+          <Stack.Screen
+            name="masjid-report"
+            options={{
+              title: "Report Masjid",
+              headerBackTitle: "Back",
+            }}
+          />
+        </Stack>
+        <StatusBar />
+      </View>
     </ThemeProvider>
   );
 }
@@ -150,11 +165,13 @@ export default function RootLayout() {
         }}
       >
         <QueryClientProvider client={queryClient}>
-          <AppThemeProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <RootLayoutContent />
-            </GestureHandlerRootView>
-          </AppThemeProvider>
+          <DemoModeProvider>
+            <AppThemeProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <RootLayoutContent />
+              </GestureHandlerRootView>
+            </AppThemeProvider>
+          </DemoModeProvider>
         </QueryClientProvider>
       </PostHogProvider>
     </SafeAreaProvider>
