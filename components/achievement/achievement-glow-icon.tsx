@@ -10,6 +10,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { badges, Spacing } from '@/constants/theme';
 
 const TIER_COLORS: Record<string, string> = {
@@ -115,8 +116,12 @@ export function AchievementGlowIcon({
 
       {/* Main icon container */}
       <Animated.View style={[styles.iconContainer, iconContainerStyle]}>
-        {/* Trophy emoji/icon */}
-        <Animated.Text style={styles.trophyIcon}>🏆</Animated.Text>
+        {/* Trophy icon */}
+        <IconSymbol
+          name="trophy.fill"
+          size={size * 0.5}
+          color="#FFFFFF"
+        />
 
         {/* Shine sweep effect */}
         <Animated.View style={shineStyle} pointerEvents="none" />
@@ -144,10 +149,5 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     overflow: 'hidden',
-  },
-  trophyIcon: {
-    fontSize: 40,
-    textAlign: 'center',
-    lineHeight: 80,
   },
 });

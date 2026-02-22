@@ -33,8 +33,8 @@ import {
 import { useUserProfile } from "@/hooks/use-user-profile";
 import type { AchievementDefinition } from "@/lib/api";
 import { MasjidResponse } from "@/lib/api";
-import { DEMO_LOCATION, isDemoEmail } from "@/lib/demo-mode";
 import { useSession } from "@/lib/auth-client";
+import { DEMO_LOCATION, isDemoEmail } from "@/lib/demo-mode";
 
 // Level calculation
 const POINTS_PER_LEVEL = 100;
@@ -142,13 +142,21 @@ export default function HomeScreen() {
     error: checkinError,
     refetch: refetchMasjids,
   } = useCheckinMasjids({
-    latitude: isDemoMode ? DEMO_LOCATION.latitude : (location?.latitude ?? null),
-    longitude: isDemoMode ? DEMO_LOCATION.longitude : (location?.longitude ?? null),
+    latitude: isDemoMode
+      ? DEMO_LOCATION.latitude
+      : (location?.latitude ?? null),
+    longitude: isDemoMode
+      ? DEMO_LOCATION.longitude
+      : (location?.longitude ?? null),
   });
 
   const { data: nearbyMasjids, isLoading: isNearbyLoading } = useNearbyMasjids({
-    latitude: isDemoMode ? DEMO_LOCATION.latitude : (location?.latitude ?? null),
-    longitude: isDemoMode ? DEMO_LOCATION.longitude : (location?.longitude ?? null),
+    latitude: isDemoMode
+      ? DEMO_LOCATION.latitude
+      : (location?.latitude ?? null),
+    longitude: isDemoMode
+      ? DEMO_LOCATION.longitude
+      : (location?.longitude ?? null),
     radius: 5,
   });
 
@@ -239,7 +247,7 @@ export default function HomeScreen() {
   return (
     <>
       {/* Status bar background for Android edge-to-edge */}
-      <View style={{ backgroundColor: colors.primary }}>
+      <View style={{ backgroundColor: colors.heroBackground }}>
         <SafeAreaView edges={["top"]}>
           <View style={{ height: insets.top }} />
         </SafeAreaView>

@@ -15,7 +15,7 @@ import {
   ThemeProvider as AppThemeProvider,
   useColorScheme,
 } from "@/hooks/use-color-scheme";
-import { DemoModeProvider, useDemoMode } from "@/hooks/use-demo-mode";
+import { DemoModeProvider } from "@/hooks/use-demo-mode";
 
 import { PostHogProvider } from "posthog-react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -45,7 +45,7 @@ const JejakMasjidDarkTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    primary: primary[400],
+    primary: primary[800],
     background: "#151718",
     card: "#1E2022",
     text: "#ECEDEE",
@@ -59,7 +59,6 @@ export const unstable_settings = {
 
 function RootLayoutContent() {
   const colorScheme = useColorScheme();
-  const isDemoMode = useDemoMode();
 
   return (
     <ThemeProvider
@@ -149,7 +148,7 @@ function RootLayoutContent() {
             }}
           />
         </Stack>
-        <StatusBar />
+        <StatusBar style="inverted" />
       </View>
     </ThemeProvider>
   );

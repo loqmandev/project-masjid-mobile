@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
-import React, { useEffect, useRef } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Confetti, ConfettiMethods } from 'react-native-fast-confetti';
 import Animated, {
   useAnimatedStyle,
@@ -12,7 +12,6 @@ import Animated, {
 
 import { Button } from '@/components/ui/button';
 import { AchievementGlowIcon } from '@/components/achievement/achievement-glow-icon';
-import { Badge } from '@/components/ui/badge';
 import { Colors, Spacing, Typography, gold } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { AchievementDefinition } from '@/lib/api';
@@ -23,37 +22,32 @@ interface AchievementUnlockModalProps {
   onClose: () => void;
 }
 
-function getTierBadgeVariant(
-  tier: string
-): 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond' {
-  const tierMap: Record<string, 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond'> = {
-    bronze: 'bronze',
-    silver: 'silver',
-    gold: 'gold',
-    platinum: 'platinum',
-    diamond: 'diamond',
-  };
-  return tierMap[tier.toLowerCase()] || 'bronze';
-}
-
 function AchievementCard({
   achievement,
   index,
   colorScheme,
+  reduceMotion,
 }: {
   achievement: AchievementDefinition;
   index: number;
   colorScheme: 'light' | 'dark' | null;
+  reduceMotion: boolean;
 }) {
   const colors = Colors[colorScheme ?? 'light'];
   const cardScale = useSharedValue(0.8);
   const cardOpacity = useSharedValue(0);
 
   useEffect(() => {
-    const delay = index * 150;
-    cardOpacity.value = withSequence(withTiming(0, { duration: delay }), withTiming(1, { duration: 400 }));
-    cardScale.value = withSequence(withTiming(0, { duration: delay }), withSpring(1, { damping: 10, stiffness: 100 }));
-  }, [index]);
+    const delay = reduceMotion ? 0 : index * 150;
+    const duration = reduceMotion ? 150 : 400;
+    cardOpacity.value = withSequence(withTiming(0, { duration: delay }), withTiming(1, { duration }));
+
+    if (reduceMotion) {
+      cardScale.value = withTiming(1, { duration: 150 });
+    } else {
+      cardScale.value = withSequence(withTiming(0, { duration: delay }), withSpring(1, { damping: 10, stiffness: 100 }));
+    }
+  }, [index, reduceMotion]);
 
   const cardStyle = useAnimatedStyle(() => ({
     opacity: cardOpacity.value,
@@ -83,14 +77,6 @@ function AchievementCard({
         {achievement.name}
       </Text>
 
-      {/* Tier badge */}
-      <Badge
-        label={achievement.badgeTier.charAt(0).toUpperCase() + achievement.badgeTier.slice(1)}
-        variant={getTierBadgeVariant(achievement.badgeTier)}
-        size="sm"
-        style={styles.tierBadge}
-      />
-
       {/* Description */}
       <Text style={[styles.description, { color: colors.textSecondary }]}>
         {achievement.description}
@@ -98,9 +84,9 @@ function AchievementCard({
 
       {/* Bonus points */}
       {achievement.bonusPoints > 0 && (
-        <View style={[styles.bonusContainer, { backgroundColor: gold[500] + '15' }]}>
+        <View style={[styles.bonusContainer, { backgroundColor: colorScheme === 'dark' ? colors.goldLight : gold[100] }]}>
           <Text style={styles.bonusEmoji}>✨</Text>
-          <Text style={[styles.bonusText, { color: gold[500] }]}>
+          <Text style={[styles.bonusText, { color: colors.gold }]}>
             +{achievement.bonusPoints} bonus points
           </Text>
         </View>
@@ -117,30 +103,55 @@ export function AchievementUnlockModal({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const confettiRef = useRef<ConfettiMethods>(null);
+  const [reduceMotion, setReduceMotion] = useState(false);
 
   const overlayOpacity = useSharedValue(0);
   const contentScale = useSharedValue(0.8);
   const contentOpacity = useSharedValue(0);
+
+  // Check for reduce motion preference
+  useEffect(() => {
+    const checkReduceMotion = async () => {
+      const isReduceMotionEnabled = await AccessibilityInfo.isReduceMotionEnabled();
+      setReduceMotion(isReduceMotionEnabled);
+    };
+
+    checkReduceMotion();
+
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', (isReduceMotionEnabled) => {
+      setReduceMotion(isReduceMotionEnabled);
+    });
+
+    return () => subscription?.remove();
+  }, []);
 
   useEffect(() => {
     if (visible && achievements.length > 0) {
       // Trigger haptic feedback
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Animate in
-      overlayOpacity.value = withTiming(1, { duration: 300 });
-      contentOpacity.value = withTiming(1, { duration: 400 });
-      contentScale.value = withSpring(1, { damping: 12, stiffness: 100 });
+      // Animate in - respect reduce motion preference
+      const animDuration = reduceMotion ? 150 : 300;
+      overlayOpacity.value = withTiming(1, { duration: animDuration });
+      contentOpacity.value = withTiming(1, { duration: reduceMotion ? 200 : 400 });
 
-      // Play confetti
-      confettiRef.current?.restart();
+      if (reduceMotion) {
+        contentScale.value = withTiming(1, { duration: 150 });
+      } else {
+        contentScale.value = withSpring(1, { damping: 12, stiffness: 100 });
+      }
+
+      // Only play confetti if reduce motion is disabled
+      if (!reduceMotion) {
+        confettiRef.current?.restart();
+      }
     } else if (!visible) {
       // Reset animations for next time
       overlayOpacity.value = 0;
       contentOpacity.value = 0;
       contentScale.value = 0.8;
     }
-  }, [visible]);
+  }, [visible, reduceMotion]);
 
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
@@ -196,45 +207,50 @@ export function AchievementUnlockModal({
         fallDuration={5000}
         flakeSize={{ width: 10, height: 10 }}
         autoplay={false}
+        accessibilityElementsHidden={true}
       />
 
       {/* Content */}
-      <Animated.View style={[styles.content, contentStyle]}>
-        {/* Celebration message for multiple achievements */}
-        {isMultiple && (
-          <Text style={[styles.multiTitle, { color: gold[500] }]}>
-            AMAZING PROGRESS!
-          </Text>
-        )}
+      <Pressable style={styles.backgroundPressable} onPress={handleClose}>
+        <Animated.View style={[styles.contentContainer, contentStyle]} onStartShouldSetResponder={() => true}>
+          {/* Celebration message for multiple achievements */}
+          {isMultiple && (
+            <Text style={[styles.multiTitle, { color: gold[500] }]}>
+              AMAZING PROGRESS!
+            </Text>
+          )}
 
-        {/* Scrollable cards */}
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          scrollEnabled={isMultiple}
-        >
-          {achievements.map((achievement, index) => (
-            <AchievementCard
-              key={achievement.id}
-              achievement={achievement}
-              index={index}
-              colorScheme={colorScheme}
-            />
-          ))}
-        </ScrollView>
+          {/* Scrollable cards */}
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={true}
+            bounces={true}
+            scrollEventThrottle={16}
+          >
+            {achievements.map((achievement, index) => (
+              <AchievementCard
+                key={achievement.id}
+                achievement={achievement}
+                index={index}
+                colorScheme={colorScheme}
+                reduceMotion={reduceMotion}
+              />
+            ))}
+          </ScrollView>
 
-        {/* Continue button */}
-        <Button
-          title={isMultiple ? 'Continue' : 'Awesome!'}
-          variant="gold"
-          size="lg"
-          onPress={handleClose}
-          style={styles.continueButton}
-          accessibilityLabel="Close achievement celebration"
-          accessibilityRole="button"
-        />
-      </Animated.View>
+          {/* Continue button */}
+          <Button
+            title={isMultiple ? 'Continue' : 'Awesome!'}
+            variant="gold"
+            size="lg"
+            onPress={handleClose}
+            style={styles.continueButton}
+            accessibilityLabel="Close achievement celebration"
+            accessibilityRole="button"
+          />
+        </Animated.View>
+      </Pressable>
     </Animated.View>
   );
 }
@@ -246,11 +262,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1000,
   },
-  content: {
+  backgroundPressable: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  contentContainer: {
     width: '90%',
     maxWidth: 380,
     maxHeight: '80%',
-    alignItems: 'center',
+    backgroundColor: 'transparent',
+    padding: Spacing.lg,
   },
   multiTitle: {
     ...Typography.h2,
@@ -261,10 +283,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     width: '100%',
-    marginBottom: Spacing.md,
+    maxHeight: 400,
   },
   scrollContent: {
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
   },
   achievementCard: {
     borderRadius: 24,
@@ -291,9 +313,6 @@ const styles = StyleSheet.create({
     ...Typography.h3,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: Spacing.xs,
-  },
-  tierBadge: {
     marginBottom: Spacing.sm,
   },
   description: {
@@ -318,6 +337,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   continueButton: {
-    width: '100%',
+    marginTop: Spacing.md,
   },
 });

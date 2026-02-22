@@ -5,12 +5,14 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 
 import { Button } from '@/components/ui/button';
 import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
@@ -30,17 +32,11 @@ export default function EnterNameScreen() {
   const hasTrackedView = useRef(false);
   const hasIdentified = useRef(false);
 
-  // Use suggested name from Apple Sign In if available
-  const suggestedName = useMemo(() => {
-    if (params.suggestedName) {
-      return decodeURIComponent(params.suggestedName);
-    }
-    return null;
-  }, [params.suggestedName]);
-
-  const [name, setName] = useState(suggestedName || '');
+  const inputValue = useRef('');
+  const [characterCount, setCharacterCount] = useState(0);
   const [isChecking, setIsChecking] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   useEffect(() => {
     if (!hasTrackedView.current) {
@@ -85,12 +81,7 @@ export default function EnterNameScreen() {
           router.replace(returnTo as any);
           return;
         }
-
-        setName(profileData.user.name || session?.user?.name || '');
       } catch (error) {
-        if (isActive) {
-          setName(session?.user?.name || '');
-        }
       } finally {
         if (isActive) {
           setIsChecking(false);
@@ -106,22 +97,28 @@ export default function EnterNameScreen() {
   }, [identify, isPending, returnTo, screen, session?.user, track]);
 
   const handleContinue = async () => {
-    const trimmedName = name.trim();
+    const trimmedName = inputValue.current.trim();
 
     if (!trimmedName) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Invalid Name', 'Please enter your name.');
       return;
     }
 
     if (trimmedName.length < 2) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Invalid Name', 'Name must be at least 2 characters.');
       return;
     }
 
-    if (trimmedName.length > 30) {
-      Alert.alert('Invalid Name', 'Name must be 30 characters or less.');
+    if (trimmedName.length > 20) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Invalid Name', 'Name must be 20 characters or less.');
       return;
     }
+
+    // Haptic feedback for successful validation
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     setIsSaving(true);
 
@@ -129,6 +126,7 @@ export default function EnterNameScreen() {
       await updateUserProfile({ leaderboardAlias: trimmedName });
       clearCachedUserProfile();
       track('profile_setup_completed');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace(returnTo as any);
     } catch (error) {
       track('profile_setup_failed', {
@@ -167,26 +165,46 @@ export default function EnterNameScreen() {
           style={styles.keyboardView}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <View style={styles.content}>
+          <Pressable style={styles.content} onPress={() => TextInput.State.focusTextInput?.()}>
             <Text style={[styles.heading, { color: colors.text }]}>Enter your name</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
-              ]}
-              value={name}
-              onChangeText={setName}
-              placeholder="Your name"
-              placeholderTextColor={colors.textTertiary}
-              autoCapitalize="words"
-              autoCorrect={false}
-              returnKeyType="done"
-              onSubmitEditing={handleContinue}
-              maxLength={30}
-            />
+            <View>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: isInputFocused ? colors.primary : colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                defaultValue=""
+                onChangeText={(text) => {
+                  inputValue.current = text;
+                  setCharacterCount(text.length);
+                }}
+                placeholder="Your name"
+                placeholderTextColor={colors.textTertiary}
+                autoCapitalize="words"
+                autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={handleContinue}
+                maxLength={20}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setIsInputFocused(false)}
+                accessibilityLabel="Name input"
+                accessibilityHint="Enter the name you want displayed on the leaderboard"
+                accessibilityRole="text"
+                importantForAutofill="yes"
+                textContentType="name"
+              />
+              <View style={styles.characterCounterContainer}>
+                <Text style={[styles.characterCounter, { color: colors.textTertiary }]}>
+                  {characterCount}/20
+                </Text>
+              </View>
+              <Text style={[styles.hintText, { color: colors.textSecondary }]}>
+                This name will be displayed on the leaderboard. You can choose to hide it in Settings.
+              </Text>
+            </View>
             <Button
               title={isSaving ? 'Saving...' : 'Continue'}
               variant="primary"
@@ -194,8 +212,10 @@ export default function EnterNameScreen() {
               loading={isSaving}
               onPress={handleContinue}
               style={styles.button}
+              accessibilityLabel="Continue to app"
+              accessibilityHint="Save your name and continue to the home screen"
             />
-          </View>
+          </Pressable>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </>
@@ -235,7 +255,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
+    minHeight: 48, // Minimum touch target for Android (48dp) / iOS (44pt)
+  },
+  characterCounterContainer: {
+    alignItems: 'flex-end',
+    marginTop: Spacing.xs,
+  },
+  characterCounter: {
+    ...Typography.caption,
+  },
+  hintText: {
+    ...Typography.caption,
+    marginTop: Spacing.xs,
+    lineHeight: 16,
   },
   button: {
     width: '100%',

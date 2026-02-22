@@ -35,7 +35,7 @@ export function HeroSection({
 
   return (
     <View style={styles.container}>
-      <View style={[styles.background, { backgroundColor: colors.primary }]}>
+      <View style={[styles.background, { backgroundColor: colors.heroBackground }]}>
         {/* Top Bar */}
         <View style={styles.topBar}>
           <Text style={styles.greetingLabel}>Assalamualaikum,</Text>
@@ -69,18 +69,18 @@ export function HeroSection({
               icon="star.fill"
               value={totalPoints}
               label="Points"
-              variant="gold"
+              variant="default"
               colorScheme={colorScheme}
             />
             <StatRow
               icon="flame.fill"
               value={currentStreak}
               label="Streak"
-              variant="streak"
+              variant="default"
               colorScheme={colorScheme}
             />
             <StatRow
-              icon="trophy"
+              icon="medal.fill"
               value={achievementCount}
               label="Achievements"
               variant="default"

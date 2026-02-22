@@ -33,6 +33,7 @@ export default function EditProfileScreen() {
 
   // Character count display - minimal state that only updates the count display
   const [charCount, setCharCount] = useState(0);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   // UI states
   const [isLoading, setIsLoading] = useState(true);
@@ -91,9 +92,9 @@ export default function EditProfileScreen() {
       return;
     }
 
-    if (trimmedAlias.length > 30) {
+    if (trimmedAlias.length > 20) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Invalid Name', 'Display name must be 30 characters or less.');
+      Alert.alert('Invalid Name', 'Display name must be 20 characters or less.');
       return;
     }
 
@@ -197,14 +198,14 @@ export default function EditProfileScreen() {
             <Card variant="outlined" padding="md" style={styles.card}>
               <Text style={[styles.label, { color: colors.text }]}>Display Name</Text>
               <Text style={[styles.description, { color: colors.textSecondary }]}>
-                This name will be shown on the leaderboard and your profile.
+                This name will be displayed on the leaderboard. You can choose to hide it in Settings.
               </Text>
               <TextInput
                 style={[
                   styles.input,
                   {
                     backgroundColor: colors.background,
-                    borderColor: colors.border,
+                    borderColor: isInputFocused ? colors.primary : colors.border,
                     color: colors.text,
                   },
                 ]}
@@ -212,16 +213,18 @@ export default function EditProfileScreen() {
                 onChangeText={handleTextChange}
                 placeholder="Enter your display name"
                 placeholderTextColor={colors.textTertiary}
-                maxLength={30}
+                maxLength={20}
                 autoCapitalize="words"
                 autoCorrect={false}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setIsInputFocused(false)}
                 accessible={true}
                 accessibilityLabel="Display name input"
-                accessibilityHint="Enter the name shown on leaderboard and your profile"
+                accessibilityHint="Enter the name displayed on the leaderboard"
                 textContentType="nickname"
               />
               <Text style={[styles.charCount, { color: colors.textTertiary }]}>
-                {charCount}/30
+                {charCount}/20
               </Text>
             </Card>
 
@@ -311,7 +314,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
+    minHeight: 48, // Minimum touch target for Android (48dp) / iOS (44pt)
     ...Typography.body,
   },
   charCount: {
