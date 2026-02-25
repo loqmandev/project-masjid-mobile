@@ -28,8 +28,8 @@ export default function EditProfileScreen() {
   const { data: session } = useSession();
 
   // Text input value stored in ref to avoid re-renders on every keystroke
-  const leaderboardAliasRef = useRef('');
-  const originalAliasRef = useRef('');
+  const nameRef = useRef('');
+  const originalNameRef = useRef('');
 
   // Character count display - minimal state that only updates the count display
   const [charCount, setCharCount] = useState(0);
@@ -55,10 +55,10 @@ export default function EditProfileScreen() {
 
       try {
         const profileData = await getUserProfile();
-        const alias = profileData.profile.leaderboardAlias || profileData.user.name || '';
-        leaderboardAliasRef.current = alias;
-        originalAliasRef.current = alias;
-        setCharCount(alias.length);
+        const name = profileData.user.name || '';
+        nameRef.current = name;
+        originalNameRef.current = name;
+        setCharCount(name.length);
         if (isMountedRef.current) setError(null);
       } catch (err) {
         // Error logged but not using console.error in production
@@ -75,24 +75,24 @@ export default function EditProfileScreen() {
     };
   }, [session?.user]);
 
-  const hasChanges = leaderboardAliasRef.current.trim() !== originalAliasRef.current;
+  const hasChanges = nameRef.current.trim() !== originalNameRef.current;
 
   const handleSave = async () => {
-    const trimmedAlias = leaderboardAliasRef.current.trim();
+    const trimmedName = nameRef.current.trim();
 
-    if (!trimmedAlias) {
+    if (!trimmedName) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Invalid Name', 'Please enter a display name.');
       return;
     }
 
-    if (trimmedAlias.length < 2) {
+    if (trimmedName.length < 2) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Invalid Name', 'Display name must be at least 2 characters.');
       return;
     }
 
-    if (trimmedAlias.length > 20) {
+    if (trimmedName.length > 20) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Invalid Name', 'Display name must be 20 characters or less.');
       return;
@@ -103,7 +103,7 @@ export default function EditProfileScreen() {
     setIsSaving(true);
 
     try {
-      await updateUserProfile({ leaderboardAlias: trimmedAlias });
+      await updateUserProfile({ name: trimmedName });
       // Clear the cached profile so it refreshes with new data
       clearCachedUserProfile();
       // Success haptic feedback
@@ -129,7 +129,7 @@ export default function EditProfileScreen() {
 
   // Handle text input changes with minimal state update for character count
   const handleTextChange = useCallback((text: string) => {
-    leaderboardAliasRef.current = text;
+    nameRef.current = text;
     setCharCount(text.length);
   }, []);
 
@@ -198,7 +198,7 @@ export default function EditProfileScreen() {
             <Card variant="outlined" padding="md" style={styles.card}>
               <Text style={[styles.label, { color: colors.text }]}>Display Name</Text>
               <Text style={[styles.description, { color: colors.textSecondary }]}>
-                This name will be displayed on the leaderboard. You can choose to hide it in Settings.
+                This is your primary display name. It will be shown on your profile and can be displayed on the leaderboard based on your privacy settings.
               </Text>
               <TextInput
                 style={[
@@ -209,7 +209,7 @@ export default function EditProfileScreen() {
                     color: colors.text,
                   },
                 ]}
-                defaultValue={leaderboardAliasRef.current}
+                defaultValue={nameRef.current}
                 onChangeText={handleTextChange}
                 placeholder="Enter your display name"
                 placeholderTextColor={colors.textTertiary}
@@ -220,8 +220,8 @@ export default function EditProfileScreen() {
                 onBlur={() => setIsInputFocused(false)}
                 accessible={true}
                 accessibilityLabel="Display name input"
-                accessibilityHint="Enter the name displayed on the leaderboard"
-                textContentType="nickname"
+                accessibilityHint="Enter the name displayed on your profile and leaderboard"
+                textContentType="name"
               />
               <Text style={[styles.charCount, { color: colors.textTertiary }]}>
                 {charCount}/20

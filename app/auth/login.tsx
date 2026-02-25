@@ -88,6 +88,7 @@ export default function LoginScreen() {
         // Always navigate after successful Apple sign-in
         // Apple only provides email/fullName on first sign-in; subsequent sign-ins return empty userData
         const urlParams = new URLSearchParams();
+        urlParams.set("provider", "apple");
         if (result.userData?.email) {
           urlParams.set("email", result.userData.email);
         }

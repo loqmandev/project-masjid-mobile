@@ -35,6 +35,7 @@ import type { AchievementDefinition } from "@/lib/api";
 import { MasjidResponse } from "@/lib/api";
 import { useSession } from "@/lib/auth-client";
 import { DEMO_LOCATION, isDemoEmail } from "@/lib/demo-mode";
+import { getDisplayName } from "@/lib/utils";
 
 // Level calculation
 const POINTS_PER_LEVEL = 100;
@@ -97,7 +98,10 @@ export default function HomeScreen() {
   const { data: userProfile } = useUserProfile();
   const { data: achievements } = useUserAchievements();
   const { data: session } = useSession();
-  const headerName = userProfile?.profile?.leaderboardAlias || "Guest";
+  const headerName = getDisplayName(
+    userProfile?.user?.name || session?.user?.name || null,
+    userProfile?.user?.email || session?.user?.email
+  );
 
   // Check if user is in demo mode
   const isDemoMode = session?.user?.email

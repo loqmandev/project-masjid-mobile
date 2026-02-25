@@ -1,6 +1,13 @@
-import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
-import React, { useCallback, useEffect, memo, useMemo, useRef, useState } from 'react';
+import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -9,7 +16,7 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -17,26 +24,26 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-} from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { DemoBanner } from '@/components/ui/demo-banner';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { ProgressBar } from '@/components/ui/progress-bar';
-import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
-import { useActiveCheckin } from '@/hooks/use-active-checkin';
-import { useCheckinMasjids } from '@/hooks/use-checkin-masjids';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useLocation } from '@/hooks/use-location';
-import { useAnalytics } from '@/lib/analytics';
-import { checkinToMasjid, checkoutFromMasjid } from '@/lib/api';
-import { useSession } from '@/lib/auth-client';
-import { DEMO_MASJIDS, DEMO_LOCATION, isDemoEmail } from '@/lib/demo-mode';
-import { useQueryClient } from '@tanstack/react-query';
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { DemoBanner } from "@/components/ui/demo-banner";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
+import { useActiveCheckin } from "@/hooks/use-active-checkin";
+import { useCheckinMasjids } from "@/hooks/use-checkin-masjids";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useLocation } from "@/hooks/use-location";
+import { useAnalytics } from "@/lib/analytics";
+import { checkinToMasjid, checkoutFromMasjid } from "@/lib/api";
+import { useSession } from "@/lib/auth-client";
+import { DEMO_LOCATION, DEMO_MASJIDS, isDemoEmail } from "@/lib/demo-mode";
+import { useQueryClient } from "@tanstack/react-query";
 
-type VisitState = 'idle' | 'nearby' | 'checked_in';
+type VisitState = "idle" | "nearby" | "checked_in";
 
 interface ActiveVisit {
   masjidId: string;
@@ -57,7 +64,7 @@ interface ActiveVisit {
 function parseSQLiteUTC(dateString: string): Date {
   // Convert "2026-02-02 01:59:23" to "2026-02-02T01:59:23Z"
   // The 'Z' suffix tells JavaScript this is UTC time
-  const isoString = dateString.replace(' ', 'T') + 'Z';
+  const isoString = dateString.replace(" ", "T") + "Z";
   const date = new Date(isoString);
   // Silently return current date if parsing fails - invalid dates should be handled by caller
   return isNaN(date.getTime()) ? new Date() : date;
@@ -70,79 +77,87 @@ function parseSQLiteUTC(dateString: string): Date {
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
 // Separate component for the animated check-in button to isolate animation lifecycle
 // Memoized to prevent unnecessary re-renders and animation restarts
-const PulsingCheckInButton = memo(({
-  onPress,
-  isLoading,
-  colors,
-}: {
-  onPress: () => void;
-  isLoading: boolean;
-  colors: typeof Colors.light;
-}) => {
-  const pulseScale = useSharedValue(1);
+const PulsingCheckInButton = memo(
+  ({
+    onPress,
+    isLoading,
+    colors,
+  }: {
+    onPress: () => void;
+    isLoading: boolean;
+    colors: typeof Colors.light;
+  }) => {
+    const pulseScale = useSharedValue(1);
 
-  useEffect(() => {
-    pulseScale.value = withRepeat(
-      withSequence(
-        withTiming(1.05, { duration: 1000 }),
-        withTiming(1, { duration: 1000 })
-      ),
-      -1,
-      true
+    useEffect(() => {
+      pulseScale.value = withRepeat(
+        withSequence(
+          withTiming(1.05, { duration: 1000 }),
+          withTiming(1, { duration: 1000 }),
+        ),
+        -1,
+        true,
+      );
+
+      return () => {
+        cancelAnimation(pulseScale);
+      };
+    }, []);
+
+    const pulseStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: pulseScale.value }],
+    }));
+
+    return (
+      <Animated.View style={[styles.checkInButtonContainer, pulseStyle]}>
+        <TouchableOpacity
+          style={[styles.checkInButton, { backgroundColor: colors.primary }]}
+          onPress={onPress}
+          activeOpacity={0.9}
+          disabled={isLoading}
+          accessible={true}
+          accessibilityLabel="Check in"
+          accessibilityHint="Double tap to check in to this masjid"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isLoading }}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="large" color="#FFFFFF" />
+          ) : (
+            <>
+              <IconSymbol
+                name="checkmark.circle.fill"
+                size={32}
+                color="#FFFFFF"
+              />
+              <Text style={styles.checkInButtonText}>CHECK IN</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </Animated.View>
     );
+  },
+);
 
-    return () => {
-      cancelAnimation(pulseScale);
-    };
-  }, []);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseScale.value }],
-  }));
-
-  return (
-    <Animated.View style={[styles.checkInButtonContainer, pulseStyle]}>
-      <TouchableOpacity
-        style={[styles.checkInButton, { backgroundColor: colors.primary }]}
-        onPress={onPress}
-        activeOpacity={0.9}
-        disabled={isLoading}
-        accessible={true}
-        accessibilityLabel="Check in"
-        accessibilityHint="Double tap to check in to this masjid"
-        accessibilityRole="button"
-        accessibilityState={{ disabled: isLoading }}
-      >
-        {isLoading ? (
-          <ActivityIndicator size="large" color="#FFFFFF" />
-        ) : (
-          <>
-            <IconSymbol name="checkmark.circle.fill" size={32} color="#FFFFFF" />
-            <Text style={styles.checkInButtonText}>CHECK IN</Text>
-          </>
-        )}
-      </TouchableOpacity>
-    </Animated.View>
-  );
-});
-
-PulsingCheckInButton.displayName = 'PulsingCheckInButton';
+PulsingCheckInButton.displayName = "PulsingCheckInButton";
 
 export default function CheckInScreen() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? "light"];
   const queryClient = useQueryClient();
   const { data: session } = useSession();
   const { track, screen } = useAnalytics();
   const hasTrackedView = useRef(false);
 
   // Check if user is in demo mode
-  const isDemoMode = session?.user?.email ? isDemoEmail(session.user.email) : false;
+  const isDemoMode = session?.user?.email
+    ? isDemoEmail(session.user.email)
+    : false;
 
   // State
   const [isCheckingIn, setIsCheckingIn] = useState(false);
@@ -164,14 +179,18 @@ export default function CheckInScreen() {
     ? {
         masjidId: activeCheckin.masjidId,
         masjidName: activeCheckin.masjidName,
-        location: '', // Location not provided by backend
+        location: "", // Location not provided by backend
         checkInTime: parseSQLiteUTC(activeCheckin.checkInAt),
         minimumDuration: MINIMUM_DURATION_MINUTES,
       }
     : null;
 
   // Location and nearby masjids
-  const { location, isLoading: isLocationLoading, refresh: refreshLocation } = useLocation();
+  const {
+    location,
+    isLoading: isLocationLoading,
+    refresh: refreshLocation,
+  } = useLocation();
 
   // Use demo location for demo users, or real location otherwise
   const effectiveLocation = isDemoMode ? DEMO_LOCATION : location;
@@ -194,25 +213,26 @@ export default function CheckInScreen() {
 
   // Determine visit state
   const getVisitState = (): VisitState => {
-    if (activeVisit) return 'checked_in';
-    if (nearbyMasjid) return 'nearby';
-    return 'idle';
+    if (activeVisit) return "checked_in";
+    if (nearbyMasjid) return "nearby";
+    return "idle";
   };
 
   const visitState = getVisitState();
-  const isLoading = isLocationLoading || isMasjidsLoading || isActiveCheckinLoading;
+  const isLoading =
+    isLocationLoading || isMasjidsLoading || isActiveCheckinLoading;
   const lastVisitState = useRef<VisitState | null>(null);
 
   useEffect(() => {
     if (hasTrackedView.current) return;
-    screen('checkin');
-    track('checkin_screen_viewed');
+    screen("checkin");
+    track("checkin_screen_viewed");
     hasTrackedView.current = true;
   }, [screen, track]);
 
   useEffect(() => {
     if (lastVisitState.current === visitState) return;
-    track('checkin_state_changed', {
+    track("checkin_state_changed", {
       state: visitState,
       has_nearby: Boolean(nearbyMasjid),
       has_active_visit: Boolean(activeVisit),
@@ -227,7 +247,8 @@ export default function CheckInScreen() {
     if (activeVisit) {
       // Set the target checkout time to check-in time + minimum duration
       checkoutTargetTimeRef.current = new Date(
-        activeVisit.checkInTime.getTime() + MINIMUM_DURATION_MINUTES * 60 * 1000
+        activeVisit.checkInTime.getTime() +
+          MINIMUM_DURATION_MINUTES * 60 * 1000,
       );
     } else {
       checkoutTargetTimeRef.current = null;
@@ -280,39 +301,43 @@ export default function CheckInScreen() {
 
     if (!session?.user) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      track('checkin_auth_required');
-      Alert.alert('Sign In Required', 'Please sign in to check in to masjids.');
-      router.push('/auth/login');
+      track("checkin_auth_required");
+      Alert.alert("Sign In Required", "Please sign in to check in to masjids.");
+      router.push("/auth/login");
       return;
     }
 
     if (activeVisit) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      track('checkin_blocked', { reason: 'active_visit' });
-      Alert.alert('Already Checked In', 'You have an active visit. Check out to start a new one.');
+      track("checkin_blocked", { reason: "active_visit" });
+      Alert.alert(
+        "Already Checked In",
+        "You have an active visit. Check out to start a new one.",
+      );
 
       return;
     }
 
     if (!nearbyMasjid) {
-      track('checkin_blocked', { reason: 'no_nearby_or_location' });
+      track("checkin_blocked", { reason: "no_nearby_or_location" });
       return;
     }
 
     // For demo mode, use demo location; otherwise require real location
-    const checkInLocation = isDemoMode
-      ? DEMO_LOCATION
-      : location;
+    const checkInLocation = isDemoMode ? DEMO_LOCATION : location;
 
     if (!checkInLocation && !isDemoMode) {
-      track('checkin_blocked', { reason: 'no_location' });
-      Alert.alert('Location Required', 'Please enable location services to check in.');
+      track("checkin_blocked", { reason: "no_location" });
+      Alert.alert(
+        "Location Required",
+        "Please enable location services to check in.",
+      );
       return;
     }
 
     setIsCheckingIn(true);
     try {
-      track('checkin_attempted', {
+      track("checkin_attempted", {
         masjid_id: nearbyMasjid.masjidId,
         distance_m: nearbyMasjid.distanceM,
         isDemo: isDemoMode,
@@ -320,12 +345,12 @@ export default function CheckInScreen() {
       const result = await checkinToMasjid(
         nearbyMasjid.masjidId,
         checkInLocation!.latitude,
-        checkInLocation!.longitude
+        checkInLocation!.longitude,
       );
 
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        track('checkin_success', {
+        track("checkin_success", {
           masjid_id: nearbyMasjid.masjidId,
           distance_m: nearbyMasjid.distanceM,
           isDemo: isDemoMode,
@@ -333,20 +358,29 @@ export default function CheckInScreen() {
         // Invalidate and refetch active checkin from backend
         invalidateActiveCheckin();
         // Also invalidate user profile to update points
-        queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+        queryClient.invalidateQueries({ queryKey: ["user-profile"] });
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        track('checkin_failed', { reason: result.message ?? 'unknown' });
-        Alert.alert('Check-in Failed', result.message);
+        track("checkin_failed", { reason: result.message ?? "unknown" });
+        Alert.alert("Check-in Failed", result.message);
       }
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      track('checkin_failed', { reason: 'exception' });
-      Alert.alert('Error', 'Failed to check in. Please try again.');
+      track("checkin_failed", { reason: "exception" });
+      Alert.alert("Error", "Failed to check in. Please try again.");
     } finally {
       setIsCheckingIn(false);
     }
-  }, [session, activeVisit, nearbyMasjid, location, isDemoMode, invalidateActiveCheckin, queryClient, track]);
+  }, [
+    session,
+    activeVisit,
+    nearbyMasjid,
+    location,
+    isDemoMode,
+    invalidateActiveCheckin,
+    queryClient,
+    track,
+  ]);
 
   // Handle check-out
   const handleCheckOut = useCallback(async () => {
@@ -355,82 +389,97 @@ export default function CheckInScreen() {
     if (!activeVisit || !activeCheckin) return;
 
     // For demo mode, use demo location; otherwise require real location
-    const checkOutLocation = isDemoMode
-      ? DEMO_LOCATION
-      : location;
+    const checkOutLocation = isDemoMode ? DEMO_LOCATION : location;
 
     if (!checkOutLocation && !isDemoMode) {
-      Alert.alert('Location Required', 'Please enable location services to check out.');
+      Alert.alert(
+        "Location Required",
+        "Please enable location services to check out.",
+      );
       return;
     }
 
     setIsCheckingOut(true);
     try {
-      track('checkout_attempted', {
+      track("checkout_attempted", {
         masjid_id: activeVisit.masjidId,
         isDemo: isDemoMode,
       });
       const result = await checkoutFromMasjid(
         activeVisit.masjidId,
         checkOutLocation!.latitude,
-        checkOutLocation!.longitude
+        checkOutLocation!.longitude,
       );
 
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        track('checkout_success', {
+        track("checkout_success", {
           masjid_id: activeVisit.masjidId,
-          points_earned: result.pointsEarned ?? activeCheckin.actualPointsEarned ?? 10,
+          points_earned:
+            result.pointsEarned ?? activeCheckin.actualPointsEarned ?? 10,
           is_prayer_time: activeCheckin.isPrayerTime ?? false,
           is_first_visit: activeCheckin.isFirstVisitToMasjid ?? false,
           isDemo: isDemoMode,
         });
         // Invalidate queries to refresh data
         invalidateActiveCheckin();
-        queryClient.invalidateQueries({ queryKey: ['user-profile'] });
-        queryClient.invalidateQueries({ queryKey: ['user-achievements'] });
+        queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+        queryClient.invalidateQueries({ queryKey: ["user-achievements"] });
         refetchMasjids();
 
         // Navigate to celebration screen with checkout result
         router.push({
-          pathname: '/checkout-celebration',
+          pathname: "/checkout-celebration",
           params: {
-            pointsEarned: String(result.pointsEarned ?? activeCheckin.actualPointsEarned ?? 10),
+            pointsEarned: String(
+              result.pointsEarned ?? activeCheckin.actualPointsEarned ?? 10,
+            ),
             basePoints: String(activeCheckin.basePoints ?? 10),
             bonusPoints: String(activeCheckin.bonusPoints ?? 0),
             isPrayerTime: String(activeCheckin.isPrayerTime ?? false),
             isFirstVisit: String(activeCheckin.isFirstVisitToMasjid ?? false),
             masjidName: activeVisit.masjidName,
-            unlockedAchievements: result.unlockedAchievements?.join(',') || '',
+            unlockedAchievements: result.unlockedAchievements?.join(",") || "",
           },
         });
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        track('checkout_failed', { reason: result.message ?? 'unknown' });
-        Alert.alert('Check-out Failed', result.message);
+        track("checkout_failed", { reason: result.message ?? "unknown" });
+        Alert.alert("Check-out Failed", result.message);
       }
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      track('checkout_failed', { reason: 'exception' });
-      Alert.alert('Error', 'Failed to check out. Please try again.');
+      track("checkout_failed", { reason: "exception" });
+      Alert.alert("Error", "Failed to check out. Please try again.");
     } finally {
       setIsCheckingOut(false);
     }
-  }, [activeVisit, activeCheckin, location, isDemoMode, invalidateActiveCheckin, queryClient, refetchMasjids, track]);
+  }, [
+    activeVisit,
+    activeCheckin,
+    location,
+    isDemoMode,
+    invalidateActiveCheckin,
+    queryClient,
+    refetchMasjids,
+    track,
+  ]);
 
   // Handle explore
   const handleExplore = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    track('explore_from_checkin');
-    router.push('/(tabs)/explore');
+    track("explore_from_checkin");
+    router.push("/(tabs)/explore");
   }, [track]);
 
   const handleUpdateFacilities = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (!activeVisit) return;
-    track('checkin_update_facilities_clicked', { masjid_id: activeVisit.masjidId });
+    track("checkin_update_facilities_clicked", {
+      masjid_id: activeVisit.masjidId,
+    });
     router.push({
-      pathname: '/checkin/update-facilities',
+      pathname: "/checkin/update-facilities",
       params: {
         masjidId: activeVisit.masjidId,
         masjidName: activeVisit.masjidName,
@@ -441,9 +490,9 @@ export default function CheckInScreen() {
   const handleAddPhotos = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (!activeVisit) return;
-    track('checkin_add_photos_clicked', { masjid_id: activeVisit.masjidId });
+    track("checkin_add_photos_clicked", { masjid_id: activeVisit.masjidId });
     router.push({
-      pathname: '/checkin/add-photos',
+      pathname: "/checkin/add-photos",
       params: {
         masjidId: activeVisit.masjidId,
         masjidName: activeVisit.masjidName,
@@ -454,12 +503,13 @@ export default function CheckInScreen() {
   // Handle refresh
   const handleRefresh = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    track('checkin_refresh_location');
+    track("checkin_refresh_location");
     await refreshLocation();
     await refetchMasjids();
   }, [refreshLocation, refetchMasjids, track]);
 
-  const minimumDuration = activeVisit?.minimumDuration ?? MINIMUM_DURATION_MINUTES;
+  const minimumDuration =
+    activeVisit?.minimumDuration ?? MINIMUM_DURATION_MINUTES;
 
   // Memoize calculations to prevent unnecessary re-renders
   const progressPercentage = useMemo(() => {
@@ -481,14 +531,21 @@ export default function CheckInScreen() {
       <View style={styles.centeredContent}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          {isLocationLoading ? 'Getting your location...' : 'Finding nearby masjids...'}
+          {isLocationLoading
+            ? "Getting your location..."
+            : "Finding nearby masjids..."}
         </Text>
       </View>
     );
-  } else if (visitState === 'idle') {
+  } else if (visitState === "idle") {
     content = (
       <View style={styles.centeredContent}>
-        <View style={[styles.iconCircle, { backgroundColor: colors.primary + '15' }]}>
+        <View
+          style={[
+            styles.iconCircle,
+            { backgroundColor: colors.primary + "15" },
+          ]}
+        >
           <IconSymbol name="mosque" size={48} color={colors.primary} />
         </View>
         <Text style={[styles.idleTitle, { color: colors.text }]}>
@@ -513,14 +570,9 @@ export default function CheckInScreen() {
         </View>
       </View>
     );
-  } else if (visitState === 'nearby' && nearbyMasjid) {
+  } else if (visitState === "nearby" && nearbyMasjid) {
     content = (
       <View style={styles.centeredContent}>
-        {/* Masjid Image */}
-        <View style={[styles.masjidImageLarge, { backgroundColor: colors.primary + '15' }]}>
-          <IconSymbol name="mosque" size={64} color={colors.primary} />
-        </View>
-
         <Text style={[styles.masjidName, { color: colors.text }]}>
           {nearbyMasjid.name}
         </Text>
@@ -529,7 +581,12 @@ export default function CheckInScreen() {
         </Text>
 
         {/* Distance indicator */}
-        <View style={[styles.distanceBadge, { backgroundColor: colors.success + '20' }]}>
+        <View
+          style={[
+            styles.distanceBadge,
+            { backgroundColor: colors.success + "20" },
+          ]}
+        >
           <IconSymbol name="location.fill" size={14} color={colors.success} />
           <Text style={[styles.distanceText, { color: colors.success }]}>
             {nearbyMasjid.distanceM}m away • Within range
@@ -542,17 +599,6 @@ export default function CheckInScreen() {
           isLoading={isCheckingIn}
           colors={colors}
         />
-
-        {/* Points Preview */}
-        <Card variant="outlined" padding="md" style={styles.pointsPreview}>
-          <Text style={[styles.pointsTitle, { color: colors.textSecondary }]}>
-            Points Preview
-          </Text>
-          <View style={styles.pointsRow}>
-            <Text style={[styles.pointsLabel, { color: colors.text }]}>Base Visit</Text>
-            <Text style={[styles.pointsValue, { color: colors.text }]}>10 pts</Text>
-          </View>
-        </Card>
       </View>
     );
   } else {
@@ -560,12 +606,16 @@ export default function CheckInScreen() {
       <>
         {/* Header with Checkout Button */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Active Visit</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            Active Visit
+          </Text>
           <TouchableOpacity
             style={[
               styles.headerCheckOutButton,
               {
-                backgroundColor: canCheckOut ? colors.primary : colors.backgroundSecondary,
+                backgroundColor: canCheckOut
+                  ? colors.primary
+                  : colors.backgroundSecondary,
                 opacity: canCheckOut ? 1 : 0.6,
               },
             ]}
@@ -573,22 +623,33 @@ export default function CheckInScreen() {
             disabled={!canCheckOut || isCheckingOut}
             activeOpacity={0.7}
             accessible={true}
-            accessibilityLabel={canCheckOut ? 'Check out' : `Time remaining: ${formatTime(timeRemaining)}`}
-            accessibilityHint={canCheckOut ? 'Double tap to check out from this masjid' : 'Wait for the minimum visit time to complete before checking out'}
+            accessibilityLabel={
+              canCheckOut
+                ? "Check out"
+                : `Time remaining: ${formatTime(timeRemaining)}`
+            }
+            accessibilityHint={
+              canCheckOut
+                ? "Double tap to check out from this masjid"
+                : "Wait for the minimum visit time to complete before checking out"
+            }
             accessibilityRole="button"
             accessibilityState={{ disabled: !canCheckOut || isCheckingOut }}
           >
             {isCheckingOut ? (
-              <ActivityIndicator size="small" color={canCheckOut ? '#FFFFFF' : colors.textSecondary} />
+              <ActivityIndicator
+                size="small"
+                color={canCheckOut ? "#FFFFFF" : colors.textSecondary}
+              />
             ) : (
               <>
                 <Text
                   style={[
                     styles.headerCheckOutButtonText,
-                    { color: canCheckOut ? '#FFFFFF' : colors.textSecondary },
+                    { color: canCheckOut ? "#FFFFFF" : colors.textSecondary },
                   ]}
                 >
-                  {canCheckOut ? 'CHECK OUT' : formatTime(timeRemaining)}
+                  {canCheckOut ? "CHECK OUT" : formatTime(timeRemaining)}
                 </Text>
               </>
             )}
@@ -597,7 +658,6 @@ export default function CheckInScreen() {
 
         {/* Masjid Info */}
         <View style={styles.centeredContent}>
-
           <Text style={[styles.masjidName, { color: colors.text }]}>
             {activeVisit?.masjidName}
           </Text>
@@ -611,11 +671,15 @@ export default function CheckInScreen() {
         {/* Timer Card */}
         <Card variant="outlined" padding="lg" style={styles.timerCard}>
           <Text style={[styles.timerLabel, { color: colors.textSecondary }]}>
-            {canCheckOut ? 'Ready to check out!' : 'Time Remaining'}
+            {canCheckOut ? "Ready to check out!" : "Time Remaining"}
           </Text>
           {canCheckOut ? (
             <View style={styles.timerCheckContainer}>
-              <IconSymbol name="checkmark.circle.fill" size={48} color={colors.success} />
+              <IconSymbol
+                name="checkmark.circle.fill"
+                size={48}
+                color={colors.success}
+              />
             </View>
           ) : (
             <Text style={[styles.timerValue, { color: colors.text }]}>
@@ -645,24 +709,59 @@ export default function CheckInScreen() {
             accessibilityHint="Double tap to confirm or update masjid facilities and earn bonus points"
             accessibilityRole="button"
           >
-            <Card variant="outlined" padding="md" style={styles.actionCardInner}>
+            <Card
+              variant="outlined"
+              padding="md"
+              style={styles.actionCardInner}
+            >
               <View style={styles.actionCardHeader}>
-                <View style={[styles.actionIconContainer, { backgroundColor: colors.primary + '15' }]}>
-                  <IconSymbol name="checkmark.seal.fill" size={24} color={colors.primary} />
+                <View
+                  style={[
+                    styles.actionIconContainer,
+                    { backgroundColor: colors.primary + "15" },
+                  ]}
+                >
+                  <IconSymbol
+                    name="checkmark.seal.fill"
+                    size={24}
+                    color={colors.primary}
+                  />
                 </View>
                 <View style={styles.actionCardInfo}>
-                  <Text style={[styles.actionCardTitle, { color: colors.text }]}>
+                  <Text
+                    style={[styles.actionCardTitle, { color: colors.text }]}
+                  >
                     Update Facilities
                   </Text>
-                  <Text style={[styles.actionCardSubtitle, { color: colors.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.actionCardSubtitle,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
                     Confirm available facilities
                   </Text>
                 </View>
-                <IconSymbol name="chevron.right" size={18} color={colors.textTertiary} />
+                <IconSymbol
+                  name="chevron.right"
+                  size={18}
+                  color={colors.textTertiary}
+                />
               </View>
-              <View style={[styles.actionBonusBadge, { backgroundColor: Colors.light.gold + '20' }]}>
-                <IconSymbol name="star.fill" size={12} color={Colors.light.gold} />
-                <Text style={[styles.actionBonusText, { color: Colors.light.gold }]}>
+              <View
+                style={[
+                  styles.actionBonusBadge,
+                  { backgroundColor: Colors.light.gold + "20" },
+                ]}
+              >
+                <IconSymbol
+                  name="star.fill"
+                  size={12}
+                  color={Colors.light.gold}
+                />
+                <Text
+                  style={[styles.actionBonusText, { color: Colors.light.gold }]}
+                >
                   First update: +10 pts
                 </Text>
               </View>
@@ -679,24 +778,59 @@ export default function CheckInScreen() {
             accessibilityHint="Double tap to share photos of this masjid and earn bonus points"
             accessibilityRole="button"
           >
-            <Card variant="outlined" padding="md" style={styles.actionCardInner}>
+            <Card
+              variant="outlined"
+              padding="md"
+              style={styles.actionCardInner}
+            >
               <View style={styles.actionCardHeader}>
-                <View style={[styles.actionIconContainer, { backgroundColor: colors.success + '15' }]}>
-                  <IconSymbol name="camera.fill" size={24} color={colors.success} />
+                <View
+                  style={[
+                    styles.actionIconContainer,
+                    { backgroundColor: colors.success + "15" },
+                  ]}
+                >
+                  <IconSymbol
+                    name="camera.fill"
+                    size={24}
+                    color={colors.success}
+                  />
                 </View>
                 <View style={styles.actionCardInfo}>
-                  <Text style={[styles.actionCardTitle, { color: colors.text }]}>
+                  <Text
+                    style={[styles.actionCardTitle, { color: colors.text }]}
+                  >
                     Add Photos
                   </Text>
-                  <Text style={[styles.actionCardSubtitle, { color: colors.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.actionCardSubtitle,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
                     Share masjid photos
                   </Text>
                 </View>
-                <IconSymbol name="chevron.right" size={18} color={colors.textTertiary} />
+                <IconSymbol
+                  name="chevron.right"
+                  size={18}
+                  color={colors.textTertiary}
+                />
               </View>
-              <View style={[styles.actionBonusBadge, { backgroundColor: Colors.light.gold + '20' }]}>
-                <IconSymbol name="star.fill" size={12} color={Colors.light.gold} />
-                <Text style={[styles.actionBonusText, { color: Colors.light.gold }]}>
+              <View
+                style={[
+                  styles.actionBonusBadge,
+                  { backgroundColor: Colors.light.gold + "20" },
+                ]}
+              >
+                <IconSymbol
+                  name="star.fill"
+                  size={12}
+                  color={Colors.light.gold}
+                />
+                <Text
+                  style={[styles.actionBonusText, { color: Colors.light.gold }]}
+                >
                   First photo: +10 pts
                 </Text>
               </View>
@@ -710,7 +844,9 @@ export default function CheckInScreen() {
             Points You'll Earn
           </Text>
           <View style={styles.pointsRow}>
-            <Text style={[styles.pointsLabel, { color: colors.text }]}>Base Visit</Text>
+            <Text style={[styles.pointsLabel, { color: colors.text }]}>
+              Base Visit
+            </Text>
             <Text style={[styles.pointsValue, { color: colors.text }]}>
               {activeCheckin?.basePoints ?? 10} pts
             </Text>
@@ -718,8 +854,8 @@ export default function CheckInScreen() {
           {activeCheckin?.bonusPoints ? (
             <View style={styles.pointsRow}>
               <Text style={[styles.pointsLabel, { color: colors.text }]}>
-                Bonus {activeCheckin.isPrayerTime ? '(Prayer time)' : ''}
-                {activeCheckin.isFirstVisitToMasjid ? '(First visit)' : ''}
+                Bonus {activeCheckin.isPrayerTime ? "(Prayer time)" : ""}
+                {activeCheckin.isFirstVisitToMasjid ? "(First visit)" : ""}
               </Text>
               <Text style={[styles.pointsValue, { color: colors.success }]}>
                 +{activeCheckin.bonusPoints} pts
@@ -732,7 +868,10 @@ export default function CheckInScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={["top", "bottom"]}
+    >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {isDemoMode && <DemoBanner />}
         {content}
@@ -752,8 +891,8 @@ const styles = StyleSheet.create({
   },
   centeredContent: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: Spacing.xl,
   },
   loadingText: {
@@ -761,9 +900,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: Spacing.md,
   },
   headerTitle: {
@@ -777,14 +916,14 @@ const styles = StyleSheet.create({
   },
   headerCheckOutButtonText: {
     ...Typography.button,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   iconCircle: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: Spacing.lg,
   },
   largeEmoji: {
@@ -799,11 +938,11 @@ const styles = StyleSheet.create({
   },
   idleSubtitle: {
     ...Typography.body,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: Spacing.lg,
   },
   idleButtons: {
-    width: '100%',
+    width: "100%",
     paddingHorizontal: Spacing.lg,
   },
   refreshButton: {
@@ -816,23 +955,23 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: BorderRadius.xl,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: Spacing.md,
   },
   masjidName: {
-    ...Typography.h3,
-    textAlign: 'center',
+    ...Typography.h1,
+    textAlign: "center",
     marginBottom: Spacing.xs,
   },
   masjidLocation: {
     ...Typography.body,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: Spacing.md,
   },
   distanceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
@@ -841,7 +980,7 @@ const styles = StyleSheet.create({
   },
   distanceText: {
     ...Typography.bodySmall,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   checkInButtonContainer: {
     marginBottom: Spacing.xl,
@@ -850,21 +989,21 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#00A9A5',
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#00A9A5",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
   },
   checkInButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     ...Typography.button,
     marginTop: Spacing.sm,
   },
   timerCard: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: Spacing.md,
   },
   timerLabel: {
@@ -873,13 +1012,13 @@ const styles = StyleSheet.create({
   },
   timerValue: {
     fontSize: 48,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: Spacing.md,
   },
   timerCheckContainer: {
     height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: Spacing.md,
   },
   pointsPreview: {
@@ -887,18 +1026,18 @@ const styles = StyleSheet.create({
   },
   pointsTitle: {
     ...Typography.caption,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: Spacing.sm,
   },
   sectionTitle: {
     ...Typography.bodySmall,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   pointsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: Spacing.xs,
   },
   pointsLabel: {
@@ -906,7 +1045,7 @@ const styles = StyleSheet.create({
   },
   pointsValue: {
     ...Typography.body,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   contributeSection: {
     marginBottom: Spacing.md,
@@ -919,15 +1058,15 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   actionCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   actionIconContainer: {
     width: 44,
     height: 44,
     borderRadius: BorderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: Spacing.md,
   },
   actionCardInfo: {
@@ -935,16 +1074,16 @@ const styles = StyleSheet.create({
   },
   actionCardTitle: {
     ...Typography.body,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 2,
   },
   actionCardSubtitle: {
     ...Typography.caption,
   },
   actionBonusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
     marginTop: Spacing.sm,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
@@ -953,17 +1092,17 @@ const styles = StyleSheet.create({
   },
   actionBonusText: {
     ...Typography.caption,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   actionButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: Spacing.md,
   },
   actionButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
     gap: Spacing.sm,
@@ -973,10 +1112,10 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     ...Typography.bodySmall,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   demoToggle: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: Spacing.lg,
   },
 });

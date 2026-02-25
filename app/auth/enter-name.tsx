@@ -21,13 +21,36 @@ import { useAnalytics } from '@/lib/analytics';
 import { getUserProfile, updateUserProfile } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
 import { clearCachedUserProfile } from '@/lib/storage';
+import { getDisplayName } from '@/lib/utils';
+
+type EnterNameParams = {
+  returnTo?: string;
+  suggestedName?: string;
+  email?: string;
+  provider?: 'apple' | 'google';
+};
+
+/**
+ * Maximum name length.
+ * This constraint balances:
+ * - UI display (leaderboard columns)
+ * - Readability on mobile screens
+ * - Storage efficiency
+ */
+const MAX_NAME_LENGTH = 20;
 
 export default function EnterNameScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { data: session, isPending } = useSession();
-  const params = useLocalSearchParams<{ returnTo?: string; suggestedName?: string; email?: string }>();
+  const params = useLocalSearchParams<EnterNameParams>();
   const returnTo = useMemo(() => params.returnTo || '/(tabs)', [params.returnTo]);
+
+  // Extract OAuth params to stable refs for useEffect dependency
+  const oauthProvider = useMemo(() => params.provider, [params.provider]);
+  const suggestedName = useMemo(() => params.suggestedName, [params.suggestedName]);
+  const emailParam = useMemo(() => params.email, [params.email]);
+
   const { track, identify, screen } = useAnalytics();
   const hasTrackedView = useRef(false);
   const hasIdentified = useRef(false);
@@ -76,12 +99,72 @@ export default function EnterNameScreen() {
           return;
         }
 
-        if (profileData.profile.leaderboardAlias) {
+        // Check if user already has a name set (from OAuth or previous setup)
+        if (profileData.user.name) {
           track('profile_setup_existing');
           router.replace(returnTo as any);
           return;
         }
+
+        // OAuth flow: auto-save with suggested name or generated unique name and skip the screen
+        if (oauthProvider === 'apple' || oauthProvider === 'google') {
+          let oauthName = suggestedName?.trim() || '';
+
+          // If no name provided, generate a unique name
+          // This prevents all users from showing as "Apple User" on leaderboard
+          if (!oauthName || oauthName.length < 2) {
+            const userEmail = typeof emailParam === 'string' ? emailParam : session?.user?.email;
+            oauthName = getDisplayName(null, userEmail);
+          }
+
+          // Truncate to max length if needed
+          if (oauthName.length > MAX_NAME_LENGTH) {
+            oauthName = oauthName.substring(0, MAX_NAME_LENGTH);
+          }
+
+          console.log('[OAuth Auto-save] Attempting to save profile:', {
+            provider: oauthProvider,
+            suggestedName,
+            oauthName,
+            returnTo
+          });
+
+          try {
+            await updateUserProfile({ name: oauthName });
+            clearCachedUserProfile();
+            track('profile_setup_auto_oauth', { provider: oauthProvider, generated: !suggestedName });
+            console.log('[OAuth Auto-save] Success! Redirecting to:', returnTo);
+            // Clear loading state before redirect to prevent race conditions
+            if (isActive) {
+              setIsChecking(false);
+            }
+            router.replace(returnTo as any);
+            return;
+          } catch (error) {
+            console.warn('Auto-save failed, showing manual entry:', error);
+            // Check if this is an authentication error (401)
+            if (error instanceof Error && error.message.includes('sign in')) {
+              track('profile_setup_auth_failed', { provider: oauthProvider });
+              // Session not properly established - redirect to login
+              if (isActive) {
+                router.replace('/auth/login');
+              }
+              return;
+            }
+            // Fall through to manual entry for other errors
+          }
+        }
       } catch (error) {
+        // Check if this is an authentication error
+        if (error instanceof Error && error.message.includes('sign in')) {
+          track('profile_setup_auth_failed', { provider: oauthProvider ?? 'unknown' });
+          // Session not properly established - redirect to login
+          if (isActive) {
+            router.replace('/auth/login');
+          }
+          return;
+        }
+        // Silently handle other profile loading errors - fall through to manual entry
       } finally {
         if (isActive) {
           setIsChecking(false);
@@ -94,7 +177,7 @@ export default function EnterNameScreen() {
     return () => {
       isActive = false;
     };
-  }, [identify, isPending, returnTo, screen, session?.user, track]);
+  }, [emailParam, identify, isPending, oauthProvider, returnTo, screen, session, suggestedName, track]);
 
   const handleContinue = async () => {
     const trimmedName = inputValue.current.trim();
@@ -111,9 +194,9 @@ export default function EnterNameScreen() {
       return;
     }
 
-    if (trimmedName.length > 20) {
+    if (trimmedName.length > MAX_NAME_LENGTH) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Invalid Name', 'Name must be 20 characters or less.');
+      Alert.alert('Invalid Name', `Name must be ${MAX_NAME_LENGTH} characters or less.`);
       return;
     }
 
@@ -123,7 +206,7 @@ export default function EnterNameScreen() {
     setIsSaving(true);
 
     try {
-      await updateUserProfile({ leaderboardAlias: trimmedName });
+      await updateUserProfile({ name: trimmedName });
       clearCachedUserProfile();
       track('profile_setup_completed');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -187,7 +270,7 @@ export default function EnterNameScreen() {
                 autoCorrect={false}
                 returnKeyType="done"
                 onSubmitEditing={handleContinue}
-                maxLength={20}
+                maxLength={MAX_NAME_LENGTH}
                 onFocus={() => setIsInputFocused(true)}
                 onBlur={() => setIsInputFocused(false)}
                 accessibilityLabel="Name input"
@@ -198,11 +281,11 @@ export default function EnterNameScreen() {
               />
               <View style={styles.characterCounterContainer}>
                 <Text style={[styles.characterCounter, { color: colors.textTertiary }]}>
-                  {characterCount}/20
+                  {characterCount}/{MAX_NAME_LENGTH}
                 </Text>
               </View>
               <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-                This name will be displayed on the leaderboard. You can choose to hide it in Settings.
+                This name will be displayed on the leaderboard. You can change or hide it later in Settings.
               </Text>
             </View>
             <Button

@@ -24,7 +24,7 @@ import { useMasjidDetails } from "@/hooks/use-masjid-details";
 import { useMasjidPhotos } from "@/hooks/use-masjid-photos";
 import { useAnalytics } from "@/lib/analytics";
 
-type TabType = "facilities" | "photos" | "events";
+type TabType = "photos" | "facilities" | "events";
 
 export default function MasjidDetailScreen() {
   const colorScheme = useColorScheme();
@@ -32,7 +32,7 @@ export default function MasjidDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { track, screen } = useAnalytics();
   const hasTrackedView = useRef(false);
-  const [activeTab, setActiveTab] = useState<TabType>("facilities");
+  const [activeTab, setActiveTab] = useState<TabType>("photos");
 
   // Fetch masjid details
   const {
@@ -197,7 +197,7 @@ export default function MasjidDetailScreen() {
       <Stack.Screen
         options={{
           title: "",
-          headerTransparent: true,
+          headerTransparent: false,
           headerBackTitle: "Back",
         }}
       />
@@ -210,46 +210,26 @@ export default function MasjidDetailScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Hero Image */}
-          <View
-            style={[
-              styles.heroImage,
-              { backgroundColor: colors.backgroundSecondary },
-            ]}
-          >
-            <View
-              style={[
-                styles.heroIconContainer,
-                { backgroundColor: colors.primary + "20" },
-              ]}
-            >
-              <IconSymbol name="camera.fill" size={40} color={colors.primary} />
-            </View>
-            {masjid.verified && (
-              <View style={styles.verifiedBadge}>
-                <IconSymbol
-                  name="checkmark.seal.fill"
-                  size={16}
-                  color={colors.success}
-                />
-                <Text style={[styles.verifiedText, { color: colors.success }]}>
-                  Verified
-                </Text>
-              </View>
-            )}
-          </View>
-
           {/* Masjid Info */}
           <View style={styles.infoSection}>
             <Text style={[styles.masjidName, { color: colors.text }]}>
               {masjid.name}
             </Text>
+            {masjid.verified && (
+              <View style={styles.verifiedBadgeInline}>
+                <IconSymbol
+                  name="checkmark.seal.fill"
+                  size={14}
+                  color={colors.success}
+                />
+                <Text
+                  style={[styles.verifiedTextInline, { color: colors.success }]}
+                >
+                  Verified
+                </Text>
+              </View>
+            )}
             <View style={styles.locationRow}>
-              <IconSymbol
-                name="location.fill"
-                size={14}
-                color={colors.textSecondary}
-              />
               <Text
                 style={[styles.locationText, { color: colors.textSecondary }]}
               >
@@ -287,45 +267,10 @@ export default function MasjidDetailScreen() {
               accessibilityHint="Double tap to report an issue"
               accessibilityRole="button"
             >
-              <IconSymbol
-                name="exclamationmark.circle"
-                size={14}
-                color={colors.primary}
-              />
               <Text style={[styles.reportLinkText, { color: colors.primary }]}>
                 Incorrect information? Report here
               </Text>
             </TouchableOpacity>
-          </View>
-
-          {/* Action Buttons */}
-          <View style={styles.actionButtons}>
-            <Button
-              title="Check In"
-              variant="primary"
-              onPress={handleCheckIn}
-              style={styles.checkInButton}
-              icon={
-                <IconSymbol
-                  name="checkmark.circle.fill"
-                  size={20}
-                  color="#fff"
-                />
-              }
-            />
-            <Button
-              title="Directions"
-              variant="outline"
-              onPress={handleDirections}
-              style={styles.directionsButton}
-              icon={
-                <IconSymbol
-                  name="arrow.triangle.turn.up.right.diamond.fill"
-                  size={20}
-                  color={colors.primary}
-                />
-              }
-            />
           </View>
 
           {/* Tabs */}
@@ -335,35 +280,6 @@ export default function MasjidDetailScreen() {
               { backgroundColor: colors.backgroundSecondary },
             ]}
           >
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === "facilities" && [
-                  styles.tabActive,
-                  { backgroundColor: colors.card },
-                ],
-              ]}
-              onPress={() => handleTabChange("facilities")}
-              accessible={true}
-              accessibilityLabel="Facilities tab"
-              accessibilityHint="Show masjid facilities"
-              accessibilityRole="tab"
-              accessibilityState={{ selected: activeTab === "facilities" }}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  {
-                    color:
-                      activeTab === "facilities"
-                        ? colors.primary
-                        : colors.textSecondary,
-                  },
-                ]}
-              >
-                Facilities
-              </Text>
-            </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.tab,
@@ -391,6 +307,35 @@ export default function MasjidDetailScreen() {
                 ]}
               >
                 Photos
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === "facilities" && [
+                  styles.tabActive,
+                  { backgroundColor: colors.card },
+                ],
+              ]}
+              onPress={() => handleTabChange("facilities")}
+              accessible={true}
+              accessibilityLabel="Facilities tab"
+              accessibilityHint="Show masjid facilities"
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === "facilities" }}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color:
+                      activeTab === "facilities"
+                        ? colors.primary
+                        : colors.textSecondary,
+                  },
+                ]}
+              >
+                Facilities
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -426,9 +371,6 @@ export default function MasjidDetailScreen() {
 
           {activeTab === "facilities" && (
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Facilities
-              </Text>
               {availableFacilities.length > 0 ? (
                 <View
                   style={styles.facilitiesGrid}
@@ -474,9 +416,6 @@ export default function MasjidDetailScreen() {
 
           {activeTab === "photos" && (
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Photos
-              </Text>
               {isPhotosLoading ? (
                 <View style={styles.loadingInline}>
                   <ActivityIndicator size="small" color={colors.primary} />
@@ -581,9 +520,6 @@ export default function MasjidDetailScreen() {
 
           {activeTab === "events" && (
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Events
-              </Text>
               <Card
                 variant="outlined"
                 padding="md"
@@ -637,6 +573,48 @@ export default function MasjidDetailScreen() {
             </View>
           )}
         </ScrollView>
+
+        {/* Sticky Bottom Actions */}
+        <View
+          style={[
+            styles.stickyActions,
+            {
+              backgroundColor: colors.background,
+              borderTopColor: colors.border,
+            },
+          ]}
+        >
+          <View style={styles.stickyActionsInner}>
+            <Button
+              title="Check In"
+              variant="primary"
+              size="lg"
+              onPress={handleCheckIn}
+              style={styles.checkInButtonSticky}
+              icon={
+                <IconSymbol
+                  name="checkmark.circle.fill"
+                  size={20}
+                  color="#fff"
+                />
+              }
+            />
+            <Button
+              title=""
+              variant="outline"
+              size="md"
+              onPress={handleDirections}
+              style={styles.directionsButtonSticky}
+              icon={
+                <IconSymbol
+                  name="arrow.triangle.turn.up.right.diamond.fill"
+                  size={24}
+                  color={colors.primary}
+                />
+              }
+            />
+          </View>
+        </View>
       </SafeAreaView>
     </>
   );
@@ -681,31 +659,14 @@ const styles = StyleSheet.create({
     color: "#fff",
     ...Typography.button,
   },
-  heroImage: {
-    height: 220,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  heroIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  verifiedBadge: {
-    position: "absolute",
-    bottom: Spacing.md,
-    right: Spacing.md,
+  verifiedBadgeInline: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.9)",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
     gap: 4,
+    marginTop: Spacing.xs,
+    alignSelf: "flex-start",
   },
-  verifiedText: {
+  verifiedTextInline: {
     ...Typography.caption,
     fontWeight: "600",
   },
@@ -733,27 +694,34 @@ const styles = StyleSheet.create({
   },
   reportLink: {
     flexDirection: "row",
-    alignItems: "center",
     gap: Spacing.xs,
     marginTop: Spacing.sm,
     minHeight: 44, // Minimum touch target
-    justifyContent: "center",
   },
   reportLinkText: {
     ...Typography.bodySmall,
     textDecorationLine: "underline",
   },
-  actionButtons: {
+  stickyActions: {
+    borderTopWidth: 1,
+    padding: Spacing.md,
+    paddingBottom: Spacing.md,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  stickyActionsInner: {
     flexDirection: "row",
-    paddingHorizontal: Spacing.md,
     gap: Spacing.sm,
-    marginBottom: Spacing.lg,
   },
-  checkInButton: {
-    flex: 1,
+  checkInButtonSticky: {
+    flex: 9,
   },
-  directionsButton: {
+  directionsButtonSticky: {
     flex: 1,
+    minWidth: 56,
   },
   tabContainer: {
     flexDirection: "row",
@@ -872,7 +840,7 @@ const styles = StyleSheet.create({
   photoItem: {
     width: "48%",
     aspectRatio: 1,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
     overflow: "hidden",
     backgroundColor: "#F2F2F2",
   },

@@ -45,6 +45,7 @@ import {
   loadCachedUserProfile,
   saveCachedUserProfile,
 } from "@/lib/storage";
+import { getDisplayName } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 
 // Cache validity duration (5 minutes)
@@ -515,10 +516,12 @@ export default function ProfileScreen() {
 
   // Guest mode - show dummy data to encourage sign-up
   const isGuest = !session?.user;
-  const displayName =
-    profileData?.user?.name ||
-    user?.name ||
-    (isGuest ? DUMMY_DISPLAY_NAME : "User");
+  const displayName = isGuest
+    ? DUMMY_DISPLAY_NAME
+    : getDisplayName(
+        profileData?.user?.name || user?.name || null,
+        profileData?.user?.email || user?.email
+      );
   const avatarUrl = profileData?.user?.image || user?.image || null;
   const totalPoints =
     profileData?.profile?.totalPoints ?? (isGuest ? DUMMY_TOTAL_POINTS : 0);
@@ -629,9 +632,7 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.userInfo}>
             <Text style={[styles.displayName, { color: colors.text }]}>
-              {isGuest
-                ? DUMMY_DISPLAY_NAME
-                : profileData?.profile.leaderboardAlias || displayName}
+              {displayName}
             </Text>
           </View>
         </View>

@@ -752,8 +752,9 @@ export async function getGlobalLeaderboard(
  * Update user profile settings request
  */
 export interface UpdateUserProfileRequest {
+  name?: string;  // Update user's display name (from OAuth)
   showFullNameInLeaderboard?: boolean;
-  leaderboardAlias?: string;
+  leaderboardAlias?: string;  // DEPRECATED - Kept for backwards compatibility
 }
 
 /**
