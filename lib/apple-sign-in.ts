@@ -20,6 +20,13 @@ export interface AppleSignInResult {
     };
     user?: string; // Unique Apple user identifier
   };
+  // Backend user data from better-auth
+  user?: {
+    id: string;
+    email?: string;
+    name?: string;
+    emailVerified: boolean;
+  };
 }
 
 /**
@@ -42,43 +49,67 @@ export async function isAppleSignInAvailable(): Promise<boolean> {
  */
 export async function signInWithApple(): Promise<AppleSignInResult> {
   try {
-    const credential: AppleAuthentication.AppleAuthenticationCredential = await AppleAuthentication.signInAsync({
-      requestedScopes: [
-        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-        AppleAuthentication.AppleAuthenticationScope.EMAIL,
-      ],
-    });
+    const credential: AppleAuthentication.AppleAuthenticationCredential =
+      await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
 
     // Capture user data before sending to backend
     // Note: email and fullName are only provided on FIRST sign-in
     const userData = {
       email: credential.email ?? undefined,
-      fullName: credential.fullName ? {
-        givenName: credential.fullName.givenName ?? undefined,
-        familyName: credential.fullName.familyName ?? undefined,
-      } : undefined,
+      fullName: credential.fullName
+        ? {
+            givenName: credential.fullName.givenName ?? undefined,
+            familyName: credential.fullName.familyName ?? undefined,
+          }
+        : undefined,
       user: credential.user,
     };
 
     // Validate identityToken before sending to backend
     if (!credential.identityToken) {
-      return { success: false, error: 'Failed to get authentication token from Apple' };
+      return {
+        success: false,
+        error: 'Failed to get authentication token from Apple',
+      };
     }
 
     // Send the token to backend for verification via better-auth
     // Using idToken instead of redirect for native iOS flow
-    await authClient.signIn.social({
+    const result = await authClient.signIn.social({
       provider: 'apple',
       idToken: {
         token: credential.identityToken,
       },
     });
 
-    return { success: true, userData };
+    if (result.error) {
+      return {
+        success: false,
+        error: result.error.message || 'Authentication failed',
+      };
+    }
+
+    // Get the session to retrieve user data
+    const session = await authClient.getSession();
+
+    // Return both Apple data AND backend user data
+    return {
+      success: true,
+      userData,
+      user: session.data?.user, // Backend user with name from database
+    };
   } catch (error: any) {
     if (error?.code === 'ERR_REQUEST_CANCELED') {
       return { success: false, error: 'User cancelled' };
     }
-    return { success: false, error: error?.message || 'Failed to sign in with Apple' };
+    return {
+      success: false,
+      error: error?.message || 'Failed to sign in with Apple',
+    };
   }
 }

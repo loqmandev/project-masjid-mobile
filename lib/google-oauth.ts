@@ -20,6 +20,12 @@ const redirectUri = AuthSession.makeRedirectUri({
 export interface GoogleSignInResult {
   success: boolean;
   error?: string;
+  user?: {
+    id: string;
+    email?: string;
+    name?: string;
+    emailVerified: boolean;
+  };
 }
 
 /**
@@ -37,9 +43,18 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
       return { success: false, error: result.error.message };
     }
 
-    return { success: true };
+    // Get the session to retrieve user data
+    const session = await authClient.getSession();
+
+    return {
+      success: true,
+      user: session.data?.user,
+    };
   } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to sign in with Google' };
+    return {
+      success: false,
+      error: error?.message || 'Failed to sign in with Google',
+    };
   }
 }
 

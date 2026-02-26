@@ -179,6 +179,41 @@ export default function EnterNameScreen() {
     };
   }, [emailParam, identify, isPending, oauthProvider, returnTo, screen, session, suggestedName, track]);
 
+  const handleSkip = async () => {
+    // Use OAuth suggested name, or generate a placeholder from email
+    let nameToUse = suggestedName?.trim() || '';
+
+    if (!nameToUse || nameToUse.length < 2) {
+      const userEmail = session?.user?.email;
+      nameToUse = getDisplayName(null, userEmail);
+    }
+
+    // Truncate to max length if needed
+    if (nameToUse.length > MAX_NAME_LENGTH) {
+      nameToUse = nameToUse.substring(0, MAX_NAME_LENGTH);
+    }
+
+    setIsSaving(true);
+
+    try {
+      await updateUserProfile({ name: nameToUse });
+      clearCachedUserProfile();
+      track('profile_setup_skipped', { method: 'skip_button' });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace(returnTo as any);
+    } catch (error) {
+      track('profile_setup_failed', {
+        reason: error instanceof Error ? error.message : 'unknown',
+      });
+      Alert.alert(
+        'Update Failed',
+        error instanceof Error ? error.message : 'Failed to update name. Please try again.'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleContinue = async () => {
     const trimmedName = inputValue.current.trim();
 
@@ -288,16 +323,28 @@ export default function EnterNameScreen() {
                 This name will be displayed on the leaderboard. You can change or hide it later in Settings.
               </Text>
             </View>
-            <Button
-              title={isSaving ? 'Saving...' : 'Continue'}
-              variant="primary"
-              size="lg"
-              loading={isSaving}
-              onPress={handleContinue}
-              style={styles.button}
-              accessibilityLabel="Continue to app"
-              accessibilityHint="Save your name and continue to the home screen"
-            />
+            <View style={styles.buttonContainer}>
+              <Button
+                title={isSaving ? 'Saving...' : 'Continue'}
+                variant="primary"
+                size="lg"
+                loading={isSaving}
+                onPress={handleContinue}
+                style={styles.button}
+                accessibilityLabel="Continue to app"
+                accessibilityHint="Save your name and continue to the home screen"
+              />
+              <Button
+                title="Skip for now"
+                variant="ghost"
+                size="lg"
+                disabled={isSaving}
+                onPress={handleSkip}
+                style={styles.skipButton}
+                accessibilityLabel="Skip name entry"
+                accessibilityHint="Use a default name and continue to the home screen"
+              />
+            </View>
           </Pressable>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -353,7 +400,14 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     lineHeight: 16,
   },
+  buttonContainer: {
+    width: '100%',
+    gap: Spacing.sm,
+  },
   button: {
+    width: '100%',
+  },
+  skipButton: {
     width: '100%',
   },
 });

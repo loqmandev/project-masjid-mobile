@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { useAnalytics } from "@/lib/analytics";
-import { signInWithApple } from "@/lib/apple-sign-in";
-import { useSession } from "@/lib/auth-client";
-import { signInWithGoogle } from "@/lib/google-oauth";
+import { useAnalytics } from '@/lib/analytics';
+import { signInWithApple } from '@/lib/apple-sign-in';
+import { useSession } from '@/lib/auth-client';
+import { signInWithGoogle } from '@/lib/google-oauth';
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
@@ -27,10 +27,33 @@ export default function LoginScreen() {
   // Track if user intentionally navigated to login screen (not OAuth callback)
   const [isIntentionalVisit, setIsIntentionalVisit] = useState(false);
 
+  // Helper function to ensure user has a name, generating a placeholder if needed
+  const ensureUserName = async (user: { email?: string; name?: string }, provider: 'google' | 'apple') => {
+    if (user.name) return;
+
+    try {
+      const { updateUserProfile } = await import('@/lib/api');
+      const { getDisplayName } = await import('@/lib/utils');
+
+      const placeholderName = getDisplayName(null, user.email);
+      await updateUserProfile({ name: placeholderName });
+
+      track(`${provider}_sign_in_placeholder_saved`, {
+        name_length: placeholderName.length,
+        name_source: user.email ? 'email' : 'guest',
+      });
+    } catch (error) {
+      console.warn('Failed to save placeholder name, continuing anyway:', error);
+      track(`${provider}_sign_in_placeholder_failed`, {
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+    }
+  };
+
   useEffect(() => {
     if (hasTrackedView.current) return;
-    screen("login");
-    track("login_screen_viewed", { return_to: params.returnTo ?? "/(tabs)" });
+    screen('login');
+    track('login_screen_viewed', { return_to: params.returnTo ?? '/(tabs)' });
     hasTrackedView.current = true;
     // Mark as intentional visit after a small delay to prevent race conditions
     setTimeout(() => setIsIntentionalVisit(true), 100);
@@ -39,7 +62,7 @@ export default function LoginScreen() {
   // Redirect if already authenticated - only after we've confirmed this is an intentional visit
   useEffect(() => {
     if (isIntentionalVisit && session && !isPending) {
-      const returnTo = params.returnTo || "/(tabs)";
+      const returnTo = params.returnTo || '/(tabs)';
       router.replace(
         `/auth/enter-name?returnTo=${encodeURIComponent(returnTo)}` as any,
       );
@@ -52,17 +75,28 @@ export default function LoginScreen() {
     setIsOAuthInProgress(true);
     setIsLoading(true);
     setAuthError(null);
-    track("google_sign_in_attempted");
+    track('google_sign_in_attempted');
     try {
       const result = await signInWithGoogle();
       if (!result.success) {
-        setAuthError(result.error || "Failed to sign in with Google");
-        track("google_sign_in_failed", {
-          error: result.error ?? "Failed to sign in with Google",
+        setAuthError(result.error || 'Failed to sign in with Google');
+        track('google_sign_in_failed', {
+          error: result.error ?? 'Failed to sign in with Google',
         });
-      } else {
-        track("google_sign_in_success");
+        return;
       }
+
+      // OAuth users ALWAYS go to app, never enter-name
+      track('google_sign_in_success', { has_name: !!result.user?.name });
+
+      // If user has no name, save a placeholder first
+      if (result.user) {
+        await ensureUserName(result.user, 'google');
+      }
+
+      // Always redirect to app for OAuth users
+      const returnTo = params.returnTo || '/(tabs)';
+      router.replace(returnTo as any);
     } finally {
       setIsLoading(false);
       setIsOAuthInProgress(false);
@@ -75,39 +109,28 @@ export default function LoginScreen() {
     setIsOAuthInProgress(true);
     setIsLoading(true);
     setAuthError(null);
-    track("apple_sign_in_attempted");
+    track('apple_sign_in_attempted');
     try {
       const result = await signInWithApple();
       if (!result.success) {
-        setAuthError(result.error || "Failed to sign in with Apple");
-        track("apple_sign_in_failed", {
-          error: result.error ?? "Failed to sign in with Apple",
+        setAuthError(result.error || 'Failed to sign in with Apple');
+        track('apple_sign_in_failed', {
+          error: result.error ?? 'Failed to sign in with Apple',
         });
-      } else {
-        track("apple_sign_in_success", { hasUserData: !!result.userData });
-        // Always navigate after successful Apple sign-in
-        // Apple only provides email/fullName on first sign-in; subsequent sign-ins return empty userData
-        const urlParams = new URLSearchParams();
-        urlParams.set("provider", "apple");
-        if (result.userData?.email) {
-          urlParams.set("email", result.userData.email);
-        }
-        if (result.userData?.fullName) {
-          const fullName = [
-            result.userData.fullName.givenName,
-            result.userData.fullName.familyName,
-          ]
-            .filter(Boolean)
-            .join(" ");
-          if (fullName) {
-            urlParams.set("suggestedName", fullName);
-          }
-        }
-        const queryString = urlParams.toString();
-        router.replace(
-          `/auth/enter-name?returnTo=${encodeURIComponent(params.returnTo || "/(tabs)")}${queryString ? "&" + queryString : ""}` as any,
-        );
+        return;
       }
+
+      // OAuth users ALWAYS go to app, never enter-name
+      track('apple_sign_in_success', { has_name: !!result.user?.name });
+
+      // If user has no name, save a placeholder first
+      if (result.user) {
+        await ensureUserName(result.user, 'apple');
+      }
+
+      // Always redirect to app for OAuth users
+      const returnTo = params.returnTo || '/(tabs)';
+      router.replace(returnTo as any);
     } finally {
       setIsLoading(false);
       setIsOAuthInProgress(false);
@@ -133,7 +156,7 @@ export default function LoginScreen() {
     <>
       <Stack.Screen
         options={{
-          title: "",
+          title: '',
           headerTransparent: true,
           headerBackButtonMenuEnabled: true,
         }}
@@ -147,7 +170,7 @@ export default function LoginScreen() {
             <View
               style={[
                 styles.logoContainer,
-                { backgroundColor: colors.primary + "15" },
+                { backgroundColor: colors.primary + '15' },
               ]}
             >
               <IconSymbol name="mosque" size={48} color={colors.primary} />
@@ -166,7 +189,7 @@ export default function LoginScreen() {
               <View
                 style={[
                   styles.featureIcon,
-                  { backgroundColor: colors.primary + "15" },
+                  { backgroundColor: colors.primary + '15' },
                 ]}
               >
                 <IconSymbol name="mosque" size={24} color={colors.primary} />
@@ -190,7 +213,7 @@ export default function LoginScreen() {
               <View
                 style={[
                   styles.featureIcon,
-                  { backgroundColor: colors.primary + "15" },
+                  { backgroundColor: colors.primary + '15' },
                 ]}
               >
                 <IconSymbol name="star" size={24} color={colors.primary} />
@@ -214,7 +237,7 @@ export default function LoginScreen() {
               <View
                 style={[
                   styles.featureIcon,
-                  { backgroundColor: colors.primary + "15" },
+                  { backgroundColor: colors.primary + '15' },
                 ]}
               >
                 <IconSymbol name="trophy" size={24} color={colors.primary} />
@@ -248,7 +271,7 @@ export default function LoginScreen() {
             />
 
             {/* Apple Sign In Button - iOS only */}
-            {Platform.OS === "ios" && (
+            {Platform.OS === 'ios' && (
               <AppleAuthentication.AppleAuthenticationButton
                 buttonStyle={
                   AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
@@ -282,7 +305,7 @@ export default function LoginScreen() {
               title="Continue with Email"
               variant="primary"
               size="lg"
-              onPress={() => router.push("/auth/email")}
+              onPress={() => router.push('/auth/email')}
               disabled={isLoading}
               style={styles.emailButton}
             />
@@ -295,8 +318,8 @@ export default function LoginScreen() {
             )}
 
             <Text style={[styles.termsText, { color: colors.textTertiary }]}>
-              By continuing, you agree to our{" "}
-              <Text style={{ color: colors.primary }}>Terms of Service</Text>{" "}
+              By continuing, you agree to our{' '}
+              <Text style={{ color: colors.primary }}>Terms of Service</Text>{' '}
               and <Text style={{ color: colors.primary }}>Privacy Policy</Text>
             </Text>
           </View>
