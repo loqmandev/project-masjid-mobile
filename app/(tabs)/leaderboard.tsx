@@ -443,7 +443,8 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
+    minHeight: 44,
     alignItems: "center",
     borderRadius: BorderRadius.md,
   },

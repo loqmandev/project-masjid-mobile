@@ -3,24 +3,24 @@
  * Centralized API functions for fetching data from the backend
  */
 
-import { API_BASE_URL } from '@/constants/api';
-import { authClient } from '@/lib/auth-client';
-import { saveDemoMode, clearDemoMode } from '@/lib/storage';
+import { API_BASE_URL } from "@/constants/api";
+import { authClient } from "@/lib/auth-client";
+import { clearDemoMode, saveDemoMode } from "@/lib/storage";
 import type {
   MasjidReportData,
   MasjidReportResponse,
-} from '@/types/masjid-report';
+} from "@/types/masjid-report";
 
 /**
  * Demo mode header name sent by backend
  */
-const DEMO_MODE_HEADER = 'x-demo-mode';
+const DEMO_MODE_HEADER = "x-demo-mode";
 
 /**
  * Check if response indicates demo mode and update storage accordingly
  */
 function handleDemoModeHeader(response: Response): void {
-  const isDemo = response.headers.get(DEMO_MODE_HEADER) === 'true';
+  const isDemo = response.headers.get(DEMO_MODE_HEADER) === "true";
   if (isDemo) {
     saveDemoMode(true);
   } else {
@@ -34,7 +34,7 @@ function handleDemoModeHeader(response: Response): void {
  * Creates fetch options with authentication headers
  */
 function createAuthenticatedFetchOptions(
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): RequestInit {
   const cookie = authClient.getCookie();
 
@@ -45,7 +45,7 @@ function createAuthenticatedFetchOptions(
       ...(cookie ? { Cookie: cookie } : {}),
     },
     // 'include' can interfere with cookies set manually in headers
-    credentials: 'omit' as RequestCredentials,
+    credentials: "omit" as RequestCredentials,
   };
 }
 
@@ -54,7 +54,7 @@ function createAuthenticatedFetchOptions(
  */
 async function authenticatedFetch(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<Response> {
   const authOptions = createAuthenticatedFetchOptions(options);
   const response = await fetch(url, authOptions);
@@ -71,7 +71,7 @@ async function authenticatedFetch(
  */
 async function publicFetch(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<Response> {
   const authOptions = createAuthenticatedFetchOptions(options);
   const response = await fetch(url, authOptions);
@@ -96,6 +96,19 @@ export interface MasjidResponse {
   distance: number;
   distanceM: number;
   canCheckin: boolean;
+}
+
+/**
+ * Search result type (no distance or checkin eligibility)
+ */
+export interface MasjidSearchResult {
+  masjidId: string;
+  name: string;
+  lat: number;
+  lng: number;
+  districtName: string;
+  stateName: string;
+  checkinRadiusM: number;
 }
 
 /**
@@ -146,14 +159,43 @@ export interface MasjidDetails {
  */
 export async function getCheckinEligibleMasjids(
   lat: number,
-  lng: number
+  lng: number,
 ): Promise<MasjidResponse[]> {
   const response = await publicFetch(
-    `${API_BASE_URL}/masjids/checkin?lat=${lat}&lng=${lng}`
+    `${API_BASE_URL}/masjids/checkin?lat=${lat}&lng=${lng}`,
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch check-in eligible masjids: ${response.status}`);
+    throw new Error(
+      `Failed to fetch check-in eligible masjids: ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Search masjids by name (global search, not location-based)
+ */
+export async function searchMasjidsByName(
+  query: string,
+  limit: number = 20,
+): Promise<MasjidSearchResult[]> {
+  if (!query || query.trim().length < 2) {
+    return [];
+  }
+
+  const params = new URLSearchParams({
+    q: query.trim(),
+    limit: String(limit),
+  });
+
+  const response = await publicFetch(
+    `${API_BASE_URL}/masjids/search?${params.toString()}`,
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to search masjids: ${response.status}`);
   }
 
   return response.json();
@@ -166,7 +208,7 @@ export async function getNearbyMasjids(
   lat: number,
   lng: number,
   radius: number = 5,
-  facilityCode?: string
+  facilityCode?: string,
 ): Promise<MasjidResponse[]> {
   const params = new URLSearchParams({
     lat: String(lat),
@@ -174,10 +216,10 @@ export async function getNearbyMasjids(
     radius: String(radius),
   });
   if (facilityCode) {
-    params.set('facility_code', facilityCode);
+    params.set("facility_code", facilityCode);
   }
   const response = await publicFetch(
-    `${API_BASE_URL}/masjids/nearby?${params.toString()}`
+    `${API_BASE_URL}/masjids/nearby?${params.toString()}`,
   );
 
   if (!response.ok) {
@@ -217,15 +259,120 @@ export async function getFacilities(): Promise<FacilityOption[]> {
  * Fetch confirmed facilities for a masjid
  */
 export async function getMasjidFacilities(
-  masjidId: string
+  masjidId: string,
 ): Promise<FacilityOption[]> {
-  const response = await publicFetch(`${API_BASE_URL}/masjids/${masjidId}/facilities`);
+  const response = await publicFetch(
+    `${API_BASE_URL}/masjids/${masjidId}/facilities`,
+  );
 
   if (!response.ok) {
     throw new Error(`Failed to fetch masjid facilities: ${response.status}`);
   }
 
   return response.json();
+}
+
+/**
+ * Event data from API
+ */
+export interface MasjidEvent {
+  id: string;
+  masjidId: string;
+  name: string;
+  description: string | null;
+  startDateTime: string; // ISO datetime
+  endDateTime: string | null; // ISO datetime
+  imageUrl: string | null;
+  category: string | null;
+  bonusPoints: number;
+  status: string;
+  masjidName: string;
+  masjidLat: number;
+  masjidLng: number;
+  masjidAddress: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  distanceM?: number; // Calculated client-side
+}
+
+/**
+ * Fetch upcoming events
+ * Events are returned sorted by start date (soonest first)
+ */
+export async function getUpcomingEvents(
+  lat?: number | null,
+  lng?: number | null,
+): Promise<MasjidEvent[]> {
+  const params = new URLSearchParams();
+  if (lat !== null && lat !== undefined && lng !== null && lng !== undefined) {
+    params.set("lat", String(lat));
+    params.set("lng", String(lng));
+  }
+
+  const response = await publicFetch(
+    `${API_BASE_URL}/api/events?${params.toString()}`,
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch events: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Base event data from backend detail endpoint
+ */
+interface BaseEventResponse {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  description: string | null;
+  bonusPoints: number;
+  masjidId: string;
+  category: string | null;
+  status: "active" | "completed" | "draft" | "cancelled";
+  startDateTime: string;
+  endDateTime: string;
+  imageUrl: string | null;
+  createdBy: string | null;
+}
+
+/**
+ * Fetch event details by ID
+ * Also fetches masjid details to populate location information
+ */
+export async function getEventById(eventId: string): Promise<MasjidEvent> {
+  const response = await publicFetch(`${API_BASE_URL}/api/events/${eventId}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch event: ${response.status}`);
+  }
+
+  const event: BaseEventResponse = await response.json();
+
+  // Fetch masjid details to get location info
+  const masjidResponse = await publicFetch(
+    `${API_BASE_URL}/masjids/${event.masjidId}`,
+  );
+
+  if (!masjidResponse.ok) {
+    throw new Error(`Failed to fetch masjid details: ${masjidResponse.status}`);
+  }
+
+  const masjid: MasjidDetails = await masjidResponse.json();
+
+  // Merge event data with masjid location info
+  return {
+    ...event,
+    masjidName: masjid.name,
+    masjidLat: masjid.lat,
+    masjidLng: masjid.lng,
+    masjidAddress: masjid.address,
+    distanceM: undefined,
+  };
 }
 
 export interface FacilitySubmitResponse {
@@ -238,26 +385,28 @@ export interface FacilitySubmitResponse {
  */
 export async function submitMasjidFacilities(
   masjidId: string,
-  facilityCodes: string[]
+  facilityCodes: string[],
 ): Promise<FacilitySubmitResponse> {
   const response = await authenticatedFetch(
     `${API_BASE_URL}/api/masjids/${masjidId}/facilities`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ facilityCodes }),
-    }
+    },
   );
 
   const data = await response.json();
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error('Please sign in to update facilities');
+      throw new Error("Please sign in to update facilities");
     }
-    throw new Error(data.message || `Facility update failed: ${response.status}`);
+    throw new Error(
+      data.message || `Facility update failed: ${response.status}`,
+    );
   }
 
   return data;
@@ -293,26 +442,28 @@ export interface PhotoUploadUrlRequest {
  */
 export async function getMasjidPhotoUploadUrl(
   masjidId: string,
-  payload: PhotoUploadUrlRequest
+  payload: PhotoUploadUrlRequest,
 ): Promise<PhotoUploadUrlResponse> {
   const response = await authenticatedFetch(
     `${API_BASE_URL}/api/masjids/${masjidId}/photos/upload-url`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
-    }
+    },
   );
 
   const data = await response.json();
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error('Please sign in to upload photos');
+      throw new Error("Please sign in to upload photos");
     }
-    throw new Error(data.message || `Failed to get upload URL: ${response.status}`);
+    throw new Error(
+      data.message || `Failed to get upload URL: ${response.status}`,
+    );
   }
 
   return data;
@@ -330,23 +481,23 @@ export interface CreateMasjidPhotoRequest {
  */
 export async function createMasjidPhoto(
   masjidId: string,
-  payload: CreateMasjidPhotoRequest
+  payload: CreateMasjidPhotoRequest,
 ): Promise<void> {
   const response = await authenticatedFetch(
     `${API_BASE_URL}/api/masjids/${masjidId}/photos`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
-    }
+    },
   );
 
   if (!response.ok) {
     const data = await response.json();
     if (response.status === 401) {
-      throw new Error('Please sign in to save photos');
+      throw new Error("Please sign in to save photos");
     }
     throw new Error(data.message || `Failed to save photo: ${response.status}`);
   }
@@ -354,15 +505,15 @@ export async function createMasjidPhoto(
 
 export async function getMasjidPhotosAll(
   masjidId: string,
-  options?: { limit?: number; category?: string }
+  options?: { limit?: number; category?: string },
 ): Promise<MasjidPhoto[]> {
   const params = new URLSearchParams();
-  if (options?.limit) params.set('limit', String(options.limit));
-  if (options?.category) params.set('category', options.category);
+  if (options?.limit) params.set("limit", String(options.limit));
+  if (options?.category) params.set("category", options.category);
 
   const query = params.toString();
   const response = await publicFetch(
-    `${API_BASE_URL}/api/masjids/${masjidId}/photos/all${query ? `?${query}` : ''}`
+    `${API_BASE_URL}/api/masjids/${masjidId}/photos/all${query ? `?${query}` : ""}`,
   );
 
   if (!response.ok) {
@@ -397,17 +548,17 @@ export interface CheckinResponse {
 export async function checkinToMasjid(
   masjidId: string,
   lat: number,
-  lng: number
+  lng: number,
 ): Promise<CheckinResponse> {
   const response = await authenticatedFetch(
     `${API_BASE_URL}/masjids/${masjidId}/checkin`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ lat, lng }),
-    }
+    },
   );
 
   const data = await response.json();
@@ -417,7 +568,7 @@ export async function checkinToMasjid(
     if (response.status === 401) {
       return {
         success: false,
-        message: 'Please sign in to check in',
+        message: "Please sign in to check in",
       };
     }
     return {
@@ -447,17 +598,17 @@ export interface CheckoutResponse {
 export async function checkoutFromMasjid(
   masjidId: string,
   lat: number,
-  lng: number
+  lng: number,
 ): Promise<CheckoutResponse> {
   const response = await authenticatedFetch(
     `${API_BASE_URL}/masjids/${masjidId}/checkout`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ lat, lng }),
-    }
+    },
   );
 
   const data = await response.json();
@@ -466,7 +617,7 @@ export async function checkoutFromMasjid(
     if (response.status === 401) {
       return {
         success: false,
-        message: 'Please sign in to check out',
+        message: "Please sign in to check out",
       };
     }
     return {
@@ -492,7 +643,7 @@ export interface ActiveCheckin {
   checkOutAt: string | null;
   checkOutLat: number | null;
   checkOutLng: number | null;
-  status: 'checked_in' | 'completed' | 'incomplete';
+  status: "checked_in" | "completed" | "incomplete";
   basePoints: number;
   bonusPoints: number;
   actualPointsEarned: number;
@@ -519,12 +670,12 @@ interface ActiveCheckinResponse {
  */
 export async function getActiveCheckin(): Promise<ActiveCheckin | null> {
   const response = await authenticatedFetch(
-    `${API_BASE_URL}/api/user/checkins/active`
+    `${API_BASE_URL}/api/user/checkins/active`,
   );
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error('Please sign in to view active check-in');
+      throw new Error("Please sign in to view active check-in");
     }
     throw new Error(`Failed to fetch active check-in: ${response.status}`);
   }
@@ -588,8 +739,8 @@ export interface AchievementDefinition {
   nameEn: string | null;
   description: string;
   descriptionEn: string | null;
-  type: 'explorer' | 'prayer_warrior' | 'streak' | 'geographic' | 'special';
-  badgeTier: 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond';
+  type: "explorer" | "prayer_warrior" | "streak" | "geographic" | "special";
+  badgeTier: "bronze" | "silver" | "gold" | "platinum" | "diamond";
   requiredCount: number | null;
   bonusPoints: number;
   sortOrder: number;
@@ -633,7 +784,7 @@ export async function getUserProfile(): Promise<UserProfileResponse> {
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error('Please sign in to view your profile');
+      throw new Error("Please sign in to view your profile");
     }
     throw new Error(`Failed to fetch user profile: ${response.status}`);
   }
@@ -645,12 +796,16 @@ export async function getUserProfile(): Promise<UserProfileResponse> {
  * Fetch user's achievement progress
  * REQUIRES AUTHENTICATION
  */
-export async function getUserAchievements(): Promise<UserAchievementProgress[]> {
-  const response = await authenticatedFetch(`${API_BASE_URL}/api/user/achievements`);
+export async function getUserAchievements(): Promise<
+  UserAchievementProgress[]
+> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/user/achievements`,
+  );
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error('Please sign in to view achievements');
+      throw new Error("Please sign in to view achievements");
     }
     throw new Error(`Failed to fetch achievements: ${response.status}`);
   }
@@ -668,21 +823,23 @@ export interface UserCheckin {
   checkOutAt: string | null;
   actualPointsEarned: number;
   isFirstVisitToMasjid: boolean;
-  status: 'checked_in' | 'completed' | 'incomplete';
+  status: "checked_in" | "completed" | "incomplete";
 }
 
 /**
  * Fetch user's check-in history
  * REQUIRES AUTHENTICATION
  */
-export async function getUserCheckins(limit: number = 10): Promise<UserCheckin[]> {
+export async function getUserCheckins(
+  limit: number = 10,
+): Promise<UserCheckin[]> {
   const response = await authenticatedFetch(
-    `${API_BASE_URL}/api/user/checkins?limit=${limit}`
+    `${API_BASE_URL}/api/user/checkins?limit=${limit}`,
   );
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error('Please sign in to view check-in history');
+      throw new Error("Please sign in to view check-in history");
     }
     throw new Error(`Failed to fetch check-in history: ${response.status}`);
   }
@@ -714,11 +871,11 @@ export interface GlobalLeaderboardResponse {
  * Public endpoint - optionally includes current user context if authenticated
  */
 export async function getMonthlyLeaderboard(
-  limit: number = 10
+  limit: number = 10,
 ): Promise<LeaderboardEntry[]> {
   // Use authenticated fetch to get current user context if logged in
   const response = await authenticatedFetch(
-    `${API_BASE_URL}/api/leaderboard/monthly?limit=${limit}`
+    `${API_BASE_URL}/api/leaderboard/monthly?limit=${limit}`,
   );
 
   if (!response.ok) {
@@ -734,11 +891,11 @@ export async function getMonthlyLeaderboard(
  */
 export async function getGlobalLeaderboard(
   limit: number = 20,
-  offset: number = 0
+  offset: number = 0,
 ): Promise<GlobalLeaderboardResponse> {
   // Use authenticated fetch to get current user context if logged in
   const response = await authenticatedFetch(
-    `${API_BASE_URL}/api/leaderboard/global?limit=${limit}&offset=${offset}`
+    `${API_BASE_URL}/api/leaderboard/global?limit=${limit}&offset=${offset}`,
   );
 
   if (!response.ok) {
@@ -752,9 +909,9 @@ export async function getGlobalLeaderboard(
  * Update user profile settings request
  */
 export interface UpdateUserProfileRequest {
-  name?: string;  // Update user's display name (from OAuth)
+  name?: string; // Update user's display name (from OAuth)
   showFullNameInLeaderboard?: boolean;
-  leaderboardAlias?: string;  // DEPRECATED - Kept for backwards compatibility
+  leaderboardAlias?: string; // DEPRECATED - Kept for backwards compatibility
 }
 
 /**
@@ -762,22 +919,25 @@ export interface UpdateUserProfileRequest {
  * REQUIRES AUTHENTICATION
  */
 export async function updateUserProfile(
-  data: UpdateUserProfileRequest
+  data: UpdateUserProfileRequest,
 ): Promise<UserProfileResponse> {
-  const response = await authenticatedFetch(`${API_BASE_URL}/api/user/profile`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/user/profile`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
     },
-    body: JSON.stringify(data),
-  });
+  );
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error('Please sign in to update your profile');
+      throw new Error("Please sign in to update your profile");
     }
     if (response.status === 404) {
-      throw new Error('Profile not found');
+      throw new Error("Profile not found");
     }
     throw new Error(`Failed to update profile: ${response.status}`);
   }
@@ -791,24 +951,27 @@ export async function updateUserProfile(
  * Awards 50 points on successful submission
  */
 export async function submitMasjidReport(
-  data: MasjidReportData
+  data: MasjidReportData,
 ): Promise<MasjidReportResponse> {
-  const response = await authenticatedFetch(`${API_BASE_URL}/api/masjids/reports`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/masjids/reports`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
     },
-    body: JSON.stringify(data),
-  });
+  );
 
   const responseData = await response.json();
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error('Please sign in to submit a report');
+      throw new Error("Please sign in to submit a report");
     }
     throw new Error(
-      responseData.message || `Report submission failed: ${response.status}`
+      responseData.message || `Report submission failed: ${response.status}`,
     );
   }
 
@@ -841,15 +1004,15 @@ export interface MonthlyActivityResponse {
  */
 export async function getUserMonthlyActivity(
   year: number,
-  month: number
+  month: number,
 ): Promise<MonthlyActivityResponse> {
   const response = await authenticatedFetch(
-    `${API_BASE_URL}/api/user/monthly-activity?year=${year}&month=${month}`
+    `${API_BASE_URL}/api/user/monthly-activity?year=${year}&month=${month}`,
   );
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error('Please sign in to view activity');
+      throw new Error("Please sign in to view activity");
     }
     throw new Error(`Failed to fetch monthly activity: ${response.status}`);
   }
@@ -871,17 +1034,22 @@ export interface DeleteAccountResponse {
  * This action cannot be undone and all user data will be permanently lost
  */
 export async function deleteAccount(): Promise<DeleteAccountResponse> {
-  const response = await authenticatedFetch(`${API_BASE_URL}/api/user/account`, {
-    method: 'DELETE',
-  });
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/user/account`,
+    {
+      method: "DELETE",
+    },
+  );
 
   const data = await response.json();
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error('Please sign in to delete your account');
+      throw new Error("Please sign in to delete your account");
     }
-    throw new Error(data.message || `Failed to delete account: ${response.status}`);
+    throw new Error(
+      data.message || `Failed to delete account: ${response.status}`,
+    );
   }
 
   return data;

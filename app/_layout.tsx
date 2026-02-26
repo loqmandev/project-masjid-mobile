@@ -105,6 +105,13 @@ function RootLayoutContent() {
             }}
           />
           <Stack.Screen
+            name="event/[id]"
+            options={{
+              title: "Event Details",
+              headerBackTitle: "Back",
+            }}
+          />
+          <Stack.Screen
             name="achievements"
             options={{
               title: "Achievements",
@@ -148,7 +155,7 @@ function RootLayoutContent() {
             }}
           />
         </Stack>
-        <StatusBar style="inverted" />
+        <StatusBar style="auto" />
       </View>
     </ThemeProvider>
   );

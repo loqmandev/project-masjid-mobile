@@ -115,21 +115,23 @@ export function Button({
       ) : (
         <View style={styles.content}>
           {icon && iconPosition === 'left' && (
-            <View style={styles.iconLeft}>{icon}</View>
+            <View style={title ? styles.iconLeft : styles.iconOnly}>{icon}</View>
           )}
-          <Text
-            style={[
-              styles.text,
-              {
-                color: currentVariant.textColor,
-                fontSize: currentSize.fontSize,
-              },
-            ]}
-          >
-            {title}
-          </Text>
+          {title ? (
+            <Text
+              style={[
+                styles.text,
+                {
+                  color: currentVariant.textColor,
+                  fontSize: currentSize.fontSize,
+                },
+              ]}
+            >
+              {title}
+            </Text>
+          ) : null}
           {icon && iconPosition === 'right' && (
-            <View style={styles.iconRight}>{icon}</View>
+            <View style={title ? styles.iconRight : styles.iconOnly}>{icon}</View>
           )}
         </View>
       )}
@@ -156,5 +158,9 @@ const styles = StyleSheet.create({
   },
   iconRight: {
     marginLeft: Spacing.sm,
+  },
+  iconOnly: {
+    marginStart: 0,
+    marginEnd: 0,
   },
 });
