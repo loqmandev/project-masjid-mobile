@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
 import {
   ActivityIndicator,
@@ -36,17 +35,13 @@ export function ActivityCalendar({
   year,
   month,
   data,
-  uniqueMasjidsVisited = 0,
-  onDayPress,
   isLoading = false,
 }: ActivityCalendarProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
-  const router = useRouter();
 
   // Get days in month
   const daysInMonth = useMemo(() => {
-    const date = new Date(year, month - 1, 1);
     return new Date(year, month, 0).getDate();
   }, [year, month]);
 
@@ -107,10 +102,6 @@ export function ActivityCalendar({
   const today = new Date();
   const isCurrentMonth =
     today.getFullYear() === year && today.getMonth() + 1 === month;
-
-  // Get stats
-  const activeDays = data.filter((d) => d.hasActivity).length;
-  const totalVisits = data.reduce((sum, day) => sum + (day.count || 0), 0);
 
   if (isLoading) {
     return (
@@ -239,9 +230,10 @@ const styles = StyleSheet.create({
   daysHeader: {
     flexDirection: "row",
     marginBottom: 4,
+    gap: DOT_GAP,
   },
   dayHeaderCell: {
-    flex: 1,
+    width: DOT_SIZE,
     alignItems: "center",
     paddingVertical: 2,
   },

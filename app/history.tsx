@@ -1,5 +1,5 @@
-import { router, Stack } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { router, Stack } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -8,16 +8,16 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { getUserCheckins, UserCheckin } from '@/lib/api';
-import { useSession } from '@/lib/auth-client';
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { getUserCheckins, UserCheckin } from "@/lib/api";
+import { useSession } from "@/lib/auth-client";
 
 /**
  * Format a date string to relative time (e.g., "2 days ago")
@@ -31,16 +31,16 @@ function formatRelativeTime(dateString: string): string {
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   const diffWeeks = Math.floor(diffDays / 7);
 
-  if (diffMinutes < 1) return 'Just now';
+  if (diffMinutes < 1) return "Just now";
   if (diffMinutes < 60) return `${diffMinutes} min ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-  if (diffWeeks < 4) return `${diffWeeks} week${diffWeeks > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+  if (diffWeeks < 4) return `${diffWeeks} week${diffWeeks > 1 ? "s" : ""} ago`;
 
-  return date.toLocaleDateString('en-MY', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+  return date.toLocaleDateString("en-MY", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   });
 }
 
@@ -49,7 +49,7 @@ function formatRelativeTime(dateString: string): string {
  */
 function formatMonthYear(dateString: string): string {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-MY', { month: 'long', year: 'numeric' });
+  return date.toLocaleDateString("en-MY", { month: "long", year: "numeric" });
 }
 
 /**
@@ -71,29 +71,31 @@ function groupVisitsByMonth(visits: UserCheckin[]): Map<string, UserCheckin[]> {
 /**
  * Get status badge variant
  */
-function getStatusVariant(status: UserCheckin['status']): 'success' | 'warning' | 'default' {
+function getStatusVariant(
+  status: UserCheckin["status"],
+): "success" | "warning" | "default" {
   switch (status) {
-    case 'completed':
-      return 'success';
-    case 'checked_in':
-      return 'warning';
-    case 'incomplete':
+    case "completed":
+      return "success";
+    case "checked_in":
+      return "warning";
+    case "incomplete":
     default:
-      return 'default';
+      return "default";
   }
 }
 
 /**
  * Get status label
  */
-function getStatusLabel(status: UserCheckin['status']): string {
+function getStatusLabel(status: UserCheckin["status"]): string {
   switch (status) {
-    case 'completed':
-      return 'Completed';
-    case 'checked_in':
-      return 'In Progress';
-    case 'incomplete':
-      return 'Incomplete';
+    case "completed":
+      return "Completed";
+    case "checked_in":
+      return "In Progress";
+    case "incomplete":
+      return "Incomplete";
     default:
       return status;
   }
@@ -101,7 +103,7 @@ function getStatusLabel(status: UserCheckin['status']): string {
 
 export default function HistoryScreen() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? "light"];
   const { data: session } = useSession();
 
   const [visits, setVisits] = useState<UserCheckin[]>([]);
@@ -122,8 +124,8 @@ export default function HistoryScreen() {
       setVisits(checkins);
       setError(null);
     } catch (err) {
-      console.error('Failed to load visit history:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load history');
+      console.error("Failed to load visit history:", err);
+      setError(err instanceof Error ? err.message : "Failed to load history");
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -145,27 +147,27 @@ export default function HistoryScreen() {
     loadVisits();
   }, [loadVisits]);
 
-  // Navigate to masjid detail
-  const handleVisitPress = (masjidId: string) => {
-    router.push(`/masjid/${masjidId}`);
-  };
-
   // Group visits by month for display
   const groupedVisits = groupVisitsByMonth(visits);
 
   // Calculate summary stats
   const totalVisits = visits.length;
-  const completedVisits = visits.filter((v) => v.status === 'completed').length;
-  const totalPoints = visits.reduce((sum, v) => sum + (v.actualPointsEarned || 0), 0);
+  const completedVisits = visits.filter((v) => v.status === "completed").length;
+  const totalPoints = visits.reduce(
+    (sum, v) => sum + (v.actualPointsEarned || 0),
+    0,
+  );
 
   // Loading state
   if (isLoading) {
     return (
       <>
-        <Stack.Screen options={{ title: 'Visit History', headerBackTitle: 'Back' }} />
+        <Stack.Screen
+          options={{ title: "Visit History", headerBackTitle: "Back" }}
+        />
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
-          edges={['bottom']}
+          edges={["bottom"]}
         >
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -182,13 +184,17 @@ export default function HistoryScreen() {
   if (error && visits.length === 0) {
     return (
       <>
-        <Stack.Screen options={{ title: 'Visit History', headerBackTitle: 'Back' }} />
+        <Stack.Screen
+          options={{ title: "Visit History", headerBackTitle: "Back" }}
+        />
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
-          edges={['bottom']}
+          edges={["bottom"]}
         >
           <View style={styles.loadingContainer}>
-            <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+            <Text style={[styles.errorText, { color: colors.error }]}>
+              {error}
+            </Text>
             <TouchableOpacity
               style={[styles.retryButton, { backgroundColor: colors.primary }]}
               onPress={loadVisits}
@@ -205,13 +211,13 @@ export default function HistoryScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'Visit History',
-          headerBackTitle: 'Back',
+          title: "Visit History",
+          headerBackTitle: "Back",
         }}
       />
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['bottom']}
+        edges={["bottom"]}
       >
         <ScrollView
           style={styles.scrollView}
@@ -226,62 +232,21 @@ export default function HistoryScreen() {
             />
           }
         >
-          {/* Summary Card */}
-          <Card variant="outlined" padding="lg" style={styles.summaryCard}>
-            <Text style={[styles.summaryTitle, { color: colors.text }]}>Your Journey</Text>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryItem}>
-                <View style={[styles.summaryIconContainer, { backgroundColor: colors.primary + '15' }]}>
-                  <IconSymbol name="location.fill" size={20} color={colors.primary} />
-                </View>
-                <Text style={[styles.summaryValue, { color: colors.text }]}>
-                  {totalVisits}
-                </Text>
-                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                  Total Visits
-                </Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <View style={[styles.summaryIconContainer, { backgroundColor: Colors.light.success + '20' }]}>
-                  <IconSymbol name="checkmark.circle.fill" size={20} color={Colors.light.success} />
-                </View>
-                <Text style={[styles.summaryValue, { color: colors.text }]}>
-                  {completedVisits}
-                </Text>
-                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                  Completed
-                </Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <View style={[styles.summaryIconContainer, { backgroundColor: Colors.light.gold + '20' }]}>
-                  <IconSymbol name="star.fill" size={20} color={Colors.light.gold} />
-                </View>
-                <Text style={[styles.summaryValue, { color: colors.text }]}>
-                  {totalPoints}
-                </Text>
-                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                  Points
-                </Text>
-              </View>
-            </View>
-          </Card>
-
           {/* Visit List Grouped by Month */}
           {visits.length > 0 ? (
             Array.from(groupedVisits.entries()).map(([month, monthVisits]) => (
               <View key={month} style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>{month}</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  {month}
+                </Text>
                 {monthVisits.map((visit) => (
-                  <TouchableOpacity
-                    key={visit.id}
-                    activeOpacity={0.7}
-                    onPress={() => handleVisitPress(visit.id)}
-                  >
-                    <Card variant="outlined" padding="md" style={styles.visitCard}>
+                  <TouchableOpacity key={visit.id} activeOpacity={0.7}>
+                    <Card
+                      variant="outlined"
+                      padding="md"
+                      style={styles.visitCard}
+                    >
                       <View style={styles.visitContent}>
-                        <View style={[styles.visitIcon, { backgroundColor: colors.primary + '15' }]}>
-                          <IconSymbol name="mosque" size={24} color={colors.primary} />
-                        </View>
                         <View style={styles.visitInfo}>
                           <View style={styles.visitHeader}>
                             <Text
@@ -291,10 +256,19 @@ export default function HistoryScreen() {
                               {visit.masjidName}
                             </Text>
                             {visit.isFirstVisitToMasjid && (
-                              <Badge label="First Visit" variant="gold" size="sm" />
+                              <Badge
+                                label="First Visit"
+                                variant="gold"
+                                size="sm"
+                              />
                             )}
                           </View>
-                          <Text style={[styles.visitDate, { color: colors.textTertiary }]}>
+                          <Text
+                            style={[
+                              styles.visitDate,
+                              { color: colors.textTertiary },
+                            ]}
+                          >
                             {formatRelativeTime(visit.checkInAt)}
                           </Text>
                           <View style={styles.visitFooter}>
@@ -303,8 +277,18 @@ export default function HistoryScreen() {
                               variant={getStatusVariant(visit.status)}
                               size="sm"
                             />
-                            <View style={[styles.pointsBadge, { backgroundColor: colors.primary + '10' }]}>
-                              <Text style={[styles.visitPoints, { color: colors.primary }]}>
+                            <View
+                              style={[
+                                styles.pointsBadge,
+                                { backgroundColor: colors.primary + "10" },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.visitPoints,
+                                  { color: colors.primary },
+                                ]}
+                              >
                                 +{visit.actualPointsEarned}
                               </Text>
                             </View>
@@ -319,18 +303,32 @@ export default function HistoryScreen() {
           ) : (
             <Card variant="outlined" padding="lg" style={styles.emptyCard}>
               <View style={styles.emptyContainer}>
-                <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary + '15' }]}>
-                  <IconSymbol name="map.fill" size={48} color={colors.primary} />
+                <View
+                  style={[
+                    styles.emptyIconContainer,
+                    { backgroundColor: colors.primary + "15" },
+                  ]}
+                >
+                  <IconSymbol
+                    name="map.fill"
+                    size={48}
+                    color={colors.primary}
+                  />
                 </View>
                 <Text style={[styles.emptyText, { color: colors.text }]}>
                   No visits yet
                 </Text>
-                <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.emptySubtext, { color: colors.textSecondary }]}
+                >
                   Start exploring masjids and check in to build your history!
                 </Text>
                 <TouchableOpacity
-                  style={[styles.exploreButton, { backgroundColor: colors.primary }]}
-                  onPress={() => router.push('/(tabs)/explore')}
+                  style={[
+                    styles.exploreButton,
+                    { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => router.push("/(tabs)/explore")}
                 >
                   <IconSymbol name="magnifyingglass" size={18} color="#fff" />
                   <Text style={styles.exploreButtonText}>Explore Masjids</Text>
@@ -357,8 +355,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     gap: Spacing.md,
   },
   loadingText: {
@@ -366,7 +364,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...Typography.body,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: Spacing.md,
   },
   retryButton: {
@@ -375,7 +373,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   retryButtonText: {
-    color: '#fff',
+    color: "#fff",
     ...Typography.button,
   },
   summaryCard: {
@@ -383,33 +381,33 @@ const styles = StyleSheet.create({
   },
   summaryTitle: {
     ...Typography.h3,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: Spacing.md,
   },
   summaryRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: Spacing.sm,
   },
   summaryItem: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   summaryIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: Spacing.sm,
   },
   summaryValue: {
     ...Typography.h3,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 2,
   },
   summaryLabel: {
     ...Typography.caption,
-    textAlign: 'center',
+    textAlign: "center",
   },
   section: {
     marginBottom: Spacing.lg,
@@ -422,28 +420,28 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   visitContent: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   visitIcon: {
     width: 48,
     height: 48,
     borderRadius: BorderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: Spacing.md,
   },
   visitInfo: {
     flex: 1,
   },
   visitHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.sm,
     marginBottom: 2,
   },
   visitName: {
     ...Typography.body,
-    fontWeight: '600',
+    fontWeight: "600",
     flex: 1,
   },
   visitDate: {
@@ -451,13 +449,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   visitFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   visitPoints: {
     ...Typography.bodySmall,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   pointsBadge: {
     paddingHorizontal: Spacing.sm,
@@ -468,39 +466,39 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
   },
   emptyContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: Spacing.xl,
   },
   emptyIconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: Spacing.md,
   },
   emptyText: {
     ...Typography.h3,
-    textAlign: 'center',
-    fontWeight: '600',
+    textAlign: "center",
+    fontWeight: "600",
     marginBottom: Spacing.xs,
   },
   emptySubtext: {
     ...Typography.body,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: Spacing.lg,
   },
   exploreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.sm,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
   },
   exploreButtonText: {
-    color: '#fff',
+    color: "#fff",
     ...Typography.button,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

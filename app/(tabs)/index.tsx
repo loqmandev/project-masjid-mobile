@@ -9,12 +9,18 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  LinearTransition,
+} from "react-native-reanimated";
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
 import { AchievementUnlockModal } from "@/components/achievement/achievement-unlock-modal";
+import { EventBannerCarousel } from "@/components/events/event-banner-carousel";
 import { HeroSection } from "@/components/home/hero-section";
 import { StreakDots } from "@/components/home/streak-dots";
 import { Badge } from "@/components/ui/badge";
@@ -24,8 +30,10 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { useCheckinMasjids } from "@/hooks/use-checkin-masjids";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useLimitedEvents } from "@/hooks/use-limited-events";
 import { useLocation } from "@/hooks/use-location";
 import { useNearbyMasjids } from "@/hooks/use-nearby-masjids";
+import { useUserEventParticipations } from "@/hooks/use-user-event-participations";
 import {
   getNextAchievement,
   useUserAchievements,
@@ -36,6 +44,11 @@ import { MasjidResponse } from "@/lib/api";
 import { useSession } from "@/lib/auth-client";
 import { DEMO_LOCATION, isDemoEmail } from "@/lib/demo-mode";
 import { getDisplayName } from "@/lib/utils";
+
+// Create animated components
+const AnimatedTouchableOpacity =
+  Animated.createAnimatedComponent(TouchableOpacity);
+const AnimatedView = Animated.createAnimatedComponent(View);
 
 // Level calculation
 const POINTS_PER_LEVEL = 100;
@@ -129,6 +142,10 @@ export default function HomeScreen() {
 
   // Achievement
   const nextAchievement = getNextAchievement(achievements);
+
+  // Limited Events
+  const { data: activeEvents } = useLimitedEvents({ enabled: !!session?.user });
+  const { data: userParticipations } = useUserEventParticipations();
 
   // Location
   const {
@@ -264,246 +281,302 @@ export default function HomeScreen() {
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
+          contentInsetAdjustmentBehavior="automatic"
           showsVerticalScrollIndicator={false}
         >
-          {/* Hero Section with stats */}
-          <HeroSection
-            userName={headerName}
-            initials={initials}
-            level={level}
-            levelProgress={levelProgress}
-            currentXP={currentXP}
-            nextLevelXP={nextLevelXP}
-            uniqueMasjidsVisited={uniqueMasjidsVisited}
-            totalPoints={totalPoints}
-            currentStreak={currentStreak}
-            achievementCount={achievementCount}
-            colorScheme={colorScheme ?? "light"}
-          />
+          {/* Hero Section with stats - immediate animation */}
+          <AnimatedView entering={FadeInDown.duration(400)} layout={LinearTransition.springify()}>
+            <HeroSection
+              userName={headerName}
+              initials={initials}
+              level={level}
+              levelProgress={levelProgress}
+              currentXP={currentXP}
+              nextLevelXP={nextLevelXP}
+              uniqueMasjidsVisited={uniqueMasjidsVisited}
+              totalPoints={totalPoints}
+              currentStreak={currentStreak}
+              achievementCount={achievementCount}
+              colorScheme={colorScheme ?? "light"}
+            />
+          </AnimatedView>
 
-          {/* Nearby Masjid Card */}
-          <Card
-            variant={hasMasjidError ? "error" : "primary"}
-            padding="md"
-            style={styles.nearbyMasjidCard}
-          >
-            {isLoadingMasjids ? (
-              <View style={styles.masjidCardContent}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <View style={styles.masjidCardInfo}>
-                  <Text
-                    style={[styles.masjidCardTitle, { color: colors.text }]}
-                  >
-                    Finding nearby masjids
-                  </Text>
-                  <Text
-                    style={[
-                      styles.masjidCardSubtitle,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Getting your location...
-                  </Text>
-                </View>
-              </View>
-            ) : hasMasjidError ? (
-              <TouchableOpacity
-                onPress={handleRetryMasjids}
-                style={styles.masjidCardContent}
-                activeOpacity={0.7}
-                accessible={true}
-                accessibilityLabel="Retry finding masjids"
-                accessibilityHint="Double tap to retry getting your location"
-                accessibilityRole="button"
-              >
-                <IconSymbol
-                  name="arrow.clockwise"
-                  size={22}
-                  color={colors.textSecondary}
-                />
-                <View style={styles.masjidCardInfo}>
-                  <Text
-                    style={[styles.masjidCardTitle, { color: colors.text }]}
-                  >
-                    Can&apos;t find masjids
-                  </Text>
-                  <Text
-                    style={[
-                      styles.masjidCardSubtitle,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Tap to retry
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ) : displayMasjids.length > 0 && displayMasjids[0].canCheckin ? (
-              <TouchableOpacity
-                onPress={() => handleMasjidPress(displayMasjids[0].masjidId)}
-                style={styles.masjidCardContent}
-                activeOpacity={0.7}
-                accessible={true}
-                accessibilityLabel={`${displayMasjids[0].name}, ${displayMasjids[0].distanceM} meters away`}
-                accessibilityHint="Double tap to view details and check in"
-                accessibilityRole="button"
-              >
-                <View
-                  style={[
-                    styles.masjidCardIcon,
-                    { backgroundColor: colors.primary + "15" },
-                  ]}
-                >
-                  <IconSymbol name="mosque" size={28} color={colors.primary} />
-                </View>
-                <View style={styles.masjidCardInfo}>
-                  <Text
-                    style={[styles.masjidCardTitle, { color: colors.text }]}
-                    numberOfLines={1}
-                  >
-                    {displayMasjids[0].name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.masjidCardSubtitle,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {displayMasjids[0].distanceM}m away • Ready to check in
-                  </Text>
-                </View>
-                <IconSymbol
-                  name="chevron.right"
-                  size={20}
-                  color={colors.textSecondary}
-                />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                onPress={handleViewAllNearby}
-                style={styles.masjidCardContent}
-                activeOpacity={0.7}
-                accessible={true}
-                accessibilityLabel="View nearby masjids"
-                accessibilityHint="Double tap to explore nearby masjids"
-                accessibilityRole="button"
-              >
-                <IconSymbol
-                  name="magnifyingglass"
-                  size={22}
-                  color={colors.textSecondary}
-                />
-                <View style={styles.masjidCardInfo}>
-                  <Text
-                    style={[styles.masjidCardTitle, { color: colors.text }]}
-                  >
-                    No nearby masjid
-                  </Text>
-                  <Text
-                    style={[
-                      styles.masjidCardSubtitle,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Tap to explore nearby
-                  </Text>
-                </View>
-                <IconSymbol
-                  name="chevron.right"
-                  size={20}
-                  color={colors.textSecondary}
-                />
-              </TouchableOpacity>
-            )}
-          </Card>
-
-          {/* Current Achievement Focus */}
-          {nextAchievement && nextAchievement.achievement.requiredCount && (
-            <Card
-              variant="outlined"
-              padding="md"
-              style={styles.achievementCard}
+          {/* Limited Events Banner Carousel - 100ms delay */}
+          {activeEvents && activeEvents.length > 0 && (
+            <AnimatedView
+              entering={FadeInDown.delay(100).duration(400)}
+              layout={LinearTransition.springify()}
             >
-              <View style={styles.achievementHeader}>
-                <Text style={[styles.achievementTitle, { color: colors.text }]}>
-                  Next Achievement
-                </Text>
-                {nextAchievement.progress?.isUnlocked && (
-                  <Badge
-                    label={
-                      nextAchievement.achievement.badgeTier
-                        .charAt(0)
-                        .toUpperCase() +
-                      nextAchievement.achievement.badgeTier.slice(1)
-                    }
-                    variant={getTierBadgeVariant(
-                      nextAchievement.achievement.badgeTier,
-                    )}
-                    size="sm"
-                  />
-                )}
-              </View>
-
-              <View style={styles.achievementContent}>
-                <View
-                  style={[
-                    styles.achievementIcon,
-                    { backgroundColor: colors.gold + "15" },
-                  ]}
-                >
-                  <IconSymbol name="medal" size={32} color={colors.gold} />
-                </View>
-                <View style={styles.achievementInfo}>
-                  <Text
-                    style={[styles.achievementName, { color: colors.text }]}
-                  >
-                    {nextAchievement.achievement.name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.achievementHint,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {getProgressHint(
-                      Number(nextAchievement.progress?.currentProgress ?? 0),
-                      Number(nextAchievement.achievement.requiredCount),
-                    )}
-                  </Text>
-                </View>
-              </View>
-
-              <ProgressBar
-                progress={
-                  (Number(nextAchievement.progress?.currentProgress ?? 0) /
-                    Number(nextAchievement.achievement.requiredCount)) *
-                  100
-                }
-                variant="gold"
-                size="md"
+              <EventBannerCarousel
+                events={activeEvents}
+                userParticipations={userParticipations ?? []}
               />
-
-              <Text
-                style={[
-                  styles.achievementMessage,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                {getProgressMessage(
-                  Number(nextAchievement.progress?.currentProgress ?? 0),
-                  Number(nextAchievement.achievement.requiredCount),
-                )}
-              </Text>
-            </Card>
+            </AnimatedView>
           )}
 
-          {/* Streak Visualization */}
-          {currentStreak > 0 && (
-            <Card variant="outlined" padding="md" style={styles.streakCard}>
-              <StreakDots
-                currentStreak={currentStreak}
-                longestStreak={longestStreak}
-              />
+          {/* Nearby Masjid Card - 200ms delay */}
+          <AnimatedView
+            entering={FadeInDown.delay(200).duration(400)}
+            layout={LinearTransition.springify()}
+            style={styles.nearbyMasjidCardWrapper}
+          >
+            <Card
+              variant={hasMasjidError ? "error" : "primary"}
+              padding="md"
+              style={styles.nearbyMasjidCard}
+            >
+              {isLoadingMasjids ? (
+                <AnimatedView
+                  entering={FadeIn}
+                  style={styles.masjidCardContent}
+                >
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <View style={styles.masjidCardInfo}>
+                    <Text
+                      style={[
+                        styles.masjidCardTitle,
+                        { color: colors.text },
+                      ]}
+                    >
+                      Finding nearby masjids
+                    </Text>
+                    <Text
+                      style={[
+                        styles.masjidCardSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Getting your location...
+                    </Text>
+                  </View>
+                </AnimatedView>
+              ) : hasMasjidError ? (
+                <AnimatedTouchableOpacity
+                  onPress={handleRetryMasjids}
+                  style={styles.masjidCardContent}
+                  activeOpacity={0.7}
+                  accessible={true}
+                  accessibilityLabel="Retry finding masjids"
+                  accessibilityHint="Double tap to retry getting your location"
+                  accessibilityRole="button"
+                >
+                  <IconSymbol
+                    name="arrow.clockwise"
+                    size={22}
+                    color={colors.textSecondary}
+                  />
+                  <View style={styles.masjidCardInfo}>
+                    <Text
+                      style={[
+                        styles.masjidCardTitle,
+                        { color: colors.text },
+                      ]}
+                    >
+                      Can&apos;t find masjids
+                    </Text>
+                    <Text
+                      style={[
+                        styles.masjidCardSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Tap to retry
+                    </Text>
+                  </View>
+                </AnimatedTouchableOpacity>
+              ) : displayMasjids.length > 0 &&
+                displayMasjids[0].canCheckin ? (
+                <AnimatedTouchableOpacity
+                  onPress={() => handleMasjidPress(displayMasjids[0].masjidId)}
+                  style={styles.masjidCardContent}
+                  activeOpacity={0.7}
+                  accessible={true}
+                  accessibilityLabel={`${displayMasjids[0].name}, ${displayMasjids[0].distanceM} meters away`}
+                  accessibilityHint="Double tap to view details and check in"
+                  accessibilityRole="button"
+                >
+                  <View
+                    style={[
+                      styles.masjidCardIcon,
+                      { backgroundColor: colors.primary + "15" },
+                    ]}
+                  >
+                    <IconSymbol
+                      name="mosque"
+                      size={28}
+                      color={colors.primary}
+                    />
+                  </View>
+                  <View style={styles.masjidCardInfo}>
+                    <Text
+                      style={[
+                        styles.masjidCardTitle,
+                        { color: colors.text },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {displayMasjids[0].name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.masjidCardSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {displayMasjids[0].distanceM}m away • Ready to check in
+                    </Text>
+                  </View>
+                  <IconSymbol
+                    name="chevron.right"
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                </AnimatedTouchableOpacity>
+              ) : (
+                <AnimatedTouchableOpacity
+                  onPress={handleViewAllNearby}
+                  style={styles.masjidCardContent}
+                  activeOpacity={0.7}
+                  accessible={true}
+                  accessibilityLabel="View nearby masjids"
+                  accessibilityHint="Double tap to explore nearby masjids"
+                  accessibilityRole="button"
+                >
+                  <IconSymbol
+                    name="magnifyingglass"
+                    size={22}
+                    color={colors.textSecondary}
+                  />
+                  <View style={styles.masjidCardInfo}>
+                    <Text
+                      style={[
+                        styles.masjidCardTitle,
+                        { color: colors.text },
+                      ]}
+                    >
+                      No nearby masjid
+                    </Text>
+                    <Text
+                      style={[
+                        styles.masjidCardSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Tap to explore nearby
+                    </Text>
+                  </View>
+                  <IconSymbol
+                    name="chevron.right"
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                </AnimatedTouchableOpacity>
+              )}
             </Card>
+          </AnimatedView>
+
+          {/* Current Achievement Focus - 300ms delay */}
+          {nextAchievement && nextAchievement.achievement.requiredCount && (
+            <AnimatedView
+              entering={FadeInDown.delay(300).duration(400)}
+              layout={LinearTransition.springify()}
+              style={styles.achievementCardWrapper}
+            >
+              <Card
+                variant="outlined"
+                padding="md"
+                style={styles.achievementCard}
+              >
+                <View style={styles.achievementHeader}>
+                  <Text
+                    style={[styles.achievementTitle, { color: colors.text }]}
+                  >
+                    Next Achievement
+                  </Text>
+                  {nextAchievement.progress?.isUnlocked && (
+                    <Badge
+                      label={
+                        nextAchievement.achievement.badgeTier
+                          .charAt(0)
+                          .toUpperCase() +
+                        nextAchievement.achievement.badgeTier.slice(1)
+                      }
+                      variant={getTierBadgeVariant(
+                        nextAchievement.achievement.badgeTier,
+                      )}
+                      size="sm"
+                    />
+                  )}
+                </View>
+
+                <View style={styles.achievementContent}>
+                  <View
+                    style={[
+                      styles.achievementIcon,
+                      { backgroundColor: colors.gold + "15" },
+                    ]}
+                  >
+                    <IconSymbol name="medal" size={32} color={colors.gold} />
+                  </View>
+                  <View style={styles.achievementInfo}>
+                    <Text
+                      style={[styles.achievementName, { color: colors.text }]}
+                    >
+                      {nextAchievement.achievement.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.achievementHint,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {getProgressHint(
+                        Number(nextAchievement.progress?.currentProgress ?? 0),
+                        Number(nextAchievement.achievement.requiredCount),
+                      )}
+                    </Text>
+                  </View>
+                </View>
+
+                <ProgressBar
+                  progress={
+                    (Number(nextAchievement.progress?.currentProgress ?? 0) /
+                      Number(nextAchievement.achievement.requiredCount)) *
+                    100
+                  }
+                  variant="gold"
+                  size="md"
+                />
+
+                <Text
+                  style={[
+                    styles.achievementMessage,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {getProgressMessage(
+                    Number(nextAchievement.progress?.currentProgress ?? 0),
+                    Number(nextAchievement.achievement.requiredCount),
+                  )}
+                </Text>
+              </Card>
+            </AnimatedView>
+          )}
+
+          {/* Streak Visualization - 400ms delay */}
+          {currentStreak > 0 && (
+            <AnimatedView
+              entering={FadeInDown.delay(400).duration(400)}
+              layout={LinearTransition.springify()}
+              style={styles.streakCardWrapper}
+            >
+              <Card variant="outlined" padding="md" style={styles.streakCard}>
+                <StreakDots
+                  currentStreak={currentStreak}
+                  longestStreak={longestStreak}
+                />
+              </Card>
+            </AnimatedView>
           )}
         </ScrollView>
 
@@ -531,10 +604,53 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
 
-  // Achievement Card
-  achievementCard: {
+  // Nearby Masjid Card
+  nearbyMasjidCardWrapper: {
     marginHorizontal: Spacing.md,
+  },
+  nearbyMasjidCard: {
+    borderRadius: 18,
+    borderCurve: "continuous",
+    // Modern CSS boxShadow
+    boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.08)",
+  },
+  masjidCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    minHeight: 48, // iOS minimum touch target
+    paddingVertical: Spacing.xs,
+  },
+  masjidCardIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderCurve: "continuous",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  masjidCardInfo: {
+    flex: 1,
+  },
+  masjidCardTitle: {
+    ...Typography.body,
+    fontWeight: "700",
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  masjidCardSubtitle: {
+    ...Typography.caption,
+  },
+
+  // Achievement Card
+  achievementCardWrapper: {
+    marginHorizontal: Spacing.md,
+  },
+  achievementCard: {
     borderRadius: 20,
+    borderCurve: "continuous",
+    // Modern CSS boxShadow
+    boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.08)",
   },
   achievementHeader: {
     flexDirection: "row",
@@ -553,9 +669,10 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   achievementIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderCurve: "continuous",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -575,35 +692,15 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
 
-  // Nearby Masjid Card
-  nearbyMasjidCard: {
+  // Streak Card
+  streakCardWrapper: {
     marginHorizontal: Spacing.md,
   },
-  masjidCardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    minHeight: 48, // iOS minimum touch target
-    paddingVertical: Spacing.xs,
-  },
-  masjidCardIcon: {
-    width: 52, // Increased from 48 for better touch target
-    height: 52,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  masjidCardInfo: {
-    flex: 1,
-  },
-  masjidCardTitle: {
-    ...Typography.body,
-    fontWeight: "700",
-    fontSize: 16,
-    marginBottom: 2,
-  },
-  masjidCardSubtitle: {
-    ...Typography.caption,
+  streakCard: {
+    borderRadius: 18,
+    borderCurve: "continuous",
+    // Modern CSS boxShadow
+    boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.08)",
   },
 
   // Section (unused - kept for potential future use)
@@ -670,11 +767,5 @@ const styles = StyleSheet.create({
     ...Typography.body,
     fontWeight: "600",
     marginTop: Spacing.sm,
-  },
-
-  // Streak Card
-  streakCard: {
-    marginHorizontal: Spacing.md,
-    borderRadius: 16,
   },
 });

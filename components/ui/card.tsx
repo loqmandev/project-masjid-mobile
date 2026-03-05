@@ -58,6 +58,7 @@ export function Card({
 const styles = StyleSheet.create({
   card: {
     borderRadius: BorderRadius.xl,
+    borderCurve: "continuous",
     borderWidth: 1,
   },
   // Light mode - default (subtle border)

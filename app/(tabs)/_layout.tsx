@@ -1,6 +1,6 @@
 import { Tabs, router } from "expo-router";
 import React from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HapticTab } from "@/components/haptic-tab";
@@ -82,20 +82,8 @@ export default function TabLayout() {
           title: "Check In",
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
-            <View
-              style={[
-                styles.checkInButton,
-                focused && styles.checkInButtonActive,
-              ]}
-            >
-              <IconSymbol
-                size={28}
-                name="checkmark.circle.fill"
-                color={focused ? "#fff" : colors.primary}
-              />
-            </View>
+            <IconSymbol size={24} name="pin.circle.fill" color={color} />
           ),
-          tabBarLabel: () => null,
         }}
         listeners={requireAuth("checkin")}
       />
