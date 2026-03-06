@@ -1,7 +1,6 @@
 // Fallback for using MaterialIcons on Android and web.
 
 import { FontAwesome6 } from "@expo/vector-icons";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { SymbolViewProps, SymbolWeight } from "expo-symbols";
 import { ComponentProps } from "react";
@@ -17,14 +16,8 @@ type IconSymbolName = keyof typeof MAPPING;
 // FontAwesome6 icon names
 type FontAwesomeIconName = keyof typeof FONTAWESOME_ICONS;
 
-// MaterialCommunityIcons icon names
-type MaterialCommunityIconName = keyof typeof MATERIAL_COMMUNITY_ICONS;
-
 // Combined icon type
-type AllIconNames =
-  | IconSymbolName
-  | FontAwesomeIconName
-  | MaterialCommunityIconName;
+type AllIconNames = IconSymbolName | FontAwesomeIconName;
 
 /**
  * Add your SF Symbols to Material Icons mappings here.
@@ -76,7 +69,6 @@ const MAPPING = {
   "lock.shield.fill": "security",
   "envelope.fill": "email",
   // Facility icons
-  "person.praying": "mosque",
   snowflake: "ac-unit",
   "person.wave.2": "diversity-3",
   "drop.fill": "water-drop",
@@ -88,6 +80,7 @@ const MAPPING = {
   "chair.lounge.fill": "event-seat",
   calendar: "event",
   "pin.circle.fill": "place",
+  xmark: "close",
 } as IconMapping;
 
 // Icons that should use FontAwesome6 instead of MaterialIcons
@@ -111,14 +104,6 @@ const FONTAWESOME_ICONS: Record<
   "camera.fill": "camera",
 };
 
-// Icons that should use MaterialCommunityIcons
-const MATERIAL_COMMUNITY_ICONS: Record<
-  string,
-  ComponentProps<typeof MaterialCommunityIcons>["name"]
-> = {
-  mosque: "mosque",
-};
-
 /**
  * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.
  * This ensures a consistent look across platforms, and optimal resource usage.
@@ -139,18 +124,6 @@ export function IconSymbol({
   // Use custom mosque icon
   if (name === "mosque") {
     return <MosqueIcon size={size} color={color as string} style={style} />;
-  }
-
-  // Check if this icon should use MaterialCommunityIcons
-  if (name in MATERIAL_COMMUNITY_ICONS) {
-    return (
-      <MaterialCommunityIcons
-        color={color}
-        size={size}
-        name={MATERIAL_COMMUNITY_ICONS[name as MaterialCommunityIconName]}
-        style={style}
-      />
-    );
   }
 
   // Check if this icon should use FontAwesome6

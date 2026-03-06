@@ -1,5 +1,5 @@
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
 import React, {
   memo,
   useCallback,
@@ -11,6 +11,7 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,13 +26,12 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
 
+import { CountdownTimer } from "@/components/micro-interactions/countdown";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DemoBanner } from "@/components/ui/demo-banner";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { ProgressBar } from "@/components/ui/progress-bar";
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
 import { useActiveCheckin } from "@/hooks/use-active-checkin";
 import { useCheckinMasjids } from "@/hooks/use-checkin-masjids";
@@ -162,14 +162,19 @@ export default function CheckInScreen() {
   // State
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
 
   // Fetch active check-in from backend
   const {
-    data: activeCheckin,
+    data: activeCheckinData,
     isLoading: isActiveCheckinLoading,
     invalidate: invalidateActiveCheckin,
   } = useActiveCheckin();
+
+  // Destructure check-in and points preview
+  const activeCheckin = activeCheckinData?.checkIn;
+  const pointsPreview = activeCheckinData?.pointsPreview;
 
   // Minimum duration for check-in (0 for testing, change to 10 for production)
   const MINIMUM_DURATION_MINUTES = 10;
@@ -500,28 +505,42 @@ export default function CheckInScreen() {
     });
   }, [activeVisit, track]);
 
-  // Handle refresh
+  // Handle pull-to-refresh
   const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        refreshLocation(),
+        refetchMasjids(),
+        invalidateActiveCheckin(),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshLocation, refetchMasjids, invalidateActiveCheckin]);
+
+  // Handle manual refresh button
+  const handleManualRefresh = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     track("checkin_refresh_location");
-    await refreshLocation();
-    await refetchMasjids();
-  }, [refreshLocation, refetchMasjids, track]);
+    await handleRefresh();
+  }, [handleRefresh, track]);
 
   const minimumDuration =
     activeVisit?.minimumDuration ?? MINIMUM_DURATION_MINUTES;
-
-  // Memoize calculations to prevent unnecessary re-renders
-  const progressPercentage = useMemo(() => {
-    if (!activeVisit) return 0;
-    const totalSeconds = minimumDuration * 60;
-    return ((totalSeconds - timeRemaining) / totalSeconds) * 100;
-  }, [activeVisit, timeRemaining, minimumDuration]);
 
   const canCheckOut = useMemo(() => {
     // Use <= 1 to give a 1-second buffer for timing edge cases
     return timeRemaining <= 1;
   }, [timeRemaining]);
+
+  // Memoize checkout target time for the animated countdown
+  const checkoutTargetTime = useMemo(() => {
+    if (!activeVisit) return null;
+    return new Date(
+      activeVisit.checkInTime.getTime() + minimumDuration * 60 * 1000,
+    );
+  }, [activeVisit, minimumDuration]);
 
   const isLoadingState = isLoading && !activeVisit;
   let content: React.ReactNode;
@@ -558,7 +577,7 @@ export default function CheckInScreen() {
           <Button
             title="Refresh Location"
             variant="outline"
-            onPress={handleRefresh}
+            onPress={handleManualRefresh}
             style={styles.refreshButton}
           />
           <Button
@@ -573,7 +592,7 @@ export default function CheckInScreen() {
   } else if (visitState === "nearby" && nearbyMasjid) {
     content = (
       <View style={styles.centeredContent}>
-        <Text style={[styles.masjidName, { color: colors.text }]}>
+        <Text selectable style={[styles.masjidName, { color: colors.text }]}>
           {nearbyMasjid.name}
         </Text>
         <Text style={[styles.masjidLocation, { color: colors.textSecondary }]}>
@@ -604,61 +623,9 @@ export default function CheckInScreen() {
   } else {
     content = (
       <>
-        {/* Header with Checkout Button */}
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Active Visit
-          </Text>
-          <TouchableOpacity
-            style={[
-              styles.headerCheckOutButton,
-              {
-                backgroundColor: canCheckOut
-                  ? colors.primary
-                  : colors.backgroundSecondary,
-                opacity: canCheckOut ? 1 : 0.6,
-              },
-            ]}
-            onPress={handleCheckOut}
-            disabled={!canCheckOut || isCheckingOut}
-            activeOpacity={0.7}
-            accessible={true}
-            accessibilityLabel={
-              canCheckOut
-                ? "Check out"
-                : `Time remaining: ${formatTime(timeRemaining)}`
-            }
-            accessibilityHint={
-              canCheckOut
-                ? "Double tap to check out from this masjid"
-                : "Wait for the minimum visit time to complete before checking out"
-            }
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canCheckOut || isCheckingOut }}
-          >
-            {isCheckingOut ? (
-              <ActivityIndicator
-                size="small"
-                color={canCheckOut ? "#FFFFFF" : colors.textSecondary}
-              />
-            ) : (
-              <>
-                <Text
-                  style={[
-                    styles.headerCheckOutButtonText,
-                    { color: canCheckOut ? "#FFFFFF" : colors.textSecondary },
-                  ]}
-                >
-                  {canCheckOut ? "CHECK OUT" : formatTime(timeRemaining)}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-
         {/* Masjid Info */}
         <View style={styles.centeredContent}>
-          <Text style={[styles.masjidName, { color: colors.text }]}>
+          <Text selectable style={[styles.masjidName, { color: colors.text }]}>
             {activeVisit?.masjidName}
           </Text>
           {activeCheckin?.isPrayerTime && activeCheckin?.prayerName && (
@@ -681,24 +648,30 @@ export default function CheckInScreen() {
                 color={colors.success}
               />
             </View>
-          ) : (
-            <Text style={[styles.timerValue, { color: colors.text }]}>
-              {formatTime(timeRemaining)}
-            </Text>
-          )}
-          <ProgressBar
-            progress={progressPercentage}
-            variant="primary"
-            size="md"
-          />
+          ) : checkoutTargetTime ? (
+            <CountdownTimer
+              targetDate={checkoutTargetTime}
+              size="large"
+              customization={{
+                numberColor: colors.text,
+                labelColor: colors.textSecondary,
+                separatorColor: colors.text,
+                showLabels: true,
+                showDays: false,
+                showSeparators: true,
+                onFinish: () => {
+                  // Timer finished, user can now check out
+                },
+              }}
+            />
+          ) : null}
         </Card>
 
-        {/* Contribute Section - Redesigned */}
-        <View style={styles.contributeSection}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Help Other Travellers
-          </Text>
+        {/* Divider */}
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
+        {/* Contribute Section - Redesigned */}
+        <View>
           {/* Update Facilities Card */}
           <TouchableOpacity
             onPress={handleUpdateFacilities}
@@ -838,7 +811,10 @@ export default function CheckInScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Points Preview - Moved to bottom */}
+        {/* Divider */}
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        {/* Points Preview */}
         <Card variant="outlined" padding="md" style={styles.pointsPreview}>
           <Text style={[styles.pointsTitle, { color: colors.textSecondary }]}>
             Points You'll Earn
@@ -848,10 +824,85 @@ export default function CheckInScreen() {
               Base Visit
             </Text>
             <Text style={[styles.pointsValue, { color: colors.text }]}>
-              {activeCheckin?.basePoints ?? 10} pts
+              {pointsPreview?.basePoints ?? activeCheckin?.basePoints ?? 10} pts
             </Text>
           </View>
-          {activeCheckin?.bonusPoints ? (
+
+          {/* Bonus breakdown */}
+          {pointsPreview?.bonusPointsBreakdown && (
+            <>
+              {/* First visit bonus */}
+              {pointsPreview.bonusPointsBreakdown.firstVisit && (
+                <View style={styles.pointsRow}>
+                  <Text style={[styles.pointsLabel, { color: colors.text }]}>
+                    First visit bonus
+                  </Text>
+                  <Text style={[styles.pointsValue, { color: colors.success }]}>
+                    +{pointsPreview.bonusPointsBreakdown.firstVisit.points} pts
+                  </Text>
+                </View>
+              )}
+
+              {/* Prayer time bonus */}
+              {pointsPreview.bonusPointsBreakdown.prayerTime && (
+                <View style={styles.pointsRow}>
+                  <Text style={[styles.pointsLabel, { color: colors.text }]}>
+                    {pointsPreview.bonusPointsBreakdown.prayerTime.prayerName ??
+                      "Prayer time"}{" "}
+                    bonus
+                  </Text>
+                  <Text style={[styles.pointsValue, { color: colors.success }]}>
+                    +{pointsPreview.bonusPointsBreakdown.prayerTime.points} pts
+                  </Text>
+                </View>
+              )}
+
+              {/* Event bonuses */}
+              {pointsPreview.bonusPointsBreakdown.events.map((event) => (
+                <View key={event.eventId} style={styles.pointsRow}>
+                  <Text style={[styles.pointsLabel, { color: colors.text }]}>
+                    Event: {event.eventName}
+                  </Text>
+                  <Text style={[styles.pointsValue, { color: colors.success }]}>
+                    +{event.points} pts
+                  </Text>
+                </View>
+              ))}
+
+              {/* Contribution bonuses */}
+              {pointsPreview.bonusPointsBreakdown.contributions.map(
+                (contribution, index) => {
+                  const label =
+                    contribution.type === "PHOTO_UPLOAD"
+                      ? "Photo upload"
+                      : contribution.type === "FACILITY_UPDATE"
+                        ? "Facility update"
+                        : "Report submission";
+                  return (
+                    <View
+                      key={`contribution-${index}`}
+                      style={styles.pointsRow}
+                    >
+                      <Text
+                        style={[styles.pointsLabel, { color: colors.text }]}
+                      >
+                        {label}
+                      </Text>
+                      <Text
+                        style={[styles.pointsValue, { color: colors.success }]}
+                      >
+                        +{contribution.points} pts
+                      </Text>
+                    </View>
+                  );
+                },
+              )}
+            </>
+          )}
+
+          {/* Fallback for legacy activeCheckin without pointsPreview */}
+          {!pointsPreview?.bonusPointsBreakdown &&
+          activeCheckin?.bonusPoints ? (
             <View style={styles.pointsRow}>
               <Text style={[styles.pointsLabel, { color: colors.text }]}>
                 Bonus {activeCheckin.isPrayerTime ? "(Prayer time)" : ""}
@@ -862,21 +913,135 @@ export default function CheckInScreen() {
               </Text>
             </View>
           ) : null}
+
+          {/* Divider before total */}
+          {(pointsPreview?.bonusPointsBreakdown?.firstVisit ||
+            pointsPreview?.bonusPointsBreakdown?.prayerTime ||
+            (pointsPreview?.bonusPointsBreakdown?.events?.length ?? 0) > 0 ||
+            (pointsPreview?.bonusPointsBreakdown?.contributions?.length ?? 0) >
+              0 ||
+            (!pointsPreview?.bonusPointsBreakdown &&
+              activeCheckin?.bonusPoints)) && (
+            <View style={[{ backgroundColor: colors.border }]} />
+          )}
+
+          {/* Estimated total */}
+          <View style={styles.pointsRow}>
+            <Text
+              style={[
+                styles.pointsLabel,
+                { color: colors.text, fontWeight: "600" },
+              ]}
+            >
+              Estimated Total
+            </Text>
+            <Text
+              style={[
+                styles.pointsValue,
+                { color: colors.primary, fontWeight: "700" },
+              ]}
+            >
+              {pointsPreview?.estimatedTotal ??
+                (activeCheckin
+                  ? activeCheckin.basePoints + (activeCheckin.bonusPoints ?? 0)
+                  : 10)}{" "}
+              pts
+            </Text>
+          </View>
         </Card>
       </>
     );
   }
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      edges={["top", "bottom"]}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <>
+      <Stack.Screen
+        options={{
+          title: "Check In",
+          headerLargeTitle: true,
+        }}
+      />
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          activeVisit && styles.scrollContentWithFloatingButton,
+        ]}
+        contentInsetAdjustmentBehavior="automatic"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         {isDemoMode && <DemoBanner />}
         {content}
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Floating Checkout Button */}
+      {activeVisit && (
+        <View
+          style={[
+            styles.floatingButtonContainer,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <TouchableOpacity
+            style={[
+              styles.floatingCheckOutButton,
+              {
+                backgroundColor: canCheckOut
+                  ? colors.primary
+                  : colors.backgroundSecondary,
+                opacity: canCheckOut ? 1 : 0.8,
+              },
+            ]}
+            onPress={handleCheckOut}
+            disabled={!canCheckOut || isCheckingOut}
+            activeOpacity={0.8}
+            accessible={true}
+            accessibilityLabel={
+              canCheckOut
+                ? "Check out"
+                : `Time remaining: ${formatTime(timeRemaining)}`
+            }
+            accessibilityHint={
+              canCheckOut
+                ? "Double tap to check out from this masjid"
+                : "Wait for the minimum visit time to complete before checking out"
+            }
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canCheckOut || isCheckingOut }}
+          >
+            {isCheckingOut ? (
+              <ActivityIndicator
+                size="small"
+                color={canCheckOut ? "#FFFFFF" : colors.textSecondary}
+              />
+            ) : (
+              <>
+                <IconSymbol
+                  name={canCheckOut ? "checkmark.circle.fill" : "clock"}
+                  size={20}
+                  color={canCheckOut ? "#FFFFFF" : colors.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.floatingCheckOutButtonText,
+                    { color: canCheckOut ? "#FFFFFF" : colors.textSecondary },
+                  ]}
+                >
+                  {canCheckOut ? "CHECK OUT" : formatTime(timeRemaining)}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+    </>
   );
 }
 
@@ -888,6 +1053,9 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     paddingBottom: Spacing.xxl,
     flexGrow: 1,
+  },
+  scrollContentWithFloatingButton: {
+    paddingBottom: 100, // Extra padding for floating button
   },
   centeredContent: {
     flex: 1,
@@ -903,20 +1071,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.md,
-  },
-  headerTitle: {
-    ...Typography.h3,
-  },
-  headerCheckOutButton: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    minHeight: 44, // iOS minimum touch target
-  },
-  headerCheckOutButtonText: {
-    ...Typography.button,
-    fontWeight: "600",
   },
   iconCircle: {
     width: 120,
@@ -951,18 +1105,9 @@ const styles = StyleSheet.create({
   exploreButton: {
     marginTop: Spacing.md,
   },
-  masjidImageLarge: {
-    width: 140,
-    height: 140,
-    borderRadius: BorderRadius.xl,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: Spacing.md,
-  },
   masjidName: {
     ...Typography.h1,
     textAlign: "center",
-    marginBottom: Spacing.xs,
   },
   masjidLocation: {
     ...Typography.body,
@@ -991,11 +1136,7 @@ const styles = StyleSheet.create({
     borderRadius: 70,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#00A9A5",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    boxShadow: "0 4px 12px rgba(0, 169, 165, 0.3)",
   },
   checkInButtonText: {
     color: "#FFFFFF",
@@ -1004,7 +1145,6 @@ const styles = StyleSheet.create({
   },
   timerCard: {
     alignItems: "center",
-    marginBottom: Spacing.md,
   },
   timerLabel: {
     ...Typography.bodySmall,
@@ -1014,12 +1154,11 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontWeight: "700",
     marginBottom: Spacing.md,
+    fontVariant: ["tabular-nums"],
   },
   timerCheckContainer: {
-    height: 60,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: Spacing.md,
   },
   pointsPreview: {
     marginBottom: Spacing.md,
@@ -1047,8 +1186,9 @@ const styles = StyleSheet.create({
     ...Typography.body,
     fontWeight: "600",
   },
-  contributeSection: {
-    marginBottom: Spacing.md,
+  divider: {
+    height: 1,
+    marginVertical: Spacing.sm,
   },
   actionCard: {
     marginBottom: Spacing.sm,
@@ -1113,6 +1253,31 @@ const styles = StyleSheet.create({
   actionButtonText: {
     ...Typography.bodySmall,
     fontWeight: "600",
+  },
+  floatingButtonContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingBottom: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0, 0, 0, 0.1)",
+  },
+  floatingCheckOutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    gap: Spacing.sm,
+    minHeight: 52,
+  },
+  floatingCheckOutButtonText: {
+    ...Typography.button,
+    fontWeight: "600",
+    fontSize: 16,
   },
   demoToggle: {
     alignItems: "center",
