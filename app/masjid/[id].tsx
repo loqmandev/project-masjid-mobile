@@ -4,6 +4,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Linking,
   Modal,
@@ -14,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   FadeIn,
@@ -29,14 +31,45 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
+import { useActiveCheckin } from "@/hooks/use-active-checkin";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useLocation } from "@/hooks/use-location";
 import { useMasjidDetails } from "@/hooks/use-masjid-details";
 import { useMasjidPhotos } from "@/hooks/use-masjid-photos";
 import { useAnalytics } from "@/lib/analytics";
+import { checkinToMasjid } from "@/lib/api";
+import { useSession } from "@/lib/auth-client";
+import { DEMO_LOCATION, isDemoEmail } from "@/lib/demo-mode";
 
 type TabType = "photos" | "facilities" | "events";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+// Maximum distance in meters for check-in
+const MAX_CHECKIN_DISTANCE_M = 100;
+
+/**
+ * Calculate distance between two coordinates using Haversine formula
+ * @returns distance in meters
+ */
+function calculateDistance(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 6371000; // Earth's radius in meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 // Full-screen image viewer component with zoom/pan
 function ImageViewerModal({
@@ -208,10 +241,26 @@ export default function MasjidDetailScreen() {
   const colors = Colors[colorScheme ?? "light"];
   const { id } = useLocalSearchParams<{ id: string }>();
   const { track, screen } = useAnalytics();
+  const queryClient = useQueryClient();
+  const { data: session } = useSession();
   const hasTrackedView = useRef(false);
   const [activeTab, setActiveTab] = useState<TabType>("photos");
   const [viewerVisible, setViewerVisible] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+
+  // Check if user is in demo mode
+  const isDemoMode = session?.user?.email
+    ? isDemoEmail(session.user.email)
+    : false;
+
+  // Location hook
+  const { location, isLoading: isLocationLoading } = useLocation();
+
+  // Active check-in hook
+  const { data: activeCheckinData, invalidate: invalidateActiveCheckin } =
+    useActiveCheckin();
+  const activeCheckin = activeCheckinData?.checkIn;
 
   // Fetch masjid details
   const {
@@ -234,11 +283,138 @@ export default function MasjidDetailScreen() {
     hasTrackedView.current = true;
   }, [id, masjid, screen, track]);
 
-  const handleCheckIn = useCallback(() => {
+  const handleCheckIn = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    track("masjid_checkin_clicked", { masjid_id: masjid?.id ?? id });
-    router.push("/(tabs)/checkin");
-  }, [masjid?.id, id, track]);
+
+    // Check if user is signed in
+    if (!session?.user) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      track("masjid_checkin_auth_required", { masjid_id: masjid?.id ?? id });
+      Alert.alert("Sign In Required", "Please sign in to check in to masjids.");
+      router.push("/auth/login");
+      return;
+    }
+
+    // Check if user has an active check-in
+    if (activeCheckin) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      track("masjid_checkin_blocked", {
+        masjid_id: masjid?.id ?? id,
+        reason: "active_checkin",
+      });
+      Alert.alert(
+        "Already Checked In",
+        `You have an active check-in at ${activeCheckin.masjidName}. Check out first to start a new visit.`,
+      );
+      return;
+    }
+
+    // Check if masjid data is available
+    if (!masjid) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Error", "Masjid information not available.");
+      return;
+    }
+
+    // For demo mode, use demo location; otherwise require real location
+    const checkInLocation = isDemoMode ? DEMO_LOCATION : location;
+
+    if (!checkInLocation && !isDemoMode) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      track("masjid_checkin_blocked", {
+        masjid_id: masjid.id,
+        reason: "no_location",
+      });
+      Alert.alert(
+        "Location Required",
+        "Please enable location services to check in.",
+      );
+      return;
+    }
+
+    // Calculate distance to masjid
+    const distance = checkInLocation
+      ? calculateDistance(
+          checkInLocation.latitude,
+          checkInLocation.longitude,
+          masjid.lat,
+          masjid.lng,
+        )
+      : 0; // In demo mode, assume within range
+
+    // Check if user is within range (100 meters)
+    if (!isDemoMode && distance > MAX_CHECKIN_DISTANCE_M) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      track("masjid_checkin_blocked", {
+        masjid_id: masjid.id,
+        reason: "not_nearby",
+        distance_m: Math.round(distance),
+      });
+      Alert.alert(
+        "Not Close Enough",
+        `You are ${Math.round(distance)}m away from ${masjid.name}. Get within ${MAX_CHECKIN_DISTANCE_M}m to check in.`,
+      );
+      return;
+    }
+
+    // Perform check-in
+    setIsCheckingIn(true);
+    try {
+      track("masjid_checkin_attempted", {
+        masjid_id: masjid.id,
+        distance_m: Math.round(distance),
+        isDemo: isDemoMode,
+      });
+
+      const result = await checkinToMasjid(
+        masjid.masjidId,
+        checkInLocation!.latitude,
+        checkInLocation!.longitude,
+      );
+
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        track("masjid_checkin_success", {
+          masjid_id: masjid.id,
+          distance_m: Math.round(distance),
+          isDemo: isDemoMode,
+        });
+
+        // Invalidate queries to refresh data
+        invalidateActiveCheckin();
+        queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+
+        // Navigate to check-in tab to show active check-in
+        router.push("/(tabs)/checkin");
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        track("masjid_checkin_failed", {
+          masjid_id: masjid.id,
+          reason: result.message ?? "unknown",
+        });
+        Alert.alert("Check-in Failed", result.message ?? "Please try again.");
+      }
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      track("masjid_checkin_failed", {
+        masjid_id: masjid.id,
+        reason: "exception",
+      });
+      Alert.alert("Error", "Failed to check in. Please try again.");
+    } finally {
+      setIsCheckingIn(false);
+    }
+  }, [
+    session,
+    activeCheckin,
+    masjid,
+    location,
+    isDemoMode,
+    invalidateActiveCheckin,
+    queryClient,
+    track,
+    id,
+  ]);
 
   const handleTabChange = useCallback(
     (tab: TabType) => {
@@ -788,17 +964,22 @@ export default function MasjidDetailScreen() {
         >
           <View style={styles.stickyActionsInner}>
             <Button
-              title="Check In"
+              title={isCheckingIn ? "Checking in..." : "Check In"}
               variant="primary"
               size="lg"
               onPress={handleCheckIn}
+              disabled={isCheckingIn || isLocationLoading}
               style={styles.checkInButtonSticky}
               icon={
-                <IconSymbol
-                  name="checkmark.circle.fill"
-                  size={20}
-                  color="#fff"
-                />
+                isCheckingIn ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <IconSymbol
+                    name="checkmark.circle.fill"
+                    size={20}
+                    color="#fff"
+                  />
+                )
               }
             />
             <Button
