@@ -1,10 +1,12 @@
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
+  Dimensions,
   Linking,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -12,6 +14,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +36,173 @@ import { useAnalytics } from "@/lib/analytics";
 
 type TabType = "photos" | "facilities" | "events";
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+// Full-screen image viewer component with zoom/pan
+function ImageViewerModal({
+  visible,
+  imageUri,
+  onClose,
+}: {
+  visible: boolean;
+  imageUri: string | null;
+  onClose: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((e) => {
+      "worklet";
+      scale.value = savedScale.value * e.scale;
+    })
+    .onEnd(() => {
+      "worklet";
+      if (scale.value < 1) {
+        scale.value = withSpring(1);
+        savedScale.value = 1;
+      } else if (scale.value > 4) {
+        scale.value = withSpring(4);
+        savedScale.value = 4;
+      } else {
+        savedScale.value = scale.value;
+      }
+    });
+
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      "worklet";
+      if (scale.value > 1) {
+        translateX.value = savedTranslateX.value + e.translationX;
+        translateY.value = savedTranslateY.value + e.translationY;
+      }
+    })
+    .onEnd(() => {
+      "worklet";
+      if (scale.value <= 1) {
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+      } else {
+        const maxTranslateX = ((scale.value - 1) * SCREEN_WIDTH) / 2;
+        const maxTranslateY = ((scale.value - 1) * SCREEN_HEIGHT) / 2;
+        const clampedX = Math.max(
+          -maxTranslateX,
+          Math.min(maxTranslateX, translateX.value),
+        );
+        const clampedY = Math.max(
+          -maxTranslateY,
+          Math.min(maxTranslateY, translateY.value),
+        );
+        translateX.value = withSpring(clampedX);
+        translateY.value = withSpring(clampedY);
+        savedTranslateX.value = clampedX;
+        savedTranslateY.value = clampedY;
+      }
+    });
+
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => {
+      "worklet";
+      if (scale.value > 1) {
+        scale.value = withSpring(1);
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+        savedScale.value = 1;
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+      } else {
+        scale.value = withSpring(2);
+        savedScale.value = 2;
+      }
+    });
+
+  const singleTapGesture = Gesture.Tap().runOnJS(true).onEnd(onClose);
+
+  const composedGesture = Gesture.Simultaneous(
+    pinchGesture,
+    Gesture.Simultaneous(
+      panGesture,
+      Gesture.Exclusive(doubleTapGesture, singleTapGesture),
+    ),
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
+
+  // Reset values when modal closes
+  useEffect(() => {
+    if (!visible) {
+      scale.value = 1;
+      savedScale.value = 1;
+      translateX.value = 0;
+      translateY.value = 0;
+      savedTranslateX.value = 0;
+      savedTranslateY.value = 0;
+    }
+  }, [visible]);
+
+  if (!imageUri) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <Animated.View
+        entering={FadeIn.duration(200)}
+        exiting={FadeOut.duration(200)}
+        style={{
+          flex: 1,
+          backgroundColor: "rgba(0, 0, 0, 0.95)",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <GestureDetector gesture={composedGesture}>
+          <Animated.View style={animatedStyle}>
+            <Image
+              source={{ uri: imageUri }}
+              style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT * 0.8 }}
+              contentFit="contain"
+              recyclingKey={imageUri}
+            />
+          </Animated.View>
+        </GestureDetector>
+        <TouchableOpacity
+          onPress={onClose}
+          style={{
+            position: "absolute",
+            top: 50,
+            right: 16,
+            padding: 12,
+            borderRadius: 24,
+            backgroundColor: "rgba(255, 255, 255, 0.2)",
+          }}
+          accessibilityLabel="Close image viewer"
+          accessibilityRole="button"
+        >
+          <IconSymbol name="xmark" size={24} color="#fff" />
+        </TouchableOpacity>
+      </Animated.View>
+    </Modal>
+  );
+}
+
 export default function MasjidDetailScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
@@ -33,6 +210,8 @@ export default function MasjidDetailScreen() {
   const { track, screen } = useAnalytics();
   const hasTrackedView = useRef(false);
   const [activeTab, setActiveTab] = useState<TabType>("photos");
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
   // Fetch masjid details
   const {
@@ -92,6 +271,25 @@ export default function MasjidDetailScreen() {
       );
     });
   }, [masjid, track]);
+
+  const handlePhotoPress = useCallback(
+    (photoUrl: string) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      track("masjid_photo_viewed", {
+        masjid_id: masjid?.id,
+        photo_url: photoUrl,
+      });
+      setSelectedImageUri(photoUrl);
+      setViewerVisible(true);
+    },
+    [masjid?.id, track],
+  );
+
+  const closeViewer = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setViewerVisible(false);
+    setSelectedImageUri(null);
+  }, []);
 
   // Get available facilities
   const getAvailableFacilities = () => {
@@ -460,18 +658,22 @@ export default function MasjidDetailScreen() {
                   accessibilityRole="list"
                 >
                   {masjidPhotos.map((photo: { id: string; url: string }) => (
-                    <View
+                    <TouchableOpacity
                       key={photo.id}
                       style={styles.photoItem}
                       accessible={true}
                       accessibilityLabel={`Photo ${photo.id}`}
+                      accessibilityHint="Double tap to view full image"
+                      onPress={() => handlePhotoPress(photo.url)}
+                      activeOpacity={0.9}
                     >
                       <Image
-                        source={{ uri: photo.url, cache: "force-cache" }}
+                        source={{ uri: photo.url }}
                         style={styles.photoImage}
-                        resizeMode="cover"
+                        contentFit="cover"
+                        recyclingKey={photo.id}
                       />
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               ) : (
@@ -615,6 +817,13 @@ export default function MasjidDetailScreen() {
             />
           </View>
         </View>
+
+        {/* Full-screen Image Viewer */}
+        <ImageViewerModal
+          visible={viewerVisible}
+          imageUri={selectedImageUri}
+          onClose={closeViewer}
+        />
       </SafeAreaView>
     </>
   );
