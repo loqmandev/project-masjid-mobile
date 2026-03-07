@@ -23,6 +23,7 @@ import {
 } from "@/components/activity/activity-calendar";
 import { BadgeSelectorModal } from "@/components/profile/badge-selector-modal";
 import { ProfileHeaderCard } from "@/components/profile/profile-header-card";
+import { ShareableProfileCard } from "@/components/profile/shareable-profile-card";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -30,6 +31,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useFeaturedBadges } from "@/hooks/use-user-limited-badges";
+import { useShareProfile } from "@/hooks/use-share-profile";
 import { useAnalytics } from "@/lib/analytics";
 import {
   getUserAchievements,
@@ -305,6 +307,7 @@ export default function ProfileScreen() {
   const colors = Colors[colorScheme ?? "light"];
   const { data: session } = useSession();
   const { track, screen } = useAnalytics();
+  const { shareProfile, isSharing, shareableCardRef } = useShareProfile();
   const hasTrackedView = useRef(false);
   const queryClient = useQueryClient();
   // Badge selector modal state
@@ -504,16 +507,35 @@ export default function ProfileScreen() {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <TouchableOpacity
-              onPress={() => handleMenuPress("/settings")}
-              style={{ padding: Spacing.sm }}
-            >
-              <IconSymbol
-                name="gearshape.fill"
-                size={26}
-                color={colors.primary}
-              />
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+              {!isGuest && (
+                <TouchableOpacity
+                  onPress={shareProfile}
+                  disabled={isSharing}
+                  style={{ padding: Spacing.sm }}
+                >
+                  {isSharing ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <IconSymbol
+                      name="square.and.arrow.up"
+                      size={24}
+                      color={colors.primary}
+                    />
+                  )}
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => handleMenuPress("/settings")}
+                style={{ padding: Spacing.sm }}
+              >
+                <IconSymbol
+                  name="gearshape.fill"
+                  size={26}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+            </View>
           ),
         }}
       />
@@ -791,6 +813,24 @@ export default function ProfileScreen() {
         visible={showBadgeSelector}
         onClose={() => setShowBadgeSelector(false)}
       />
+      {/* Hidden Shareable Profile Card - positioned off-screen for capture */}
+      <View style={{ position: "absolute", left: -10000, top: -10000 }}>
+        <ShareableProfileCard
+          ref={shareableCardRef}
+          displayName={displayName}
+          avatarUrl={avatarUrl}
+          level={Math.floor(totalPoints / 100)}
+          totalPoints={totalPoints}
+          uniqueMasjidsVisited={uniqueMasjidsVisited}
+          achievementsUnlocked={
+            achievements.filter((a) => a.progress?.isUnlocked).length
+          }
+          currentStreak={profileData?.profile?.currentStreak ?? 0}
+          recentMasjids={displayRecentVisits.slice(0, 5).map((visit) => ({
+            name: visit.masjidName,
+          }))}
+        />
+      </View>
     </>
   );
 }
