@@ -174,7 +174,7 @@ export default function MasjidReportScreen() {
               <Text style={[styles.infoText, { color: colors.textSecondary }]}>
                 {isEditingExisting
                   ? "Update the information below. Our team will verify your changes."
-                  : "Fill in the details for a masjid not in our database. Earn 50 points after approval."}
+                  : "Fill in the details for a masjid not in our database. Earn 15 points after approval."}
               </Text>
             </View>
           </View>

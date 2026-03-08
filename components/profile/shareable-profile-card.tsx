@@ -18,10 +18,6 @@ import {
   Typography,
 } from "@/constants/theme";
 
-interface RecentMasjid {
-  name: string;
-}
-
 interface ShareableProfileCardProps {
   displayName: string;
   avatarUrl?: string | null;
@@ -30,7 +26,8 @@ interface ShareableProfileCardProps {
   uniqueMasjidsVisited: number;
   achievementsUnlocked: number;
   currentStreak: number;
-  recentMasjids?: RecentMasjid[];
+  last30DaysMasjids?: { name: string }[];
+  last30DaysCount?: number;
 }
 
 function formatPoints(points: number): string {
@@ -76,7 +73,8 @@ export const ShareableProfileCard = React.forwardRef<
       uniqueMasjidsVisited,
       achievementsUnlocked,
       currentStreak,
-      recentMasjids = [],
+      last30DaysMasjids = [],
+      last30DaysCount = 0,
     },
     ref,
   ) => {
@@ -201,20 +199,30 @@ export const ShareableProfileCard = React.forwardRef<
               ))}
             </View>
 
-            {/* Recent Masjids */}
-            {recentMasjids.length > 0 && (
+            {/* Last 30 Days Masjids */}
+            {last30DaysMasjids.length > 0 && (
               <View style={styles.recentMasjidsSection}>
-                <Text style={styles.recentMasjidsTitle}>Recent Masjids</Text>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.recentMasjidsTitle}>Last 30 Days</Text>
+                  <Text style={styles.sectionCount}>
+                    {last30DaysCount} masjid{last30DaysCount !== 1 ? "s" : ""}
+                  </Text>
+                </View>
                 <View style={styles.recentMasjidsList}>
-                  {recentMasjids.slice(0, 5).map((masjid, index) => (
+                  {last30DaysMasjids.map((masjid, index) => (
                     <View key={index} style={styles.masjidItem}>
                       <View style={styles.masjidDot} />
                       <Text style={styles.masjidName} numberOfLines={1}>
-                        {masjid.name}
+                        {masjid.name.toUpperCase()}
                       </Text>
                     </View>
                   ))}
                 </View>
+                {last30DaysCount > last30DaysMasjids.length && (
+                  <Text style={styles.overflowText}>
+                    +{last30DaysCount - last30DaysMasjids.length} more
+                  </Text>
+                )}
               </View>
             )}
           </View>
@@ -341,13 +349,22 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: neutral[200],
   },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
   recentMasjidsTitle: {
     ...Typography.caption,
     fontWeight: "600",
     color: neutral[500],
-    marginBottom: Spacing.sm,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+  },
+  sectionCount: {
+    ...Typography.caption,
+    color: neutral[400],
   },
   recentMasjidsList: {
     gap: Spacing.xs,
@@ -367,6 +384,12 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     color: neutral[700],
     flex: 1,
+  },
+  overflowText: {
+    ...Typography.caption,
+    color: neutral[400],
+    fontStyle: "italic",
+    marginTop: Spacing.xs,
   },
   footer: {
     flexDirection: "row",

@@ -139,6 +139,7 @@ export default function HomeScreen() {
   const currentStreak = userProfile?.profile?.currentStreak ?? 0;
   const longestStreak = userProfile?.profile?.longestStreak ?? 0;
   const achievementCount = userProfile?.profile?.achievementCount ?? 0;
+  const avatarUrl = userProfile?.user?.image || null;
 
   // Achievement
   const nextAchievement = getNextAchievement(achievements);
@@ -298,6 +299,7 @@ export default function HomeScreen() {
               currentStreak={currentStreak}
               achievementCount={achievementCount}
               colorScheme={colorScheme ?? "light"}
+              avatarUrl={avatarUrl}
             />
           </AnimatedView>
 

@@ -904,6 +904,7 @@ export interface LeaderboardEntry {
   points: number;
   masjidsVisited: number;
   isCurrentUser?: boolean;
+  avatarUrl?: string | null;
 }
 
 /**
@@ -960,6 +961,17 @@ export interface UpdateUserProfileRequest {
   name?: string; // Update user's display name (from OAuth)
   showFullNameInLeaderboard?: boolean;
   leaderboardAlias?: string; // DEPRECATED - Kept for backwards compatibility
+  avatarUrl?: string | null; // Update user's avatar URL (null to remove)
+}
+
+/**
+ * Avatar upload URL response
+ */
+export interface AvatarUploadUrlResponse {
+  uploadUrl: string;
+  publicUrl: string;
+  key: string;
+  contentType: string;
 }
 
 /**
@@ -1100,6 +1112,34 @@ export async function deleteAccount(): Promise<DeleteAccountResponse> {
     );
   }
 
+  return data;
+}
+
+/**
+ * Get presigned URL for avatar upload
+ * REQUIRES AUTHENTICATION
+ */
+export async function getAvatarUploadUrl(
+  contentType: string,
+): Promise<AvatarUploadUrlResponse> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/user/avatar/upload-url`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentType }),
+    },
+  );
+
+  const data = await response.json();
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("Please sign in to upload avatar");
+    }
+    throw new Error(
+      data.message || `Failed to get upload URL: ${response.status}`,
+    );
+  }
   return data;
 }
 

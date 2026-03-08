@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   Text,
@@ -23,10 +24,12 @@ function ChromaAvatar({
   size,
   initial,
   isFirst = false,
+  avatarUrl,
 }: {
   size: number;
   initial: string;
   isFirst?: boolean;
+  avatarUrl?: string | null;
 }) {
   const borderWidth = 4;
   const innerSize = size - borderWidth * 2;
@@ -47,21 +50,32 @@ function ChromaAvatar({
           width: innerSize,
           height: innerSize,
           borderRadius: innerSize / 2,
-          // backgroundColor: isFirst ? "#00A9A5" : "#00A9A515",
           justifyContent: "center",
           alignItems: "center",
+          overflow: "hidden",
         }}
       >
-        <Text
-          selectable
-          style={{
-            fontSize: isFirst ? 26 : 20,
-            fontWeight: "700",
-            color: "#00A9A5",
-          }}
-        >
-          {initial.toUpperCase()}
-        </Text>
+        {avatarUrl ? (
+          <Image
+            source={{ uri: avatarUrl }}
+            style={{
+              width: innerSize,
+              height: innerSize,
+              borderRadius: innerSize / 2,
+            }}
+          />
+        ) : (
+          <Text
+            selectable
+            style={{
+              fontSize: isFirst ? 26 : 20,
+              fontWeight: "700",
+              color: "#00A9A5",
+            }}
+          >
+            {initial.toUpperCase()}
+          </Text>
+        )}
       </View>
     </ChromaRing>
   );
@@ -136,6 +150,7 @@ export default function LeaderboardScreen() {
               <ChromaAvatar
                 size={56}
                 initial={topThree[1].displayName.charAt(0)}
+                avatarUrl={topThree[1].avatarUrl}
               />
             </View>
             <Text
@@ -173,6 +188,7 @@ export default function LeaderboardScreen() {
                 size={72}
                 initial={topThree[0].displayName.charAt(0)}
                 isFirst
+                avatarUrl={topThree[0].avatarUrl}
               />
             </View>
             <Text
@@ -223,6 +239,7 @@ export default function LeaderboardScreen() {
               <ChromaAvatar
                 size={56}
                 initial={topThree[2].displayName.charAt(0)}
+                avatarUrl={topThree[2].avatarUrl}
               />
             </View>
             <Text
@@ -309,18 +326,26 @@ export default function LeaderboardScreen() {
             justifyContent: "center",
             alignItems: "center",
             marginRight: Spacing.md,
+            overflow: "hidden",
           }}
         >
-          <Text
-            selectable
-            style={{
-              fontSize: 18,
-              fontWeight: "600",
-              color: colors.primary,
-            }}
-          >
-            {item.displayName.charAt(0).toUpperCase()}
-          </Text>
+          {item.avatarUrl ? (
+            <Image
+              source={{ uri: item.avatarUrl }}
+              style={{ width: 40, height: 40, borderRadius: 20 }}
+            />
+          ) : (
+            <Text
+              selectable
+              style={{
+                fontSize: 18,
+                fontWeight: "600",
+                color: colors.primary,
+              }}
+            >
+              {item.displayName.charAt(0).toUpperCase()}
+            </Text>
+          )}
         </View>
         <View style={{ flex: 1 }}>
           <Text
@@ -585,18 +610,26 @@ export default function LeaderboardScreen() {
               justifyContent: "center",
               alignItems: "center",
               marginRight: Spacing.md,
+              overflow: "hidden",
             }}
           >
-            <Text
-              selectable
-              style={{
-                fontSize: 18,
-                fontWeight: "600",
-                color: colors.primary,
-              }}
-            >
-              {currentUser.displayName.charAt(0).toUpperCase()}
-            </Text>
+            {currentUser.avatarUrl ? (
+              <Image
+                source={{ uri: currentUser.avatarUrl }}
+                style={{ width: 40, height: 40, borderRadius: 20 }}
+              />
+            ) : (
+              <Text
+                selectable
+                style={{
+                  fontSize: 18,
+                  fontWeight: "600",
+                  color: colors.primary,
+                }}
+              >
+                {currentUser.displayName.charAt(0).toUpperCase()}
+              </Text>
+            )}
           </View>
           <View style={{ flex: 1 }}>
             <Text

@@ -92,7 +92,7 @@ export function ProfileHeaderCard({
     },
     {
       sfSymbol: "location.fill",
-      ionicon: "location" as const,
+      ionicon: "business-outline" as const,
       value: uniqueMasjidsVisited.toString(),
       label: "Masjids",
       color: colors.primary,
@@ -101,7 +101,7 @@ export function ProfileHeaderCard({
       sfSymbol: "rosette",
       ionicon: "ribbon" as const,
       value: achievementsUnlocked.toString(),
-      label: "Badges",
+      label: "Achievements",
       color: colors.primary,
     },
     {

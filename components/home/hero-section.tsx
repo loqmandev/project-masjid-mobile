@@ -16,6 +16,7 @@ interface HeroSectionProps {
   currentStreak: number;
   achievementCount: number;
   colorScheme: "light" | "dark";
+  avatarUrl?: string | null;
 }
 
 export function HeroSection({
@@ -30,6 +31,7 @@ export function HeroSection({
   currentStreak,
   achievementCount,
   colorScheme,
+  avatarUrl,
 }: HeroSectionProps) {
   const colors = Colors[colorScheme];
 
@@ -53,6 +55,7 @@ export function HeroSection({
               colorScheme={colorScheme}
               currentXP={currentXP}
               nextLevelXP={nextLevelXP}
+              avatarUrl={avatarUrl}
             />
           </View>
 

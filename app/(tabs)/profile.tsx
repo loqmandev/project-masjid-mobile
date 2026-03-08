@@ -49,7 +49,7 @@ import {
   loadCachedUserProfile,
   saveCachedUserProfile,
 } from "@/lib/storage";
-import { getDisplayName } from "@/lib/utils";
+import { filterLast30DaysMasjids, getDisplayName } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -386,7 +386,7 @@ export default function ProfileScreen() {
         const [profile, userAchievements, checkins] = await Promise.all([
           getUserProfile(),
           getUserAchievements(),
-          getUserCheckins(3),
+          getUserCheckins(100),
         ]);
         setProfileData(profile);
         setAchievements(userAchievements);
@@ -826,9 +826,16 @@ export default function ProfileScreen() {
             achievements.filter((a) => a.progress?.isUnlocked).length
           }
           currentStreak={profileData?.profile?.currentStreak ?? 0}
-          recentMasjids={displayRecentVisits.slice(0, 5).map((visit) => ({
-            name: visit.masjidName,
-          }))}
+          last30DaysMasjids={filterLast30DaysMasjids(
+            isGuest ? DUMMY_RECENT_VISITS : recentVisits,
+            10,
+          ).masjids}
+          last30DaysCount={
+            filterLast30DaysMasjids(
+              isGuest ? DUMMY_RECENT_VISITS : recentVisits,
+              10,
+            ).totalCount
+          }
         />
       </View>
     </>

@@ -16,9 +16,7 @@ import {
 import Animated, {
   FadeIn,
   FadeInDown,
-  Layout,
   LinearTransition,
-  SlideInRight,
 } from "react-native-reanimated";
 
 import { Badge } from "@/components/ui/badge";
@@ -312,8 +310,8 @@ export default function ExploreScreen() {
       return (
         <AnimatedTouchableOpacity
           onPress={() => handleMasjidPress(item.masjidId)}
-          entering={SlideInRight.delay(index * 50).springify()}
-          layout={Layout.springify()}
+          entering={FadeIn.duration(200)}
+          layout={LinearTransition}
           activeOpacity={0.7}
           accessible={true}
           accessibilityLabel={`${item.name}${distance ? `, ${distance} away` : ""}`}
@@ -394,8 +392,8 @@ export default function ExploreScreen() {
       return (
         <AnimatedTouchableOpacity
           onPress={() => handleEventPress(item.id)}
-          entering={SlideInRight.delay(index * 50).springify()}
-          layout={Layout.springify()}
+          entering={FadeIn.duration(200)}
+          layout={LinearTransition}
           activeOpacity={0.7}
           accessible={true}
           accessibilityLabel={`${item.name} at ${item.masjidName}`}
@@ -843,8 +841,8 @@ export default function ExploreScreen() {
               return (
                 <AnimatedTouchableOpacity
                   key={facility.code}
-                  entering={FadeIn.delay(index * 30).springify()}
-                  layout={LinearTransition.springify()}
+                  entering={FadeIn.duration(150)}
+                  layout={LinearTransition}
                   onPress={() => handleToggleFacility(facility.code)}
                   style={[
                     styles.filterGridItem,
