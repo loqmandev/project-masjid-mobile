@@ -10,7 +10,6 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/ui/card";
-import { ChromaRing } from "@/components/ui/chroma-ring";
 import {
   BorderRadius,
   Colors,
@@ -79,8 +78,6 @@ export function ProfileHeaderCard({
   const isDark = colorScheme === "dark";
 
   const AVATAR_SIZE = 80;
-  const RING_SIZE = AVATAR_SIZE + 16; // 96
-  const RING_BORDER = 3;
 
   const stats = [
     {
@@ -133,51 +130,41 @@ export function ProfileHeaderCard({
       <View style={styles.content}>
         {/* Avatar + Name Row */}
         <View style={styles.headerRow}>
-          {/* Avatar with ChromaRing */}
+          {/* Avatar */}
           <View style={styles.avatarSection}>
-            <ChromaRing
-              width={RING_SIZE}
-              height={RING_SIZE}
-              borderRadius={RING_SIZE / 2}
-              borderWidth={RING_BORDER}
-              base={isDark ? "#1a1a2e" : "#e0e0e0"}
-              glow={isDark ? primary[400] : primary[500]}
-              background={colors.card}
-            >
-              {avatarUrl ? (
-                <ExpoImage
-                  source={{ uri: avatarUrl }}
-                  style={[
-                    styles.avatar,
-                    {
-                      width: AVATAR_SIZE - RING_BORDER * 2,
-                      height: AVATAR_SIZE - RING_BORDER * 2,
-                      borderRadius: (AVATAR_SIZE - RING_BORDER * 2) / 2,
-                    },
-                  ]}
+            {avatarUrl ? (
+              <ExpoImage
+                source={{ uri: avatarUrl }}
+                style={[
+                  styles.avatar,
+                  {
+                    width: AVATAR_SIZE,
+                    height: AVATAR_SIZE,
+                    borderRadius: AVATAR_SIZE / 2,
+                  },
+                ]}
+              />
+            ) : (
+              <View
+                style={[
+                  styles.avatarPlaceholder,
+                  {
+                    width: AVATAR_SIZE,
+                    height: AVATAR_SIZE,
+                    borderRadius: AVATAR_SIZE / 2,
+                    borderCurve: "continuous",
+                    backgroundColor: colors.primaryLight,
+                  },
+                ]}
+              >
+                <PlatformIcon
+                  sfSymbol="person.fill"
+                  ionicon="person"
+                  size={32}
+                  color={colors.primary}
                 />
-              ) : (
-                <View
-                  style={[
-                    styles.avatarPlaceholder,
-                    {
-                      width: AVATAR_SIZE - RING_BORDER * 2,
-                      height: AVATAR_SIZE - RING_BORDER * 2,
-                      borderRadius: (AVATAR_SIZE - RING_BORDER * 2) / 2,
-                      borderCurve: "continuous",
-                      backgroundColor: colors.primaryLight,
-                    },
-                  ]}
-                >
-                  <PlatformIcon
-                    sfSymbol="person.fill"
-                    ionicon="person"
-                    size={32}
-                    color={colors.primary}
-                  />
-                </View>
-              )}
-            </ChromaRing>
+              </View>
+            )}
           </View>
 
           {/* Display Name */}
@@ -260,7 +247,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   avatarSection: {
-    // Container for ChromaRing
+    // Container for avatar
   },
   avatar: {
     // Dynamic size from props
