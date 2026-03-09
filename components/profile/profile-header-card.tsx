@@ -50,7 +50,7 @@ interface ProfileHeaderCardProps {
   level?: number;
   totalPoints: number;
   uniqueMasjidsVisited: number;
-  achievementsUnlocked: number;
+  totalCheckins: number;
   currentStreak: number;
   featuredBadges?: UserLimitedBadge[];
   onBadgePress?: () => void;
@@ -70,7 +70,7 @@ export function ProfileHeaderCard({
   level = 0,
   totalPoints,
   uniqueMasjidsVisited,
-  achievementsUnlocked,
+  totalCheckins,
   currentStreak,
 }: ProfileHeaderCardProps) {
   const colorScheme = useColorScheme();
@@ -95,10 +95,10 @@ export function ProfileHeaderCard({
       color: colors.primary,
     },
     {
-      sfSymbol: "rosette",
-      ionicon: "ribbon" as const,
-      value: achievementsUnlocked.toString(),
-      label: "Achievements",
+      sfSymbol: "pin.circle.fill",
+      ionicon: "location-outline" as const,
+      value: totalCheckins.toString(),
+      label: "Check-ins",
       color: colors.primary,
     },
     {

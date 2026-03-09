@@ -17,6 +17,7 @@ interface HeroSectionProps {
   achievementCount: number;
   colorScheme: "light" | "dark";
   avatarUrl?: string | null;
+  topInset?: number;
 }
 
 export function HeroSection({
@@ -32,12 +33,18 @@ export function HeroSection({
   achievementCount,
   colorScheme,
   avatarUrl,
+  topInset = 0,
 }: HeroSectionProps) {
   const colors = Colors[colorScheme];
 
   return (
     <View style={styles.container}>
-      <View style={[styles.background, { backgroundColor: colors.heroBackground }]}>
+      <View
+        style={[
+          styles.background,
+          { backgroundColor: colors.heroBackground, paddingTop: topInset },
+        ]}
+      >
         {/* Top Bar */}
         <View style={styles.topBar}>
           <Text style={styles.greetingLabel}>Assalamualaikum,</Text>

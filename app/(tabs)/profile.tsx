@@ -60,6 +60,7 @@ const PROFILE_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const DUMMY_DISPLAY_NAME = "Ahmad Albab";
 const DUMMY_TOTAL_POINTS = 2450;
 const DUMMY_UNIQUE_MASJIDS = 18;
+const DUMMY_TOTAL_CHECKINS = 42;
 
 // Dummy monthly activity - realistic pattern with some gaps and streaks
 function generateDummyMonthlyActivity(
@@ -561,8 +562,10 @@ export default function ProfileScreen() {
             level={Math.floor(totalPoints / 100)}
             totalPoints={totalPoints}
             uniqueMasjidsVisited={uniqueMasjidsVisited}
-            achievementsUnlocked={
-              achievements.filter((a) => a.progress?.isUnlocked).length
+            totalCheckins={
+              isGuest
+                ? DUMMY_TOTAL_CHECKINS
+                : (profileData?.profile?.totalCheckIns ?? recentVisits.length)
             }
             currentStreak={profileData?.profile?.currentStreak ?? 0}
             featuredBadges={isGuest ? [] : featuredBadges}

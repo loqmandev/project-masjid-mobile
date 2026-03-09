@@ -12,11 +12,6 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  LinearTransition,
-} from "react-native-reanimated";
 
 import { EventListItem, formatEventDate, formatEventDistance, formatEventTime } from "@/components/explore/event-list-item";
 import { MasjidListItem } from "@/components/explore/masjid-list-item";
@@ -45,10 +40,6 @@ import {
 import { useSession } from "@/lib/auth-client";
 import { DEMO_LOCATION, DEMO_MASJIDS, isDemoEmail } from "@/lib/demo-mode";
 import { getDistanceInMeters } from "@/lib/storage";
-
-const AnimatedTouchableOpacity =
-  Animated.createAnimatedComponent(TouchableOpacity);
-const AnimatedView = Animated.createAnimatedComponent(View);
 
 // Pre-compute platform-specific background color (tree-shakeable)
 const TAB_CONTAINER_BG_LIGHT = process.env.EXPO_OS === "ios"
@@ -196,31 +187,30 @@ export default function ExploreScreen() {
   }, [nearbyMasjids, searchQuery, showDemoData]);
 
   // Determine which data to display: search results or nearby masjids
-  // Memoized to prevent unnecessary re-renders
-  const displayData = useMemo(() => {
-    return isSearching && searchResults ? searchResults : filteredMasjids;
-  }, [isSearching, searchResults, filteredMasjids]);
+  const displayData = isSearching && searchResults ? searchResults : filteredMasjids;
 
   // Calculate distances for events and pre-format date/time strings
-  // Uses for...of loop to reduce GC handle pressure vs .map()
   // Pre-formatting date/time avoids formatting on every render
   const eventsWithFormattedData = useMemo(() => {
     if (!events || events.length === 0) return [];
     if (!location) {
       // Still format date/time even without location
-      return events.map((event) => {
+      const results: (MasjidEvent & { distanceM?: number; formattedDate: string; formattedTime: string; formattedDistance: string | null })[] = [];
+      for (const event of events) {
         const eventDate = new Date(event.startDateTime);
-        return {
+        results.push({
           ...event,
           distanceM: undefined,
           formattedDate: formatEventDate(eventDate),
           formattedTime: formatEventTime(eventDate),
           formattedDistance: null,
-        };
-      });
+        });
+      }
+      return results;
     }
 
-    return events.map((event) => {
+    const results: (MasjidEvent & { distanceM?: number; formattedDate: string; formattedTime: string; formattedDistance: string | null })[] = [];
+    for (const event of events) {
       const distanceM = getDistanceInMeters(
         location.latitude,
         location.longitude,
@@ -228,14 +218,15 @@ export default function ExploreScreen() {
         event.masjidLng,
       );
       const eventDate = new Date(event.startDateTime);
-      return {
+      results.push({
         ...event,
         distanceM,
         formattedDate: formatEventDate(eventDate),
         formattedTime: formatEventTime(eventDate),
         formattedDistance: formatEventDistance(distanceM),
-      };
-    });
+      });
+    }
+    return results;
   }, [events, location]);
 
   // Compute loading and error states (must be before listData which depends on isLoading)
@@ -256,14 +247,12 @@ export default function ExploreScreen() {
   }, [activeTab, isEventsLoading, eventsWithFormattedData, isLoading, isSearchLoading, displayData]);
 
   // Pre-compute common styles based on color scheme
-  const staticStyles = useMemo(() => ({
-    tabContainerBg: colorScheme === "dark" ? TAB_CONTAINER_BG_DARK : TAB_CONTAINER_BG_LIGHT,
-    checkinIndicatorBg: colors.success + "20",
-    demoBannerBg: colors.primary + "15",
-    emptyIconBg: colors.primary + "15",
-    filterItemSelectedLight: colors.primary + "20",
-    filterItemSelectedDark: colors.primary + "30",
-  }), [colorScheme, colors.success, colors.primary]);
+  const tabContainerBg = colorScheme === "dark" ? TAB_CONTAINER_BG_DARK : TAB_CONTAINER_BG_LIGHT;
+  const checkinIndicatorBg = colors.success + "20";
+  const demoBannerBg = colors.primary + "15";
+  const emptyIconBg = colors.primary + "15";
+  const filterItemSelectedLight = colors.primary + "20";
+  const filterItemSelectedDark = colors.primary + "30";
 
   // Handle search input changes
   const handleSearchChange = useCallback((text: string) => {
@@ -341,11 +330,11 @@ export default function ExploreScreen() {
         textSecondaryColor={colors.textSecondary}
         textTertiaryColor={colors.textTertiary}
         successColor={colors.success}
-        checkinIndicatorBg={staticStyles.checkinIndicatorBg}
+        checkinIndicatorBg={checkinIndicatorBg}
         onPress={handleMasjidPress}
       />
     ),
-    [colors.text, colors.textSecondary, colors.textTertiary, colors.success, staticStyles.checkinIndicatorBg, handleMasjidPress],
+    [colors.text, colors.textSecondary, colors.textTertiary, colors.success, checkinIndicatorBg, handleMasjidPress],
   );
 
   // Render event list item using memoized component
@@ -375,11 +364,10 @@ export default function ExploreScreen() {
         {isDemoMode && <DemoBanner />}
         {showDemoData &&
           (!nearbyMasjids || nearbyMasjids.length === 0) && (
-            <AnimatedView
-              entering={FadeIn.delay(100)}
+            <View
               style={[
                 styles.demoBanner,
-                { backgroundColor: staticStyles.demoBannerBg },
+                { backgroundColor: demoBannerBg },
               ]}
             >
               <IconSymbol
@@ -395,7 +383,7 @@ export default function ExploreScreen() {
               >
                 Demo mode - showing sample masjids
               </Text>
-            </AnimatedView>
+            </View>
           )}
         <Text
           style={[styles.resultsCount, { color: colors.textSecondary }]}
@@ -426,7 +414,7 @@ export default function ExploreScreen() {
     isDemoMode,
     showDemoData,
     nearbyMasjids,
-    staticStyles,
+    demoBannerBg,
     colors.primary,
     colors.textSecondary,
     activeTab,
@@ -444,7 +432,7 @@ export default function ExploreScreen() {
       <>
         {/* Loading state */}
         {(isLoading || isSearchLoading) && (
-          <AnimatedView entering={FadeIn} style={styles.centerContainer}>
+          <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text
               style={[
@@ -460,11 +448,11 @@ export default function ExploreScreen() {
                     ? "Loading events..."
                     : "Finding nearby masjids..."}
             </Text>
-          </AnimatedView>
+          </View>
         )}
         {/* Error state */}
         {error && !isLoading && !isSearching && (
-          <AnimatedView entering={FadeIn} style={styles.centerContainer}>
+          <View style={styles.centerContainer}>
             <Text style={[styles.errorText, { color: colors.error }]}>
               {error}
             </Text>
@@ -491,11 +479,11 @@ export default function ExploreScreen() {
             >
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
-          </AnimatedView>
+          </View>
         )}
         {/* Search error state */}
         {searchError && isSearching && !isSearchLoading && (
-          <AnimatedView entering={FadeIn} style={styles.centerContainer}>
+          <View style={styles.centerContainer}>
             <Text style={[styles.errorText, { color: colors.error }]}>
               {searchError.message}
             </Text>
@@ -514,7 +502,7 @@ export default function ExploreScreen() {
             >
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
-          </AnimatedView>
+          </View>
         )}
         {/* Empty state */}
         {!isLoading &&
@@ -524,15 +512,11 @@ export default function ExploreScreen() {
           (activeTab === "events"
             ? eventsWithFormattedData?.length === 0
             : displayData.length === 0) && (
-            <AnimatedView
-              entering={FadeIn}
-              style={styles.centerContainer}
-            >
-              <AnimatedView
-                entering={FadeInDown.springify()}
+            <View style={styles.centerContainer}>
+              <View
                 style={[
                   styles.emptyIconContainer,
-                  { backgroundColor: staticStyles.emptyIconBg },
+                  { backgroundColor: emptyIconBg },
                 ]}
               >
                 <IconSymbol
@@ -546,7 +530,7 @@ export default function ExploreScreen() {
                   size={48}
                   color={colors.primary}
                 />
-              </AnimatedView>
+              </View>
               <Text style={[styles.emptyText, { color: colors.text }]}>
                 {activeTab === "events"
                   ? "No upcoming events"
@@ -566,7 +550,7 @@ export default function ExploreScreen() {
                       ? "Try a different search term"
                       : "No masjids within 5km of your location"}
               </Text>
-            </AnimatedView>
+            </View>
           )}
       </>
     );
@@ -587,7 +571,7 @@ export default function ExploreScreen() {
     refetchEvents,
     refetchMasjids,
     searchQuery,
-    staticStyles.emptyIconBg,
+    emptyIconBg,
   ]);
 
   return (
@@ -607,11 +591,10 @@ export default function ExploreScreen() {
       />
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Tab Container - always visible */}
-        <AnimatedView
-          style={[styles.tabContainer, { backgroundColor: staticStyles.tabContainerBg as unknown as string }]}
-          layout={LinearTransition.springify()}
+        <View
+          style={[styles.tabContainer, { backgroundColor: tabContainerBg as unknown as string }]}
         >
-          <AnimatedTouchableOpacity
+          <TouchableOpacity
             style={[
               styles.tab,
               activeTab === "masjids" && [
@@ -642,8 +625,8 @@ export default function ExploreScreen() {
             >
               Masjids
             </Text>
-          </AnimatedTouchableOpacity>
-          <AnimatedTouchableOpacity
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[
               styles.tab,
               activeTab === "events" && [
@@ -674,8 +657,8 @@ export default function ExploreScreen() {
             >
               Events
             </Text>
-          </AnimatedTouchableOpacity>
-        </AnimatedView>
+          </TouchableOpacity>
+        </View>
 
         {/* Masjid List - always rendered for iOS large title collapse */}
         <FlatList
@@ -711,7 +694,7 @@ export default function ExploreScreen() {
 
         {/* Floating Filter Button - hide when searching or on events tab */}
         {!isSearching && activeTab === "masjids" && (
-          <AnimatedTouchableOpacity
+          <TouchableOpacity
             onPress={handleOpenFilters}
             style={[styles.fab, { backgroundColor: colors.primary }]}
             activeOpacity={0.85}
@@ -727,16 +710,15 @@ export default function ExploreScreen() {
               color="#FFFFFF"
             />
             {selectedFacilities.size > 0 && (
-              <AnimatedView
-                entering={FadeIn}
+              <View
                 style={[styles.fabBadge, { backgroundColor: colors.card }]}
               >
                 <Text style={[styles.fabBadgeText, { color: colors.primary }]}>
                   {selectedFacilities.size}
                 </Text>
-              </AnimatedView>
+              </View>
             )}
-          </AnimatedTouchableOpacity>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -770,7 +752,7 @@ export default function ExploreScreen() {
 
         {/* Facilities Grid - 2 Columns */}
         {isFacilitiesLoading ? (
-          <AnimatedView entering={FadeIn} style={styles.filterLoadingContainer}>
+          <View style={styles.filterLoadingContainer}>
             <ActivityIndicator size="small" color={colors.primary} />
             <Text
               style={[
@@ -780,23 +762,22 @@ export default function ExploreScreen() {
             >
               Loading facilities...
             </Text>
-          </AnimatedView>
+          </View>
         ) : facilities && facilities.length > 0 ? (
           <View style={styles.filterGrid}>
             {facilities.map((facility: FacilityOption) => {
               const isSelected = selectedFacilities.has(facility.code);
               return (
-                <AnimatedTouchableOpacity
+                <TouchableOpacity
                   key={facility.code}
-                  layout={LinearTransition}
                   onPress={() => handleToggleFacility(facility.code)}
                   style={[
                     styles.filterGridItem,
                     {
                       backgroundColor: isSelected
                         ? colorScheme === "dark"
-                          ? staticStyles.filterItemSelectedDark
-                          : staticStyles.filterItemSelectedLight
+                          ? filterItemSelectedDark
+                          : filterItemSelectedLight
                         : colorScheme === "dark"
                           ? "#2A2C2E"
                           : "#F5F5F5",
@@ -821,7 +802,7 @@ export default function ExploreScreen() {
                       color={colors.primary}
                     />
                   )}
-                </AnimatedTouchableOpacity>
+                </TouchableOpacity>
               );
             })}
           </View>

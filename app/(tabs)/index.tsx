@@ -14,10 +14,7 @@ import Animated, {
   FadeInDown,
   LinearTransition,
 } from "react-native-reanimated";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AchievementUnlockModal } from "@/components/achievement/achievement-unlock-modal";
 import { EventBannerCarousel } from "@/components/events/event-banner-carousel";
@@ -268,23 +265,13 @@ export default function HomeScreen() {
 
   return (
     <>
-      {/* Status bar background for Android edge-to-edge */}
-      <View style={{ backgroundColor: colors.heroBackground }}>
-        <SafeAreaView edges={["top"]}>
-          <View style={{ height: insets.top }} />
-        </SafeAreaView>
-      </View>
-      <SafeAreaView
-        edges={["left", "right", "bottom"]}
-        style={[styles.container, { backgroundColor: colors.background }]}
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        contentInsetAdjustmentBehavior="automatic"
+        showsVerticalScrollIndicator={false}
       >
-        <Stack.Screen options={{ headerShown: false }} />
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          contentInsetAdjustmentBehavior="automatic"
-          showsVerticalScrollIndicator={false}
-        >
           {/* Hero Section with stats - immediate animation */}
           <AnimatedView entering={FadeInDown.duration(400)} layout={LinearTransition.springify()}>
             <HeroSection
@@ -300,6 +287,7 @@ export default function HomeScreen() {
               achievementCount={achievementCount}
               colorScheme={colorScheme ?? "light"}
               avatarUrl={avatarUrl}
+              topInset={insets.top}
             />
           </AnimatedView>
 
@@ -582,26 +570,21 @@ export default function HomeScreen() {
           )}
         </ScrollView>
 
-        {/* Achievement Unlock Modal */}
-        <AchievementUnlockModal
-          achievements={pendingAchievements}
-          visible={showAchievementModal}
-          onClose={handleCloseAchievementModal}
-        />
-      </SafeAreaView>
+      {/* Achievement Unlock Modal */}
+      <AchievementUnlockModal
+        achievements={pendingAchievements}
+        visible={showAchievementModal}
+        onClose={handleCloseAchievementModal}
+      />
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 0,
     paddingBottom: Spacing.xxl,
     gap: Spacing.md,
   },
