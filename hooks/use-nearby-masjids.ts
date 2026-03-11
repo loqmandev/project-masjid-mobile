@@ -61,16 +61,25 @@ export function useNearbyMasjids({
       const base = results[0];
       if (base.length === 0) return [];
 
-      const allowedIds = results
-        .slice(1)
-        .map((list) => new Set(list.map((masjid) => masjid.masjidId)));
+      // Single filter - no intersection needed
+      if (results.length === 1) return base;
 
-      return base.filter((masjid) =>
-        allowedIds.every((set) => set.has(masjid.masjidId))
-      );
+      // Create intersection of masjid IDs across all filter results
+      // Using incremental intersection to avoid creating multiple Set objects
+      const allowedIds = new Set(base.map((m) => m.masjidId));
+      for (let i = 1; i < results.length; i++) {
+        const currentIds = new Set(results[i].map((m) => m.masjidId));
+        for (const id of allowedIds) {
+          if (!currentIds.has(id)) {
+            allowedIds.delete(id);
+          }
+        }
+      }
+
+      return base.filter((masjid) => allowedIds.has(masjid.masjidId));
     },
     enabled: enabled && latitude !== null && longitude !== null,
     staleTime: 60 * 1000, // Consider data fresh for 1 minute
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 }

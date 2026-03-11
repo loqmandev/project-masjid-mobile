@@ -16,6 +16,8 @@ interface HeroSectionProps {
   currentStreak: number;
   achievementCount: number;
   colorScheme: "light" | "dark";
+  avatarUrl?: string | null;
+  topInset?: number;
 }
 
 export function HeroSection({
@@ -30,12 +32,19 @@ export function HeroSection({
   currentStreak,
   achievementCount,
   colorScheme,
+  avatarUrl,
+  topInset = 0,
 }: HeroSectionProps) {
   const colors = Colors[colorScheme];
 
   return (
     <View style={styles.container}>
-      <View style={[styles.background, { backgroundColor: colors.heroBackground }]}>
+      <View
+        style={[
+          styles.background,
+          { backgroundColor: colors.heroBackground, paddingTop: topInset },
+        ]}
+      >
         {/* Top Bar */}
         <View style={styles.topBar}>
           <Text style={styles.greetingLabel}>Assalamualaikum,</Text>
@@ -53,13 +62,14 @@ export function HeroSection({
               colorScheme={colorScheme}
               currentXP={currentXP}
               nextLevelXP={nextLevelXP}
+              avatarUrl={avatarUrl}
             />
           </View>
 
           {/* Stats on right */}
           <View style={styles.statsContainer}>
             <StatRow
-              icon="mosque"
+              icon="building.2.fill"
               value={uniqueMasjidsVisited}
               label="Masjids"
               variant="default"

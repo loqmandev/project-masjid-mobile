@@ -29,7 +29,7 @@ export interface LocationState {
   error: string | null;
   isLoading: boolean;
   isFromCache: boolean;
-  refresh: (forceRefresh?: boolean) => Promise<void>;
+  refresh: (forceRefresh?: boolean) => Promise<LocationCoords | null>;
 }
 
 // Error messages with clear user guidance
@@ -62,8 +62,8 @@ export function useLocation(options: UseLocationOptions = {}): LocationState {
   // Track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true);
 
-  const getLocation = useCallback(async (forceRefresh = false) => {
-    if (!isMountedRef.current) return;
+  const getLocation = useCallback(async (forceRefresh = false): Promise<LocationCoords | null> => {
+    if (!isMountedRef.current) return null;
 
     setIsLoading(true);
     setError(null);
@@ -80,13 +80,14 @@ export function useLocation(options: UseLocationOptions = {}): LocationState {
     if (currentOpts.useCache && !forceRefresh) {
       const cached = loadCachedLocation();
       if (cached && isCachedLocationValid(cached)) {
-        setLocation({
+        const cachedLocation = {
           latitude: cached.latitude,
           longitude: cached.longitude,
-        });
+        };
+        setLocation(cachedLocation);
         setIsFromCache(true);
         if (isMountedRef.current) setIsLoading(false);
-        return;
+        return cachedLocation;
       }
     }
 
@@ -96,7 +97,7 @@ export function useLocation(options: UseLocationOptions = {}): LocationState {
       if (status !== "granted") {
         if (isMountedRef.current) setError(LocationErrors.PERMISSION_DENIED);
         if (isMountedRef.current) setIsLoading(false);
-        return;
+        return null;
       }
 
       const currentLocation = await Location.getCurrentPositionAsync({
@@ -118,7 +119,9 @@ export function useLocation(options: UseLocationOptions = {}): LocationState {
         setLocation(newLocation);
         setIsFromCache(false);
         setError(null);
+        setIsLoading(false);
       }
+      return newLocation;
     } catch (err: any) {
       // Determine error type from expo location error codes
       const errorMessage =
@@ -132,20 +135,23 @@ export function useLocation(options: UseLocationOptions = {}): LocationState {
       if (!forceRefresh && currentOpts.useCache) {
         const cached = loadCachedLocation();
         if (cached) {
-          setLocation({
+          const cachedLocation = {
             latitude: cached.latitude,
             longitude: cached.longitude,
-          });
+          };
+          setLocation(cachedLocation);
           setIsFromCache(true);
           setError(null); // Clear error since we have cached data
           if (isMountedRef.current) setIsLoading(false);
-          return;
+          return cachedLocation;
         }
       }
 
-      if (isMountedRef.current) setError(errorMessage);
-    } finally {
-      if (isMountedRef.current) setIsLoading(false);
+      if (isMountedRef.current) {
+        setError(errorMessage);
+        setIsLoading(false);
+      }
+      return null;
     }
   }, []); // No dependencies - uses ref for options
 

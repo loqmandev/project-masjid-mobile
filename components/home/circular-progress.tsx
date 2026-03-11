@@ -1,6 +1,6 @@
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedProps, withTiming } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -93,6 +93,7 @@ interface CircularProgressWithAvatarProps {
   colorScheme?: 'light' | 'dark';
   currentXP?: number;
   nextLevelXP?: number;
+  avatarUrl?: string | null;
 }
 
 export function CircularProgressWithAvatar({
@@ -104,6 +105,7 @@ export function CircularProgressWithAvatar({
   colorScheme = 'light',
   currentXP = 0,
   nextLevelXP = 100,
+  avatarUrl,
 }: CircularProgressWithAvatarProps) {
   const avatarSize = size - strokeWidth * 4;
 
@@ -119,7 +121,11 @@ export function CircularProgressWithAvatar({
         nextLevelXP={nextLevelXP}
       >
         <View style={[styles.avatar, { width: avatarSize, height: avatarSize }]}>
-          <Text style={styles.avatarText}>{initials}</Text>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={[styles.avatarImage, { width: avatarSize - 4, height: avatarSize - 4 }]} />
+          ) : (
+            <Text style={styles.avatarText}>{initials}</Text>
+          )}
         </View>
       </CircularProgress>
       {level !== undefined && (
@@ -162,6 +168,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    borderRadius: 9999,
   },
   avatarText: {
     ...Typography.h1,

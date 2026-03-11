@@ -1,10 +1,13 @@
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
+  Alert,
+  Dimensions,
   Linking,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -12,6 +15,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Badge } from "@/components/ui/badge";
@@ -19,20 +31,236 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
+import { useActiveCheckin } from "@/hooks/use-active-checkin";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useLocation } from "@/hooks/use-location";
 import { useMasjidDetails } from "@/hooks/use-masjid-details";
 import { useMasjidPhotos } from "@/hooks/use-masjid-photos";
 import { useAnalytics } from "@/lib/analytics";
+import { checkinToMasjid } from "@/lib/api";
+import { useSession } from "@/lib/auth-client";
+import { DEMO_LOCATION, isDemoEmail } from "@/lib/demo-mode";
 
 type TabType = "photos" | "facilities" | "events";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+// Maximum distance in meters for check-in
+const MAX_CHECKIN_DISTANCE_M = 100;
+
+/**
+ * Calculate distance between two coordinates using Haversine formula
+ * @returns distance in meters
+ */
+function calculateDistance(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 6371000; // Earth's radius in meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Full-screen image viewer component with zoom/pan
+function ImageViewerModal({
+  visible,
+  imageUri,
+  onClose,
+}: {
+  visible: boolean;
+  imageUri: string | null;
+  onClose: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((e) => {
+      "worklet";
+      scale.value = savedScale.value * e.scale;
+    })
+    .onEnd(() => {
+      "worklet";
+      if (scale.value < 1) {
+        scale.value = withSpring(1);
+        savedScale.value = 1;
+      } else if (scale.value > 4) {
+        scale.value = withSpring(4);
+        savedScale.value = 4;
+      } else {
+        savedScale.value = scale.value;
+      }
+    });
+
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      "worklet";
+      if (scale.value > 1) {
+        translateX.value = savedTranslateX.value + e.translationX;
+        translateY.value = savedTranslateY.value + e.translationY;
+      }
+    })
+    .onEnd(() => {
+      "worklet";
+      if (scale.value <= 1) {
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+      } else {
+        const maxTranslateX = ((scale.value - 1) * SCREEN_WIDTH) / 2;
+        const maxTranslateY = ((scale.value - 1) * SCREEN_HEIGHT) / 2;
+        const clampedX = Math.max(
+          -maxTranslateX,
+          Math.min(maxTranslateX, translateX.value),
+        );
+        const clampedY = Math.max(
+          -maxTranslateY,
+          Math.min(maxTranslateY, translateY.value),
+        );
+        translateX.value = withSpring(clampedX);
+        translateY.value = withSpring(clampedY);
+        savedTranslateX.value = clampedX;
+        savedTranslateY.value = clampedY;
+      }
+    });
+
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => {
+      "worklet";
+      if (scale.value > 1) {
+        scale.value = withSpring(1);
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+        savedScale.value = 1;
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+      } else {
+        scale.value = withSpring(2);
+        savedScale.value = 2;
+      }
+    });
+
+  const singleTapGesture = Gesture.Tap().runOnJS(true).onEnd(onClose);
+
+  const composedGesture = Gesture.Simultaneous(
+    pinchGesture,
+    Gesture.Simultaneous(
+      panGesture,
+      Gesture.Exclusive(doubleTapGesture, singleTapGesture),
+    ),
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
+
+  // Reset values when modal closes
+  useEffect(() => {
+    if (!visible) {
+      scale.value = 1;
+      savedScale.value = 1;
+      translateX.value = 0;
+      translateY.value = 0;
+      savedTranslateX.value = 0;
+      savedTranslateY.value = 0;
+    }
+  }, [visible]);
+
+  if (!imageUri) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <Animated.View
+        entering={FadeIn.duration(200)}
+        exiting={FadeOut.duration(200)}
+        style={{
+          flex: 1,
+          backgroundColor: "rgba(0, 0, 0, 0.95)",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <GestureDetector gesture={composedGesture}>
+          <Animated.View style={animatedStyle}>
+            <Image
+              source={{ uri: imageUri }}
+              style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT * 0.8 }}
+              contentFit="contain"
+              recyclingKey={imageUri}
+            />
+          </Animated.View>
+        </GestureDetector>
+        <TouchableOpacity
+          onPress={onClose}
+          style={{
+            position: "absolute",
+            top: 50,
+            right: 16,
+            padding: 12,
+            borderRadius: 24,
+            backgroundColor: "rgba(255, 255, 255, 0.2)",
+          }}
+          accessibilityLabel="Close image viewer"
+          accessibilityRole="button"
+        >
+          <IconSymbol name="xmark" size={24} color="#fff" />
+        </TouchableOpacity>
+      </Animated.View>
+    </Modal>
+  );
+}
 
 export default function MasjidDetailScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
   const { id } = useLocalSearchParams<{ id: string }>();
   const { track, screen } = useAnalytics();
+  const queryClient = useQueryClient();
+  const { data: session } = useSession();
   const hasTrackedView = useRef(false);
   const [activeTab, setActiveTab] = useState<TabType>("photos");
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+
+  // Check if user is in demo mode
+  const isDemoMode = session?.user?.email
+    ? isDemoEmail(session.user.email)
+    : false;
+
+  // Location hook
+  const { location, isLoading: isLocationLoading } = useLocation();
+
+  // Active check-in hook
+  const { data: activeCheckinData, invalidate: invalidateActiveCheckin } =
+    useActiveCheckin();
+  const activeCheckin = activeCheckinData?.checkIn;
 
   // Fetch masjid details
   const {
@@ -55,11 +283,138 @@ export default function MasjidDetailScreen() {
     hasTrackedView.current = true;
   }, [id, masjid, screen, track]);
 
-  const handleCheckIn = useCallback(() => {
+  const handleCheckIn = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    track("masjid_checkin_clicked", { masjid_id: masjid?.id ?? id });
-    router.push("/(tabs)/checkin");
-  }, [masjid?.id, id, track]);
+
+    // Check if user is signed in
+    if (!session?.user) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      track("masjid_checkin_auth_required", { masjid_id: masjid?.id ?? id });
+      Alert.alert("Sign In Required", "Please sign in to check in to masjids.");
+      router.push("/auth/login");
+      return;
+    }
+
+    // Check if user has an active check-in
+    if (activeCheckin) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      track("masjid_checkin_blocked", {
+        masjid_id: masjid?.id ?? id,
+        reason: "active_checkin",
+      });
+      Alert.alert(
+        "Already Checked In",
+        `You have an active check-in at ${activeCheckin.masjidName}. Check out first to start a new visit.`,
+      );
+      return;
+    }
+
+    // Check if masjid data is available
+    if (!masjid) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Error", "Masjid information not available.");
+      return;
+    }
+
+    // For demo mode, use demo location; otherwise require real location
+    const checkInLocation = isDemoMode ? DEMO_LOCATION : location;
+
+    if (!checkInLocation && !isDemoMode) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      track("masjid_checkin_blocked", {
+        masjid_id: masjid.id,
+        reason: "no_location",
+      });
+      Alert.alert(
+        "Location Required",
+        "Please enable location services to check in.",
+      );
+      return;
+    }
+
+    // Calculate distance to masjid
+    const distance = checkInLocation
+      ? calculateDistance(
+          checkInLocation.latitude,
+          checkInLocation.longitude,
+          masjid.lat,
+          masjid.lng,
+        )
+      : 0; // In demo mode, assume within range
+
+    // Check if user is within range (100 meters)
+    if (!isDemoMode && distance > MAX_CHECKIN_DISTANCE_M) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      track("masjid_checkin_blocked", {
+        masjid_id: masjid.id,
+        reason: "not_nearby",
+        distance_m: Math.round(distance),
+      });
+      Alert.alert(
+        "Not Close Enough",
+        `You are ${Math.round(distance)}m away from ${masjid.name}. Get within ${MAX_CHECKIN_DISTANCE_M}m to check in.`,
+      );
+      return;
+    }
+
+    // Perform check-in
+    setIsCheckingIn(true);
+    try {
+      track("masjid_checkin_attempted", {
+        masjid_id: masjid.id,
+        distance_m: Math.round(distance),
+        isDemo: isDemoMode,
+      });
+
+      const result = await checkinToMasjid(
+        masjid.masjidId,
+        checkInLocation!.latitude,
+        checkInLocation!.longitude,
+      );
+
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        track("masjid_checkin_success", {
+          masjid_id: masjid.id,
+          distance_m: Math.round(distance),
+          isDemo: isDemoMode,
+        });
+
+        // Invalidate queries to refresh data
+        invalidateActiveCheckin();
+        queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+
+        // Navigate to check-in tab to show active check-in
+        router.push("/(tabs)/checkin");
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        track("masjid_checkin_failed", {
+          masjid_id: masjid.id,
+          reason: result.message ?? "unknown",
+        });
+        Alert.alert("Check-in Failed", result.message ?? "Please try again.");
+      }
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      track("masjid_checkin_failed", {
+        masjid_id: masjid.id,
+        reason: "exception",
+      });
+      Alert.alert("Error", "Failed to check in. Please try again.");
+    } finally {
+      setIsCheckingIn(false);
+    }
+  }, [
+    session,
+    activeCheckin,
+    masjid,
+    location,
+    isDemoMode,
+    invalidateActiveCheckin,
+    queryClient,
+    track,
+    id,
+  ]);
 
   const handleTabChange = useCallback(
     (tab: TabType) => {
@@ -92,6 +447,25 @@ export default function MasjidDetailScreen() {
       );
     });
   }, [masjid, track]);
+
+  const handlePhotoPress = useCallback(
+    (photoUrl: string) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      track("masjid_photo_viewed", {
+        masjid_id: masjid?.id,
+        photo_url: photoUrl,
+      });
+      setSelectedImageUri(photoUrl);
+      setViewerVisible(true);
+    },
+    [masjid?.id, track],
+  );
+
+  const closeViewer = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setViewerVisible(false);
+    setSelectedImageUri(null);
+  }, []);
 
   // Get available facilities
   const getAvailableFacilities = () => {
@@ -460,18 +834,22 @@ export default function MasjidDetailScreen() {
                   accessibilityRole="list"
                 >
                   {masjidPhotos.map((photo: { id: string; url: string }) => (
-                    <View
+                    <TouchableOpacity
                       key={photo.id}
                       style={styles.photoItem}
                       accessible={true}
                       accessibilityLabel={`Photo ${photo.id}`}
+                      accessibilityHint="Double tap to view full image"
+                      onPress={() => handlePhotoPress(photo.url)}
+                      activeOpacity={0.9}
                     >
                       <Image
-                        source={{ uri: photo.url, cache: "force-cache" }}
+                        source={{ uri: photo.url }}
                         style={styles.photoImage}
-                        resizeMode="cover"
+                        contentFit="cover"
+                        recyclingKey={photo.id}
                       />
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               ) : (
@@ -586,17 +964,22 @@ export default function MasjidDetailScreen() {
         >
           <View style={styles.stickyActionsInner}>
             <Button
-              title="Check In"
+              title={isCheckingIn ? "Checking in..." : "Check In"}
               variant="primary"
               size="lg"
               onPress={handleCheckIn}
+              disabled={isCheckingIn || isLocationLoading}
               style={styles.checkInButtonSticky}
               icon={
-                <IconSymbol
-                  name="checkmark.circle.fill"
-                  size={20}
-                  color="#fff"
-                />
+                isCheckingIn ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <IconSymbol
+                    name="checkmark.circle.fill"
+                    size={20}
+                    color="#fff"
+                  />
+                )
               }
             />
             <Button
@@ -615,6 +998,13 @@ export default function MasjidDetailScreen() {
             />
           </View>
         </View>
+
+        {/* Full-screen Image Viewer */}
+        <ImageViewerModal
+          visible={viewerVisible}
+          imageUri={selectedImageUri}
+          onClose={closeViewer}
+        />
       </SafeAreaView>
     </>
   );

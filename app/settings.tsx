@@ -19,7 +19,8 @@ import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-color-scheme';
-import { clearAllAppData, clearAppCache, ThemePreference } from '@/lib/storage';
+import { useCheckinNotification } from '@/hooks/use-checkin-notification';
+import { clearAllAppData, clearAppCache, loadCheckoutRemindersEnabled, saveCheckoutRemindersEnabled, ThemePreference } from '@/lib/storage';
 import { deleteAccount } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { signOut } from '@/lib/auth-client';
@@ -28,12 +29,12 @@ export default function SettingsScreen() {
   const { colorScheme, themePreference, setThemePreference } = useTheme();
   const colors = Colors[colorScheme ?? 'light'];
   const queryClient = useQueryClient();
+  const { cancelCheckoutReminder, requestPermissions } = useCheckinNotification();
 
-  // Settings state (UI only for now)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for future implementation
-  const [pushNotifications, setPushNotifications] = useState(true);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for future implementation
-  const [checkoutReminders, setCheckoutReminders] = useState(true);
+  // Notification preferences
+  const [checkoutReminders, setCheckoutReminders] = useState(
+    () => loadCheckoutRemindersEnabled()
+  );
   const [profileVisibility, setProfileVisibility] = useState(true);
 
   // Delete account modal state
@@ -42,6 +43,28 @@ export default function SettingsScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const REQUIRED_CONFIRMATION_TEXT = 'Delete my account';
+
+  const handleCheckoutRemindersToggle = async (enabled: boolean) => {
+    if (enabled) {
+      const granted = await requestPermissions();
+      if (!granted) {
+        Alert.alert(
+          'Notifications Disabled',
+          'To receive check-out reminders, please enable notifications for Jejak Masjid in your device settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]
+        );
+        return;
+      }
+    } else {
+      // Cancel any pending reminder when user disables
+      await cancelCheckoutReminder();
+    }
+    saveCheckoutRemindersEnabled(enabled);
+    setCheckoutReminders(enabled);
+  };
 
   const handleClearCache = () => {
     Alert.alert(
@@ -242,22 +265,16 @@ export default function SettingsScreen() {
           })}
         </Card>
 
-        {/* Notifications Section TODO: For next release */}
-        {/* {renderSectionHeader('NOTIFICATIONS')}
+        {/* Notifications Section */}
+        {renderSectionHeader('NOTIFICATIONS')}
         <Card variant="outlined" padding="xs" style={styles.sectionCard}>
-          {renderToggleItem(
-            'bell.fill',
-            'Push Notifications',
-            pushNotifications,
-            setPushNotifications
-          )}
           {renderToggleItem(
             'clock.fill',
             'Check-out Reminders',
             checkoutReminders,
-            setCheckoutReminders
+            handleCheckoutRemindersToggle
           )}
-        </Card> */}
+        </Card>
 
         {/* Privacy Section */}
         {renderSectionHeader('PRIVACY')}

@@ -1,4 +1,8 @@
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import { File } from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
+import { Image as ExpoImage } from "expo-image";
 import { router, Stack } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -14,11 +18,12 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 
 import { Card } from "@/components/ui/card";
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { getUserProfile, updateUserProfile } from "@/lib/api";
+import { getAvatarUploadUrl, getUserProfile, updateUserProfile } from "@/lib/api";
 import { useSession } from "@/lib/auth-client";
 import { clearCachedUserProfile } from "@/lib/storage";
 
@@ -30,6 +35,15 @@ export default function EditProfileScreen() {
   // Text input value stored in ref to avoid re-renders on every keystroke
   const nameRef = useRef("");
   const originalNameRef = useRef("");
+
+  // Avatar state
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(null);
+  const [selectedAvatar, setSelectedAvatar] = useState<{
+    uri: string;
+    mimeType: string;
+  } | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const originalAvatarRef = useRef<string | null>(null);
 
   // Character count display - minimal state that only updates the count display
   const [charCount, setCharCount] = useState(0);
@@ -63,6 +77,12 @@ export default function EditProfileScreen() {
         originalNameRef.current = name;
         setCharCount(name.length);
         setHasExistingName(name.length > 0);
+
+        // Load avatar URL
+        const avatarUrl = profileData.user.image;
+        setCurrentAvatarUrl(avatarUrl);
+        originalAvatarRef.current = avatarUrl;
+
         if (isMountedRef.current) setError(null);
       } catch (err) {
         // Error logged but not using console.error in production
@@ -81,9 +101,106 @@ export default function EditProfileScreen() {
 
   // User has changes when they enter a new name (different from original).
   // Leaving the field empty is treated as "no changes" - users can navigate back to keep their current name.
+  // Also includes avatar changes.
   const hasChanges =
-    nameRef.current.trim().length > 0 &&
-    nameRef.current.trim() !== originalNameRef.current;
+    (nameRef.current.trim().length > 0 &&
+      nameRef.current.trim() !== originalNameRef.current) ||
+    selectedAvatar !== null ||
+    (currentAvatarUrl !== originalAvatarRef.current && selectedAvatar === null);
+
+  // Avatar helper functions
+  const normalizeAssetUri = async (
+    asset: ImagePicker.ImagePickerAsset,
+  ): Promise<string> => {
+    let uri = asset.uri;
+    if (Platform.OS === "android" && uri.startsWith("content://")) {
+      const ext = asset.fileName?.split(".").pop() || "jpg";
+      const targetUri = `${FileSystem.cacheDirectory}avatar-${Date.now()}.${ext}`;
+      await FileSystem.copyAsync({ from: uri, to: targetUri });
+      uri = targetUri;
+    }
+    return uri;
+  };
+
+  const processSelectedImage = async (
+    asset: ImagePicker.ImagePickerAsset,
+  ): Promise<void> => {
+    const uri = await normalizeAssetUri(asset);
+    const mimeType = asset.mimeType || "image/jpeg";
+    setSelectedAvatar({ uri, mimeType });
+  };
+
+  const pickFromLibrary = async (): Promise<void> => {
+    const permission =
+      await ImagePicker.requestMediaLibraryPermissionsAsync(false);
+    if (!permission.granted) {
+      Alert.alert(
+        "Permission required",
+        "Allow photo access to change your avatar.",
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      await processSelectedImage(result.assets[0]);
+    }
+  };
+
+  const takePhoto = async (): Promise<void> => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        "Permission required",
+        "Allow camera access to take a photo.",
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      await processSelectedImage(result.assets[0]);
+    }
+  };
+
+  const removeAvatar = (): void => {
+    setSelectedAvatar(null);
+    setCurrentAvatarUrl(null);
+  };
+
+  const showAvatarOptions = (): void => {
+    Alert.alert(
+      "Profile Photo",
+      undefined,
+      [
+        { text: "Take Photo", onPress: takePhoto },
+        { text: "Choose from Library", onPress: pickFromLibrary },
+        ...(currentAvatarUrl || selectedAvatar
+          ? [
+              {
+                text: "Remove Photo",
+                onPress: removeAvatar,
+                style: "destructive" as const,
+              },
+            ]
+          : []),
+        { text: "Cancel", style: "cancel" },
+      ],
+      { cancelable: true },
+    );
+  };
 
   const handleSave = async () => {
     const trimmedName = nameRef.current.trim();
@@ -117,7 +234,39 @@ export default function EditProfileScreen() {
     setIsSaving(true);
 
     try {
-      await updateUserProfile({ name: trimmedName });
+      let avatarUrl = currentAvatarUrl;
+
+      // Upload new avatar if selected
+      if (selectedAvatar) {
+        setIsUploadingAvatar(true);
+        const uploadData = await getAvatarUploadUrl(selectedAvatar.mimeType);
+
+        const fileBytes = await new File(selectedAvatar.uri).bytes();
+        const body = fileBytes.buffer.slice(
+          fileBytes.byteOffset,
+          fileBytes.byteOffset + fileBytes.byteLength,
+        );
+
+        const uploadResult = await fetch(uploadData.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": uploadData.contentType },
+          body,
+        });
+
+        if (!uploadResult.ok) {
+          throw new Error("Failed to upload avatar");
+        }
+
+        avatarUrl = uploadData.publicUrl;
+        setIsUploadingAvatar(false);
+      }
+
+      // Update profile
+      await updateUserProfile({
+        name: trimmedName,
+        avatarUrl,
+      });
+
       // Clear the cached profile so it refreshes with new data
       clearCachedUserProfile();
       // Success haptic feedback
@@ -139,7 +288,10 @@ export default function EditProfileScreen() {
           : "Failed to update profile. Please try again.",
       );
     } finally {
-      if (isMountedRef.current) setIsSaving(false);
+      if (isMountedRef.current) {
+        setIsSaving(false);
+        setIsUploadingAvatar(false);
+      }
     }
   };
 
@@ -220,6 +372,38 @@ export default function EditProfileScreen() {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
+            {/* Avatar Section */}
+            <View style={styles.avatarSection}>
+              <TouchableOpacity
+                onPress={showAvatarOptions}
+                style={styles.avatarContainer}
+                accessibilityLabel="Change profile photo"
+                accessibilityRole="button"
+              >
+                {selectedAvatar ? (
+                  <ExpoImage source={{ uri: selectedAvatar.uri }} style={styles.avatar} />
+                ) : currentAvatarUrl ? (
+                  <ExpoImage source={{ uri: currentAvatarUrl }} style={styles.avatar} />
+                ) : (
+                  <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primaryLight }]}>
+                    <Ionicons name="person" size={48} color={colors.primary} />
+                  </View>
+                )}
+                {isUploadingAvatar ? (
+                  <View style={[styles.editOverlay, { backgroundColor: colors.primary }]}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  </View>
+                ) : (
+                  <View style={[styles.editOverlay, { backgroundColor: colors.primary }]}>
+                    <Ionicons name="camera" size={20} color="#FFFFFF" />
+                  </View>
+                )}
+              </TouchableOpacity>
+              <Text style={[styles.avatarHint, { color: colors.textSecondary }]}>
+                Tap to change profile photo
+              </Text>
+            </View>
+
             <Card variant="outlined" padding="md" style={styles.card}>
               <Text style={[styles.label, { color: colors.text }]}>
                 Display Name
@@ -324,7 +508,7 @@ export default function EditProfileScreen() {
                     { color: hasChanges ? "#FFFFFF" : colors.textTertiary },
                   ]}
                 >
-                  Save Changes
+                  {isUploadingAvatar ? "Uploading..." : "Save Changes"}
                 </Text>
               )}
             </TouchableOpacity>
@@ -347,6 +531,40 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.md,
+  },
+  // Avatar styles
+  avatarSection: {
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  avatarContainer: {
+    position: "relative",
+  },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
+  avatarPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  editOverlay: {
+    position: "absolute",
+    bottom: 4,
+    right: 4,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarHint: {
+    ...Typography.caption,
+    marginTop: Spacing.sm,
   },
   loadingContainer: {
     flex: 1,

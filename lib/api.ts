@@ -7,6 +7,13 @@ import { API_BASE_URL } from "@/constants/api";
 import { authClient } from "@/lib/auth-client";
 import { clearDemoMode, saveDemoMode } from "@/lib/storage";
 import type {
+  LimitedEvent,
+  UpdateFeaturedBadgesRequest,
+  UpdateFeaturedBadgesResponse,
+  UserEventParticipation,
+  UserLimitedBadge,
+} from "@/types/limited-event";
+import type {
   MasjidReportData,
   MasjidReportResponse,
 } from "@/types/masjid-report";
@@ -630,6 +637,35 @@ export async function checkoutFromMasjid(
 }
 
 /**
+ * Bonus points breakdown structure
+ */
+export interface BonusPointsBreakdown {
+  firstVisit?: { points: number; description: string };
+  prayerTime?: { points: number; description: string; prayerName?: string };
+  events: Array<{ eventId: string; eventName: string; points: number }>;
+  contributions: Array<{
+    type: "PHOTO_UPLOAD" | "FACILITY_UPDATE" | "REPORT_SUBMISSION";
+    description: string;
+    points: number;
+    referenceId?: string;
+  }>;
+  qiamBonus?: {
+    points: number;
+    description: string;
+  };
+}
+
+/**
+ * Points preview (returned in responses)
+ */
+export interface PointsPreview {
+  basePoints: number;
+  totalBonusPoints: number;
+  estimatedTotal: number;
+  bonusPointsBreakdown: BonusPointsBreakdown;
+}
+
+/**
  * Active check-in from API
  */
 export interface ActiveCheckin {
@@ -652,6 +688,7 @@ export interface ActiveCheckin {
   isPrayerTime: boolean;
   prayerName: string | null;
   isFirstVisitToMasjid: boolean;
+  bonusPointsBreakdown: BonusPointsBreakdown;
   createdAt: string;
   updatedAt: string;
 }
@@ -662,13 +699,17 @@ export interface ActiveCheckin {
 interface ActiveCheckinResponse {
   active: boolean;
   checkIn: ActiveCheckin | null;
+  pointsPreview: PointsPreview | null;
 }
 
 /**
  * Get user's active check-in (if any)
  * REQUIRES AUTHENTICATION
  */
-export async function getActiveCheckin(): Promise<ActiveCheckin | null> {
+export async function getActiveCheckin(): Promise<{
+  checkIn: ActiveCheckin;
+  pointsPreview: PointsPreview;
+} | null> {
   const response = await authenticatedFetch(
     `${API_BASE_URL}/api/user/checkins/active`,
   );
@@ -686,7 +727,18 @@ export async function getActiveCheckin(): Promise<ActiveCheckin | null> {
     return null;
   }
 
-  return data.checkIn;
+  return {
+    checkIn: data.checkIn,
+    pointsPreview: data.pointsPreview ?? {
+      basePoints: data.checkIn.basePoints,
+      totalBonusPoints: data.checkIn.bonusPoints,
+      estimatedTotal: data.checkIn.basePoints + data.checkIn.bonusPoints,
+      bonusPointsBreakdown: data.checkIn.bonusPointsBreakdown ?? {
+        events: [],
+        contributions: [],
+      },
+    },
+  };
 }
 
 /**
@@ -856,6 +908,7 @@ export interface LeaderboardEntry {
   points: number;
   masjidsVisited: number;
   isCurrentUser?: boolean;
+  avatarUrl?: string | null;
 }
 
 /**
@@ -912,6 +965,17 @@ export interface UpdateUserProfileRequest {
   name?: string; // Update user's display name (from OAuth)
   showFullNameInLeaderboard?: boolean;
   leaderboardAlias?: string; // DEPRECATED - Kept for backwards compatibility
+  avatarUrl?: string | null; // Update user's avatar URL (null to remove)
+}
+
+/**
+ * Avatar upload URL response
+ */
+export interface AvatarUploadUrlResponse {
+  uploadUrl: string;
+  publicUrl: string;
+  key: string;
+  contentType: string;
 }
 
 /**
@@ -1053,4 +1117,142 @@ export async function deleteAccount(): Promise<DeleteAccountResponse> {
   }
 
   return data;
+}
+
+/**
+ * Get presigned URL for avatar upload
+ * REQUIRES AUTHENTICATION
+ */
+export async function getAvatarUploadUrl(
+  contentType: string,
+): Promise<AvatarUploadUrlResponse> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/user/avatar/upload-url`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentType }),
+    },
+  );
+
+  const data = await response.json();
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("Please sign in to upload avatar");
+    }
+    throw new Error(
+      data.message || `Failed to get upload URL: ${response.status}`,
+    );
+  }
+  return data;
+}
+
+// ============================================================================
+// Limited Events and Badges API
+// ============================================================================
+
+/**
+ * Fetch all active limited events
+ * Public endpoint - returns events that are currently active
+ */
+export async function getActiveLimitedEvents(): Promise<LimitedEvent[]> {
+  const response = await publicFetch(`${API_BASE_URL}/api/limited-events`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch limited events: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch a specific limited event by ID
+ * Public endpoint
+ */
+export async function getLimitedEventById(
+  eventId: string,
+): Promise<LimitedEvent> {
+  const response = await publicFetch(
+    `${API_BASE_URL}/api/limited-events/${eventId}`,
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch limited event: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch user's event participations with progress
+ * REQUIRES AUTHENTICATION
+ */
+export async function getUserEventParticipations(): Promise<
+  UserEventParticipation[]
+> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/user/limited-events`,
+  );
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("Please sign in to view event progress");
+    }
+    throw new Error(`Failed to fetch event participations: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch user's earned limited badges
+ * REQUIRES AUTHENTICATION
+ */
+export async function getUserLimitedBadges(): Promise<UserLimitedBadge[]> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/user/limited-badges`,
+  );
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("Please sign in to view badges");
+    }
+    throw new Error(`Failed to fetch limited badges: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Update featured badges on user profile
+ * REQUIRES AUTHENTICATION
+ * Max 5 badges can be featured
+ */
+export async function updateFeaturedBadges(
+  data: UpdateFeaturedBadgesRequest,
+): Promise<UpdateFeaturedBadgesResponse> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/user/limited-badges/featured`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    },
+  );
+
+  const responseData = await response.json();
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("Please sign in to update featured badges");
+    }
+    throw new Error(
+      responseData.message ||
+        `Failed to update featured badges: ${response.status}`,
+    );
+  }
+
+  return responseData;
 }

@@ -9,12 +9,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  LinearTransition,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AchievementUnlockModal } from "@/components/achievement/achievement-unlock-modal";
+import { EventBannerCarousel } from "@/components/events/event-banner-carousel";
 import { HeroSection } from "@/components/home/hero-section";
 import { StreakDots } from "@/components/home/streak-dots";
 import { Badge } from "@/components/ui/badge";
@@ -24,18 +27,25 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { useCheckinMasjids } from "@/hooks/use-checkin-masjids";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useLimitedEvents } from "@/hooks/use-limited-events";
 import { useLocation } from "@/hooks/use-location";
 import { useNearbyMasjids } from "@/hooks/use-nearby-masjids";
 import {
   getNextAchievement,
   useUserAchievements,
 } from "@/hooks/use-user-achievements";
+import { useUserEventParticipations } from "@/hooks/use-user-event-participations";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import type { AchievementDefinition } from "@/lib/api";
 import { MasjidResponse } from "@/lib/api";
 import { useSession } from "@/lib/auth-client";
 import { DEMO_LOCATION, isDemoEmail } from "@/lib/demo-mode";
 import { getDisplayName } from "@/lib/utils";
+
+// Create animated components
+const AnimatedTouchableOpacity =
+  Animated.createAnimatedComponent(TouchableOpacity);
+const AnimatedView = Animated.createAnimatedComponent(View);
 
 // Level calculation
 const POINTS_PER_LEVEL = 100;
@@ -100,7 +110,7 @@ export default function HomeScreen() {
   const { data: session } = useSession();
   const headerName = getDisplayName(
     userProfile?.user?.name || session?.user?.name || null,
-    userProfile?.user?.email || session?.user?.email
+    userProfile?.user?.email || session?.user?.email,
   );
 
   // Check if user is in demo mode
@@ -126,9 +136,14 @@ export default function HomeScreen() {
   const currentStreak = userProfile?.profile?.currentStreak ?? 0;
   const longestStreak = userProfile?.profile?.longestStreak ?? 0;
   const achievementCount = userProfile?.profile?.achievementCount ?? 0;
+  const avatarUrl = userProfile?.user?.image || null;
 
   // Achievement
   const nextAchievement = getNextAchievement(achievements);
+
+  // Limited Events
+  const { data: activeEvents } = useLimitedEvents({ enabled: !!session?.user });
+  const { data: userParticipations } = useUserEventParticipations();
 
   // Location
   const {
@@ -250,23 +265,18 @@ export default function HomeScreen() {
 
   return (
     <>
-      {/* Status bar background for Android edge-to-edge */}
-      <View style={{ backgroundColor: colors.heroBackground }}>
-        <SafeAreaView edges={["top"]}>
-          <View style={{ height: insets.top }} />
-        </SafeAreaView>
-      </View>
-      <SafeAreaView
-        edges={["left", "right", "bottom"]}
-        style={[styles.container, { backgroundColor: colors.background }]}
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        contentInsetAdjustmentBehavior="never"
+        showsVerticalScrollIndicator={false}
       >
-        <Stack.Screen options={{ headerShown: false }} />
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+        {/* Hero Section with stats - immediate animation */}
+        <AnimatedView
+          entering={FadeInDown.duration(400)}
+          layout={LinearTransition.springify()}
         >
-          {/* Hero Section with stats */}
           <HeroSection
             userName={headerName}
             initials={initials}
@@ -279,16 +289,37 @@ export default function HomeScreen() {
             currentStreak={currentStreak}
             achievementCount={achievementCount}
             colorScheme={colorScheme ?? "light"}
+            avatarUrl={avatarUrl}
+            topInset={insets.top}
           />
+        </AnimatedView>
 
-          {/* Nearby Masjid Card */}
+        {/* Limited Events Banner Carousel - 100ms delay */}
+        {activeEvents && activeEvents.length > 0 && (
+          <AnimatedView
+            entering={FadeInDown.delay(100).duration(400)}
+            layout={LinearTransition.springify()}
+          >
+            <EventBannerCarousel
+              events={activeEvents}
+              userParticipations={userParticipations ?? []}
+            />
+          </AnimatedView>
+        )}
+
+        {/* Nearby Masjid Card - 200ms delay */}
+        <AnimatedView
+          entering={FadeInDown.delay(200).duration(400)}
+          layout={LinearTransition.springify()}
+          style={styles.nearbyMasjidCardWrapper}
+        >
           <Card
             variant={hasMasjidError ? "error" : "primary"}
             padding="md"
             style={styles.nearbyMasjidCard}
           >
             {isLoadingMasjids ? (
-              <View style={styles.masjidCardContent}>
+              <AnimatedView entering={FadeIn} style={styles.masjidCardContent}>
                 <ActivityIndicator size="small" color={colors.primary} />
                 <View style={styles.masjidCardInfo}>
                   <Text
@@ -305,9 +336,9 @@ export default function HomeScreen() {
                     Getting your location...
                   </Text>
                 </View>
-              </View>
+              </AnimatedView>
             ) : hasMasjidError ? (
-              <TouchableOpacity
+              <AnimatedTouchableOpacity
                 onPress={handleRetryMasjids}
                 style={styles.masjidCardContent}
                 activeOpacity={0.7}
@@ -336,9 +367,9 @@ export default function HomeScreen() {
                     Tap to retry
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </AnimatedTouchableOpacity>
             ) : displayMasjids.length > 0 && displayMasjids[0].canCheckin ? (
-              <TouchableOpacity
+              <AnimatedTouchableOpacity
                 onPress={() => handleMasjidPress(displayMasjids[0].masjidId)}
                 style={styles.masjidCardContent}
                 activeOpacity={0.7}
@@ -347,14 +378,6 @@ export default function HomeScreen() {
                 accessibilityHint="Double tap to view details and check in"
                 accessibilityRole="button"
               >
-                <View
-                  style={[
-                    styles.masjidCardIcon,
-                    { backgroundColor: colors.primary + "15" },
-                  ]}
-                >
-                  <IconSymbol name="mosque" size={28} color={colors.primary} />
-                </View>
                 <View style={styles.masjidCardInfo}>
                   <Text
                     style={[styles.masjidCardTitle, { color: colors.text }]}
@@ -376,9 +399,9 @@ export default function HomeScreen() {
                   size={20}
                   color={colors.textSecondary}
                 />
-              </TouchableOpacity>
+              </AnimatedTouchableOpacity>
             ) : (
-              <TouchableOpacity
+              <AnimatedTouchableOpacity
                 onPress={handleViewAllNearby}
                 style={styles.masjidCardContent}
                 activeOpacity={0.7}
@@ -412,12 +435,18 @@ export default function HomeScreen() {
                   size={20}
                   color={colors.textSecondary}
                 />
-              </TouchableOpacity>
+              </AnimatedTouchableOpacity>
             )}
           </Card>
+        </AnimatedView>
 
-          {/* Current Achievement Focus */}
-          {nextAchievement && nextAchievement.achievement.requiredCount && (
+        {/* Current Achievement Focus - 300ms delay */}
+        {nextAchievement && nextAchievement.achievement.requiredCount && (
+          <AnimatedView
+            entering={FadeInDown.delay(300).duration(400)}
+            layout={LinearTransition.springify()}
+            style={styles.achievementCardWrapper}
+          >
             <Card
               variant="outlined"
               padding="md"
@@ -494,47 +523,92 @@ export default function HomeScreen() {
                 )}
               </Text>
             </Card>
-          )}
+          </AnimatedView>
+        )}
 
-          {/* Streak Visualization */}
-          {currentStreak > 0 && (
+        {/* Streak Visualization - 400ms delay */}
+        {currentStreak > 0 && (
+          <AnimatedView
+            entering={FadeInDown.delay(400).duration(400)}
+            layout={LinearTransition.springify()}
+            style={styles.streakCardWrapper}
+          >
             <Card variant="outlined" padding="md" style={styles.streakCard}>
               <StreakDots
                 currentStreak={currentStreak}
                 longestStreak={longestStreak}
               />
             </Card>
-          )}
-        </ScrollView>
+          </AnimatedView>
+        )}
+      </ScrollView>
 
-        {/* Achievement Unlock Modal */}
-        <AchievementUnlockModal
-          achievements={pendingAchievements}
-          visible={showAchievementModal}
-          onClose={handleCloseAchievementModal}
-        />
-      </SafeAreaView>
+      {/* Achievement Unlock Modal */}
+      <AchievementUnlockModal
+        achievements={pendingAchievements}
+        visible={showAchievementModal}
+        onClose={handleCloseAchievementModal}
+      />
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 0,
     paddingBottom: Spacing.xxl,
     gap: Spacing.md,
   },
 
-  // Achievement Card
-  achievementCard: {
+  // Nearby Masjid Card
+  nearbyMasjidCardWrapper: {
     marginHorizontal: Spacing.md,
+  },
+  nearbyMasjidCard: {
+    borderRadius: 18,
+    borderCurve: "continuous",
+    // Modern CSS boxShadow
+    boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.08)",
+  },
+  masjidCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    minHeight: 48, // iOS minimum touch target
+    paddingVertical: Spacing.xs,
+  },
+  masjidCardIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderCurve: "continuous",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  masjidCardInfo: {
+    flex: 1,
+  },
+  masjidCardTitle: {
+    ...Typography.body,
+    fontWeight: "700",
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  masjidCardSubtitle: {
+    ...Typography.caption,
+  },
+
+  // Achievement Card
+  achievementCardWrapper: {
+    marginHorizontal: Spacing.md,
+  },
+  achievementCard: {
     borderRadius: 20,
+    borderCurve: "continuous",
+    // Modern CSS boxShadow
+    boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.08)",
   },
   achievementHeader: {
     flexDirection: "row",
@@ -553,9 +627,10 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   achievementIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderCurve: "continuous",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -575,35 +650,15 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
 
-  // Nearby Masjid Card
-  nearbyMasjidCard: {
+  // Streak Card
+  streakCardWrapper: {
     marginHorizontal: Spacing.md,
   },
-  masjidCardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    minHeight: 48, // iOS minimum touch target
-    paddingVertical: Spacing.xs,
-  },
-  masjidCardIcon: {
-    width: 52, // Increased from 48 for better touch target
-    height: 52,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  masjidCardInfo: {
-    flex: 1,
-  },
-  masjidCardTitle: {
-    ...Typography.body,
-    fontWeight: "700",
-    fontSize: 16,
-    marginBottom: 2,
-  },
-  masjidCardSubtitle: {
-    ...Typography.caption,
+  streakCard: {
+    borderRadius: 18,
+    borderCurve: "continuous",
+    // Modern CSS boxShadow
+    boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.08)",
   },
 
   // Section (unused - kept for potential future use)
@@ -670,11 +725,5 @@ const styles = StyleSheet.create({
     ...Typography.body,
     fontWeight: "600",
     marginTop: Spacing.sm,
-  },
-
-  // Streak Card
-  streakCard: {
-    marginHorizontal: Spacing.md,
-    borderRadius: 16,
   },
 });

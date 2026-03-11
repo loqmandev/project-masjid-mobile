@@ -2,15 +2,13 @@
   "expo": {
     "name": "Jejak Masjid",
     "slug": "jejak-masjid-mobile",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "scheme": "jejakmasjidmobile",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "bundleIdentifier": "my.lonasoft.jejakmasjidmobile",
-      "buildNumber": "27",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Jejak Masjid uses your location to find nearby masjids for check-in. For example, when you visit Masjid Negara, we verify your location to award points for your visit. This enables you to discover masjids within 5km of your current location.",
@@ -32,7 +30,6 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "icon": "./assets/images/icon-android.png",
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "my.lonasoft.jejakmasjidmobile",
       "intentFilters": [
@@ -72,6 +69,7 @@
         }
       ],
       "expo-localization",
+      ["expo-notifications", { "color": "#00A9A5" }],
       [
         "expo-build-properties",
         {

@@ -412,6 +412,43 @@ export function clearDemoMode(): void {
   storage.delete(DEMO_MODE_KEY);
 }
 
+// ============ Checkout Reminder Preference ============
+
+const CHECKOUT_REMINDERS_ENABLED_KEY = "checkout-reminders-enabled";
+
+export function loadCheckoutRemindersEnabled(): boolean {
+  if (Platform.OS === "web") return false;
+  const storage = getNativeStorage();
+  if (!storage) return true; // default on
+  const raw = storage.getString(CHECKOUT_REMINDERS_ENABLED_KEY);
+  // Default to true (enabled) if never set
+  return raw === undefined ? true : raw === "true";
+}
+
+export function saveCheckoutRemindersEnabled(enabled: boolean): void {
+  const storage = getNativeStorage();
+  if (storage) storage.set(CHECKOUT_REMINDERS_ENABLED_KEY, String(enabled));
+}
+
+// ============ Checkout Notification ID ============
+
+const CHECKOUT_NOTIFICATION_ID_KEY = "checkout-notification-id";
+
+export function saveCheckoutNotificationId(id: string): void {
+  const storage = getNativeStorage();
+  if (storage) storage.set(CHECKOUT_NOTIFICATION_ID_KEY, id);
+}
+
+export function loadCheckoutNotificationId(): string | null {
+  const storage = getNativeStorage();
+  return storage?.getString(CHECKOUT_NOTIFICATION_ID_KEY) ?? null;
+}
+
+export function clearCheckoutNotificationId(): void {
+  const storage = getNativeStorage();
+  storage?.delete(CHECKOUT_NOTIFICATION_ID_KEY);
+}
+
 /**
  * Clear ALL app data (call on account deletion or full logout)
  * Clears: active visit, location cache, user profile cache, onboarding, theme preference, demo mode

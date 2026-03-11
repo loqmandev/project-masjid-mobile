@@ -34,6 +34,6 @@ export function useCheckinMasjids({
     queryFn: () => getCheckinEligibleMasjids(latitude!, longitude!),
     enabled: enabled && latitude !== null && longitude !== null,
     staleTime: 60 * 1000, // Consider data fresh for 60 seconds (increased from 30s)
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 }

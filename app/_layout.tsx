@@ -4,8 +4,10 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import * as Notifications from "expo-notifications";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import { View } from "react-native";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -57,8 +59,32 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
+// Show notifications as banners even when the app is in the foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 function RootLayoutContent() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
+
+  // Navigate to the checkin tab when user taps a checkout reminder notification
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const url = response.notification.request.content.data?.url;
+        if (typeof url === "string") {
+          router.push(url as any);
+        }
+      },
+    );
+    return () => subscription.remove();
+  }, [router]);
 
   return (
     <ThemeProvider

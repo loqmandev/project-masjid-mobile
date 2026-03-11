@@ -8,7 +8,6 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
-  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -16,18 +15,23 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
 
 import {
   ActivityCalendar,
   MonthlyActivityDay,
 } from "@/components/activity/activity-calendar";
+import { BadgeSelectorModal } from "@/components/profile/badge-selector-modal";
+import { ProfileHeaderCard } from "@/components/profile/profile-header-card";
+import { ShareableProfileCard } from "@/components/profile/shareable-profile-card";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useShareProfile } from "@/hooks/use-share-profile";
+import { useFeaturedBadges } from "@/hooks/use-user-limited-badges";
 import { useAnalytics } from "@/lib/analytics";
 import {
   getUserAchievements,
@@ -45,8 +49,9 @@ import {
   loadCachedUserProfile,
   saveCachedUserProfile,
 } from "@/lib/storage";
-import { getDisplayName } from "@/lib/utils";
+import { filterLast30DaysMasjids, getDisplayName } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // Cache validity duration (5 minutes)
 const PROFILE_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
@@ -55,7 +60,7 @@ const PROFILE_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const DUMMY_DISPLAY_NAME = "Ahmad Albab";
 const DUMMY_TOTAL_POINTS = 2450;
 const DUMMY_UNIQUE_MASJIDS = 18;
-const DUMMY_GLOBAL_RANK = 42;
+const DUMMY_TOTAL_CHECKINS = 42;
 
 // Dummy monthly activity - realistic pattern with some gaps and streaks
 function generateDummyMonthlyActivity(
@@ -210,7 +215,7 @@ const DUMMY_ACHIEVEMENTS: UserAchievementProgress[] = [
     progress: {
       id: "dummy-4",
       createdAt: new Date(Date.now() - 23 * 24 * 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date(Date.now() - 23 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
       userProfileId: "dummy",
       achievementDefinitionId: "4",
       currentProgress: 23,
@@ -252,14 +257,12 @@ const DUMMY_RECENT_VISITS: UserCheckin[] = [
     status: "completed",
   },
 ];
-
 interface CachedProfileData {
   profile: UserProfileResponse;
   achievements: UserAchievementProgress[];
   checkins: UserCheckin[];
   monthlyActivity?: MonthlyActivityResponse;
 }
-
 /**
  * Format a date string to relative time (e.g., "2 days ago")
  */
@@ -271,20 +274,17 @@ function formatRelativeTime(dateString: string): string {
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   const diffWeeks = Math.floor(diffDays / 7);
-
   if (diffMinutes < 1) return "Just now";
   if (diffMinutes < 60) return `${diffMinutes} min ago`;
   if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
   if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
   if (diffWeeks < 4) return `${diffWeeks} week${diffWeeks > 1 ? "s" : ""} ago`;
-
   return date.toLocaleDateString("en-MY", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
 }
-
 /**
  * Map achievement tier to badge variant
  */
@@ -303,18 +303,20 @@ function getTierBadgeVariant(
   };
   return tierMap[tier.toLowerCase()] || "bronze";
 }
-
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
   const { data: session } = useSession();
   const { track, screen } = useAnalytics();
+  const { shareProfile, isSharing, shareableCardRef } = useShareProfile();
   const hasTrackedView = useRef(false);
   const queryClient = useQueryClient();
-
+  // Badge selector modal state
+  const [showBadgeSelector, setShowBadgeSelector] = useState(false);
+  // Featured badges for showcase
+  const { featuredBadges } = useFeaturedBadges();
   // Current date for month navigation - memoized to avoid dependency warnings
   const today = useMemo(() => new Date(), []);
-
   // State for API data
   const [profileData, setProfileData] = useState<UserProfileResponse | null>(
     null,
@@ -332,15 +334,12 @@ export default function ProfileScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingActivity, setIsLoadingActivity] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   // Get user data from session or profile data
   const user = session?.user;
-
   // Load monthly activity data
   const loadMonthlyActivity = useCallback(
     async (year: number, month: number) => {
       if (!session?.user?.id) return;
-
       try {
         setIsLoadingActivity(true);
         const response = await getUserMonthlyActivity(year, month);
@@ -355,7 +354,6 @@ export default function ProfileScreen() {
     },
     [session?.user?.id],
   );
-
   // Load profile data from API
   const loadProfileData = useCallback(
     async (useCache: boolean = true) => {
@@ -363,7 +361,6 @@ export default function ProfileScreen() {
         setIsLoading(false);
         return;
       }
-
       try {
         // Check cache first
         if (useCache) {
@@ -386,22 +383,18 @@ export default function ProfileScreen() {
             }
           }
         }
-
         // Fetch fresh data from API
         const [profile, userAchievements, checkins] = await Promise.all([
           getUserProfile(),
           getUserAchievements(),
-          getUserCheckins(3),
+          getUserCheckins(100),
         ]);
-
         setProfileData(profile);
         setAchievements(userAchievements);
         setRecentVisits(checkins);
         setError(null);
-
         // Load current month activity
         loadMonthlyActivity(today.getFullYear(), today.getMonth() + 1);
-
         // Cache the data
         saveCachedUserProfile<CachedProfileData>(
           {
@@ -428,7 +421,6 @@ export default function ProfileScreen() {
     },
     [session?.user?.id, loadMonthlyActivity, today],
   );
-
   // Load data on mount and when session changes
   useEffect(() => {
     if (session?.user) {
@@ -437,26 +429,22 @@ export default function ProfileScreen() {
       setIsLoading(false);
     }
   }, [session?.user, loadProfileData, loadMonthlyActivity]);
-
   useEffect(() => {
     if (hasTrackedView.current) return;
     screen("profile");
     track("profile_viewed");
     hasTrackedView.current = true;
   }, [screen, track]);
-
   // Pull-to-refresh handler
   const handleRefresh = useCallback(() => {
     track("profile_refreshed");
     setIsRefreshing(true);
     loadProfileData(false); // Skip cache on refresh
   }, [loadProfileData, track]);
-
   const handleMenuPress = (route: string) => {
     track("profile_menu_selected", { route });
     router.push(route as any);
   };
-
   const handleSignOut = async () => {
     try {
       track("profile_signout");
@@ -471,65 +459,20 @@ export default function ProfileScreen() {
       console.error("Sign out error:", error);
     }
   };
-
-  // Month navigation handlers
-  const handlePreviousMonth = () => {
-    const newYear = currentMonth === 1 ? currentYear - 1 : currentYear;
-    const newMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-    setCurrentYear(newYear);
-    setCurrentMonth(newMonth);
-    loadMonthlyActivity(newYear, newMonth);
-    track("profile_activity_month_changed", {
-      direction: "previous",
-      year: newYear,
-      month: newMonth,
-    });
-  };
-
-  const handleNextMonth = () => {
-    const newYear = currentMonth === 12 ? currentYear + 1 : currentYear;
-    const newMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-    setCurrentYear(newYear);
-    setCurrentMonth(newMonth);
-    loadMonthlyActivity(newYear, newMonth);
-    track("profile_activity_month_changed", {
-      direction: "next",
-      year: newYear,
-      month: newMonth,
-    });
-  };
-
-  const handleTodayPress = () => {
-    setCurrentYear(today.getFullYear());
-    setCurrentMonth(today.getMonth() + 1);
-    loadMonthlyActivity(today.getFullYear(), today.getMonth() + 1);
-    track("profile_activity_today");
-  };
-
-  // Check if next month is in the future
-  const isNextMonthFuture = () => {
-    const nextYear = currentMonth === 12 ? currentYear + 1 : currentYear;
-    const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-    const nextDate = new Date(nextYear, nextMonth - 1, 1);
-    return nextDate > today;
-  };
-
   // Guest mode - show dummy data to encourage sign-up
   const isGuest = !session?.user;
   const displayName = isGuest
     ? DUMMY_DISPLAY_NAME
     : getDisplayName(
         profileData?.user?.name || user?.name || null,
-        profileData?.user?.email || user?.email
+        profileData?.user?.email || user?.email,
       );
   const avatarUrl = profileData?.user?.image || user?.image || null;
   const totalPoints =
     profileData?.profile?.totalPoints ?? (isGuest ? DUMMY_TOTAL_POINTS : 0);
   const uniqueMasjidsVisited =
     profileData?.profile?.uniqueMasjidsVisited ??
-    (isGuest ? DUMMY_UNIQUE_MASJIDS : 0);
-  const globalRank =
-    profileData?.profile?.globalRank ?? (isGuest ? DUMMY_GLOBAL_RANK : null);
+    (isGuest ? DUMMY_UNIQUE_MASJIDS : 5);
   const displayAchievements = (
     isGuest ? DUMMY_ACHIEVEMENTS : (achievements ?? [])
   ).slice(0, 4);
@@ -537,7 +480,6 @@ export default function ProfileScreen() {
   const displayMonthlyActivity = isGuest
     ? generateDummyMonthlyActivity(currentYear, currentMonth)
     : monthlyActivity;
-
   const handleSignUpPress = () => {
     track("profile_sign_up_clicked");
     router.push({
@@ -561,32 +503,47 @@ export default function ProfileScreen() {
       </SafeAreaView>
     );
   }
-
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
+    <>
       <Stack.Screen
         options={{
-          headerLargeTitle: true,
-          headerLargeTitleShadowVisible: false,
           headerRight: () => (
-            <TouchableOpacity
-              onPress={() => handleMenuPress("/settings")}
-              style={{ paddingRight: Spacing.md }}
-            >
-              <IconSymbol
-                name="gearshape.fill"
-                size={24}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+              {!isGuest && (
+                <TouchableOpacity
+                  onPress={shareProfile}
+                  disabled={isSharing}
+                  style={{ padding: Spacing.sm }}
+                >
+                  {isSharing ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <IconSymbol
+                      name="square.and.arrow.up"
+                      size={24}
+                      color={colors.primary}
+                    />
+                  )}
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => handleMenuPress("/settings")}
+                style={{ padding: Spacing.sm }}
+              >
+                <IconSymbol
+                  name="gearshape.fill"
+                  size={26}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+            </View>
           ),
         }}
       />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
+        // contentInsetAdjustmentBehavior="never"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -597,104 +554,51 @@ export default function ProfileScreen() {
           />
         }
       >
-        {/* Error Banner */}
-        {error && (
-          <View
-            style={[
-              styles.errorBanner,
-              { backgroundColor: colors.error + "15" },
-            ]}
-          >
-            <Text style={[styles.errorText, { color: colors.error }]}>
-              {error}
-            </Text>
-            <TouchableOpacity onPress={() => loadProfileData(false)}>
-              <Text style={[styles.retryText, { color: colors.primary }]}>
-                Retry
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Profile Header - Compact Row */}
-        <View style={styles.profileHeader}>
-          <View
-            style={[
-              styles.avatarContainer,
-              { backgroundColor: colors.primary + "15" },
-            ]}
-          >
-            {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-            ) : (
-              <IconSymbol name="user" size={28} color={colors.primary} />
-            )}
-          </View>
-          <View style={styles.userInfo}>
-            <Text style={[styles.displayName, { color: colors.text }]}>
-              {displayName}
-            </Text>
-          </View>
-        </View>
-
+        {/* Profile Header Card */}
+        <Animated.View entering={FadeIn} layout={LinearTransition}>
+          <ProfileHeaderCard
+            displayName={displayName}
+            avatarUrl={avatarUrl}
+            level={Math.floor(totalPoints / 100)}
+            totalPoints={totalPoints}
+            uniqueMasjidsVisited={uniqueMasjidsVisited}
+            totalCheckins={
+              isGuest
+                ? DUMMY_TOTAL_CHECKINS
+                : (profileData?.profile?.totalCheckIns ?? recentVisits.length)
+            }
+            currentStreak={profileData?.profile?.currentStreak ?? 0}
+            featuredBadges={isGuest ? [] : featuredBadges}
+            onBadgePress={() => setShowBadgeSelector(true)}
+            isOwnProfile={!isGuest}
+          />
+        </Animated.View>
         {/* Activity Calendar Section */}
-        <View style={styles.section}>
+        <Animated.View
+          entering={FadeIn.delay(100)}
+          layout={LinearTransition}
+          style={styles.section}
+        >
           <ActivityCalendar
             year={currentYear}
             month={currentMonth}
             data={displayMonthlyActivity}
-            uniqueMasjidsVisited={uniqueMasjidsVisited}
-            onDayPress={(day) =>
-              isGuest
-                ? handleSignUpPress()
-                : router.push(
-                    `/history?date=${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
-                  )
-            }
             isLoading={isGuest ? false : isLoadingActivity}
           />
-        </View>
-
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <Card variant="outlined" padding="md" style={styles.statCard}>
-            <IconSymbol name="star" size={28} color={colors.primary} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {totalPoints}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Points
-            </Text>
-          </Card>
-          <Card variant="outlined" padding="md" style={styles.statCard}>
-            <IconSymbol name="mosque" size={28} color={colors.primary} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {uniqueMasjidsVisited}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Masjids
-            </Text>
-          </Card>
-          <Card variant="outlined" padding="md" style={styles.statCard}>
-            <IconSymbol name="trophy" size={28} color={colors.primary} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {globalRank ? `#${globalRank}` : "-"}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Rank
-            </Text>
-          </Card>
-        </View>
-
+        </Animated.View>
         {/* Achievements Section */}
-        <View style={styles.section}>
+        <Animated.View
+          entering={FadeIn.delay(200)}
+          layout={LinearTransition}
+          style={styles.section}
+        >
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Achievements
             </Text>
             <TouchableOpacity onPress={() => handleMenuPress("/achievements")}>
               <Text style={[styles.viewAllLink, { color: colors.primary }]}>
-                View All →
+                View All
               </Text>
             </TouchableOpacity>
           </View>
@@ -712,7 +616,6 @@ export default function ProfileScreen() {
                   requiredCount > 0
                     ? Math.round((currentProgress / requiredCount) * 100)
                     : 0;
-
                 return (
                   <Card
                     key={item.achievement.code}
@@ -790,17 +693,20 @@ export default function ProfileScreen() {
               </Text>
             </Card>
           )}
-        </View>
-
+        </Animated.View>
         {/* Recent Visits */}
-        <View style={styles.section}>
+        <Animated.View
+          entering={FadeIn.delay(300)}
+          layout={LinearTransition}
+          style={styles.section}
+        >
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Recent Visits
             </Text>
             <TouchableOpacity onPress={() => handleMenuPress("/history")}>
               <Text style={[styles.viewAllLink, { color: colors.primary }]}>
-                View All →
+                View All
               </Text>
             </TouchableOpacity>
           </View>
@@ -816,7 +722,11 @@ export default function ProfileScreen() {
                     { backgroundColor: colors.primary + "15" },
                   ]}
                 >
-                  <IconSymbol name="mosque" size={20} color={colors.primary} />
+                  <IconSymbol
+                    name="building.2.fill"
+                    size={20}
+                    color={colors.primary}
+                  />
                 </View>
                 <View style={styles.visitInfo}>
                   <Text style={[styles.visitName, { color: colors.text }]}>
@@ -842,33 +752,44 @@ export default function ProfileScreen() {
               </Text>
             </Card>
           )}
-        </View>
-
+        </Animated.View>
         {/* Sign Out Button - Only for authenticated users */}
         {!isGuest && (
-          <TouchableOpacity
-            style={[
-              styles.signOutButton,
-              { backgroundColor: colors.error + "15" },
-            ]}
-            onPress={handleSignOut}
+          <Animated.View
+            entering={FadeIn.delay(400)}
+            layout={LinearTransition}
+            style={styles.signOutButtonContainer}
           >
-            <IconSymbol name="mosque" size={20} color={colors.error} />
-            <Text style={[styles.signOutText, { color: colors.error }]}>
-              Sign Out
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.signOutButton,
+                { backgroundColor: colors.error + "15" },
+              ]}
+              onPress={handleSignOut}
+            >
+              <IconSymbol
+                name="rectangle.portrait.and.arrow.right"
+                size={20}
+                color={colors.error}
+              />
+              <Text style={[styles.signOutText, { color: colors.error }]}>
+                Sign Out
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
         )}
-
         {/* App Version */}
         <Text style={[styles.versionText, { color: colors.textTertiary }]}>
           Jejak Masjid v1.0.0
         </Text>
       </ScrollView>
-
       {/* Sign Up Overlay - Only for guest users */}
       {isGuest && (
-        <View style={styles.overlayContainer}>
+        <Animated.View
+          entering={FadeIn}
+          // exiting={FadeOut}
+          style={styles.overlayContainer}
+        >
           <View
             style={[
               styles.overlayContent,
@@ -892,12 +813,45 @@ export default function ProfileScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       )}
-    </SafeAreaView>
+      {/* Badge Selector Modal */}
+      <BadgeSelectorModal
+        visible={showBadgeSelector}
+        onClose={() => setShowBadgeSelector(false)}
+      />
+      {/* Hidden Shareable Profile Card - positioned off-screen for capture */}
+      <View style={{ position: "absolute", left: -10000, top: -10000 }}>
+        <ShareableProfileCard
+          ref={shareableCardRef}
+          displayName={displayName}
+          avatarUrl={avatarUrl}
+          level={Math.floor(totalPoints / 100)}
+          totalPoints={totalPoints}
+          uniqueMasjidsVisited={uniqueMasjidsVisited}
+          totalCheckins={
+            isGuest
+              ? DUMMY_TOTAL_CHECKINS
+              : (profileData?.profile?.totalCheckIns ?? recentVisits.length)
+          }
+          currentStreak={profileData?.profile?.currentStreak ?? 0}
+          last30DaysMasjids={
+            filterLast30DaysMasjids(
+              isGuest ? DUMMY_RECENT_VISITS : recentVisits,
+              10,
+            ).masjids
+          }
+          last30DaysCount={
+            filterLast30DaysMasjids(
+              isGuest ? DUMMY_RECENT_VISITS : recentVisits,
+              10,
+            ).totalCount
+          }
+        />
+      </View>
+    </>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -906,6 +860,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    paddingTop: Spacing.md,
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.xxl,
   },
@@ -917,104 +872,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...Typography.body,
-  },
-  errorBanner: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.md,
-  },
-  errorText: {
-    ...Typography.bodySmall,
-    flex: 1,
-  },
-  retryText: {
-    ...Typography.bodySmall,
-    fontWeight: "600",
-  },
-  emptyStateText: {
-    ...Typography.body,
-    textAlign: "center",
-  },
-  profileHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: Spacing.md,
-    gap: Spacing.md,
-  },
-  avatarContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-    overflow: "hidden",
-  },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
-  },
-  userInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  displayName: {
-    ...Typography.h3,
-    fontWeight: "600",
-  },
-  settingsButton: {
-    padding: Spacing.sm,
-  },
-  // Calendar styles
-  calendarHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: Spacing.sm,
-  },
-  navButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  calendarTitleContainer: {
-    flex: 1,
-    alignItems: "center",
-  },
-  calendarTitle: {
-    ...Typography.bodySmall,
-    fontWeight: "600",
-  },
-  todayButton: {
-    alignSelf: "center",
-    marginTop: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-  },
-  todayButtonText: {
-    ...Typography.bodySmall,
-    fontWeight: "600",
-  },
-  statsContainer: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
-  },
-  statCard: {
-    flex: 1,
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  statValue: {
-    ...Typography.h3,
-    fontWeight: "700",
-  },
-  statLabel: {
-    ...Typography.caption,
   },
   section: {
     marginBottom: Spacing.lg,
@@ -1073,6 +930,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: Spacing.md,
+    borderCurve: "continuous",
   },
   visitInfo: {
     flex: 1,
@@ -1087,21 +945,10 @@ const styles = StyleSheet.create({
   visitPoints: {
     ...Typography.bodySmall,
     fontWeight: "600",
+    fontVariant: ["tabular-nums"],
   },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-  },
-  menuItemLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  menuItemLabel: {
-    ...Typography.body,
+  signOutButtonContainer: {
+    marginTop: Spacing.md,
   },
   signOutButton: {
     flexDirection: "row",
@@ -1110,13 +957,18 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.md,
+    borderCurve: "continuous",
   },
   signOutText: {
     ...Typography.button,
   },
   versionText: {
     ...Typography.caption,
+    textAlign: "center",
+    marginTop: Spacing.lg,
+  },
+  emptyStateText: {
+    ...Typography.body,
     textAlign: "center",
   },
   // Overlay styles for guest sign-up CTA
@@ -1137,19 +989,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
     maxWidth: 320,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  overlayIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: Spacing.lg,
+    borderCurve: "continuous",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.25)",
   },
   overlayTitle: {
     ...Typography.h2,
@@ -1167,14 +1008,10 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
     alignItems: "center",
-    marginBottom: Spacing.md,
+    borderCurve: "continuous",
   },
   signUpButtonText: {
     ...Typography.button,
-    fontWeight: "600",
-  },
-  signInLink: {
-    ...Typography.bodySmall,
     fontWeight: "600",
   },
 });
