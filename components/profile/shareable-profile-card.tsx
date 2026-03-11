@@ -67,7 +67,7 @@ export const ShareableProfileCard = React.forwardRef<
         color: gold[600],
       },
       {
-        icon: "location.fill" as const,
+        icon: "building.2.fill" as const,
         value: uniqueMasjidsVisited.toString(),
         label: "Masjids",
         color: primary[500],

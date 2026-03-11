@@ -30,8 +30,8 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { useFeaturedBadges } from "@/hooks/use-user-limited-badges";
 import { useShareProfile } from "@/hooks/use-share-profile";
+import { useFeaturedBadges } from "@/hooks/use-user-limited-badges";
 import { useAnalytics } from "@/lib/analytics";
 import {
   getUserAchievements,
@@ -722,7 +722,11 @@ export default function ProfileScreen() {
                     { backgroundColor: colors.primary + "15" },
                   ]}
                 >
-                  <IconSymbol name="mosque" size={20} color={colors.primary} />
+                  <IconSymbol
+                    name="building.2.fill"
+                    size={20}
+                    color={colors.primary}
+                  />
                 </View>
                 <View style={styles.visitInfo}>
                   <Text style={[styles.visitName, { color: colors.text }]}>
@@ -831,10 +835,12 @@ export default function ProfileScreen() {
               : (profileData?.profile?.totalCheckIns ?? recentVisits.length)
           }
           currentStreak={profileData?.profile?.currentStreak ?? 0}
-          last30DaysMasjids={filterLast30DaysMasjids(
-            isGuest ? DUMMY_RECENT_VISITS : recentVisits,
-            10,
-          ).masjids}
+          last30DaysMasjids={
+            filterLast30DaysMasjids(
+              isGuest ? DUMMY_RECENT_VISITS : recentVisits,
+              10,
+            ).masjids
+          }
           last30DaysCount={
             filterLast30DaysMasjids(
               isGuest ? DUMMY_RECENT_VISITS : recentVisits,

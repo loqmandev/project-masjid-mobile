@@ -69,7 +69,7 @@ export function HeroSection({
           {/* Stats on right */}
           <View style={styles.statsContainer}>
             <StatRow
-              icon="mosque"
+              icon="building.2.fill"
               value={uniqueMasjidsVisited}
               label="Masjids"
               variant="default"
