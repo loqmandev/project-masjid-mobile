@@ -81,6 +81,8 @@ const MAPPING = {
   calendar: "event",
   "pin.circle.fill": "place",
   xmark: "close",
+  // Achievement icons
+  rosette: "military-tech",
 } as IconMapping;
 
 // Icons that should use FontAwesome6 instead of MaterialIcons

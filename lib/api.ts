@@ -649,6 +649,10 @@ export interface BonusPointsBreakdown {
     points: number;
     referenceId?: string;
   }>;
+  qiamBonus?: {
+    points: number;
+    description: string;
+  };
 }
 
 /**

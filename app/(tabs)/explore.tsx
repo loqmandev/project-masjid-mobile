@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   FlatList,
-  PlatformColor,
   RefreshControl,
   StyleSheet,
   Text,
@@ -40,14 +39,6 @@ import {
 import { useSession } from "@/lib/auth-client";
 import { DEMO_LOCATION, DEMO_MASJIDS, isDemoEmail } from "@/lib/demo-mode";
 import { getDistanceInMeters } from "@/lib/storage";
-
-// Pre-compute platform-specific background color (tree-shakeable)
-const TAB_CONTAINER_BG_LIGHT = process.env.EXPO_OS === "ios"
-  ? PlatformColor("systemGray6Color")
-  : Colors.light.backgroundSecondary;
-const TAB_CONTAINER_BG_DARK = process.env.EXPO_OS === "ios"
-  ? PlatformColor("systemGray6Color")
-  : Colors.dark.backgroundSecondary;
 
 type TabType = "masjids" | "events";
 
@@ -247,7 +238,6 @@ export default function ExploreScreen() {
   }, [activeTab, isEventsLoading, eventsWithFormattedData, isLoading, isSearchLoading, displayData]);
 
   // Pre-compute common styles based on color scheme
-  const tabContainerBg = colorScheme === "dark" ? TAB_CONTAINER_BG_DARK : TAB_CONTAINER_BG_LIGHT;
   const checkinIndicatorBg = colors.success + "20";
   const demoBannerBg = colors.primary + "15";
   const emptyIconBg = colors.primary + "15";
@@ -589,19 +579,28 @@ export default function ExploreScreen() {
           },
         }}
       />
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={styles.container}>
         {/* Tab Container - always visible */}
         <View
-          style={[styles.tabContainer, { backgroundColor: tabContainerBg as unknown as string }]}
+          style={{
+            flexDirection: "row",
+            marginHorizontal: Spacing.md,
+            padding: 4,
+            borderRadius: 14,
+            marginBottom: Spacing.md,
+            backgroundColor: colors.backgroundSecondary,
+          }}
         >
           <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === "masjids" && [
-                styles.tabActive,
-                { backgroundColor: colors.card },
-              ],
-            ]}
+            style={{
+              flex: 1,
+              paddingVertical: Spacing.md,
+              minHeight: 44,
+              alignItems: "center",
+              borderRadius: 10,
+              backgroundColor: activeTab === "masjids" ? colors.card : "transparent",
+              boxShadow: activeTab === "masjids" ? "0 1px 3px rgba(0, 0, 0, 0.1)" : "none",
+            }}
             onPress={() => {
               Haptics.selectionAsync();
               setActiveTab("masjids");
@@ -613,27 +612,25 @@ export default function ExploreScreen() {
             activeOpacity={0.7}
           >
             <Text
-              style={[
-                styles.tabText,
-                {
-                  color:
-                    activeTab === "masjids"
-                      ? colors.primary
-                      : colors.textSecondary,
-                },
-              ]}
+              style={{
+                fontSize: 14,
+                fontWeight: "600",
+                color: activeTab === "masjids" ? colors.primary : colors.textSecondary,
+              }}
             >
               Masjids
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === "events" && [
-                styles.tabActive,
-                { backgroundColor: colors.card },
-              ],
-            ]}
+            style={{
+              flex: 1,
+              paddingVertical: Spacing.md,
+              minHeight: 44,
+              alignItems: "center",
+              borderRadius: 10,
+              backgroundColor: activeTab === "events" ? colors.card : "transparent",
+              boxShadow: activeTab === "events" ? "0 1px 3px rgba(0, 0, 0, 0.1)" : "none",
+            }}
             onPress={() => {
               Haptics.selectionAsync();
               setActiveTab("events");
@@ -645,15 +642,11 @@ export default function ExploreScreen() {
             activeOpacity={0.7}
           >
             <Text
-              style={[
-                styles.tabText,
-                {
-                  color:
-                    activeTab === "events"
-                      ? colors.primary
-                      : colors.textSecondary,
-                },
-              ]}
+              style={{
+                fontSize: 14,
+                fontWeight: "600",
+                color: activeTab === "events" ? colors.primary : colors.textSecondary,
+              }}
             >
               Events
             </Text>
@@ -821,30 +814,6 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  // Tab styles
-  tabContainer: {
-    flexDirection: "row",
-    marginHorizontal: Spacing.md,
-    padding: 4,
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.md,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: Spacing.md,
-    minHeight: 44,
-    alignItems: "center",
-    borderRadius: BorderRadius.md,
-    borderCurve: "continuous",
-  },
-  tabActive: {
-    // Modern CSS boxShadow (works on RN 0.71+)
-    boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1)",
-  },
-  tabText: {
-    ...Typography.bodySmall,
-    fontWeight: "600",
   },
   // FAB styles with modern design
   fab: {

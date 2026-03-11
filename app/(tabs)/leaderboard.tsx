@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Badge } from "@/components/ui/badge";
 import { Colors, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useLeaderboard } from "@/hooks/use-leaderboard";
@@ -111,9 +110,9 @@ const LeaderboardItem = React.memo<{
             </Text>
           )}
         </Text>
-        {/* Badge - will show user's featured badge here */}
+        {/* TODO: Badge - will show user's featured badge here */}
         <View style={{ marginTop: 4 }}>
-          <Badge label="Explorer" variant="gold" size="sm" />
+          {/* <Badge label="Ramadan 2026" variant="gold" size="sm" /> */}
         </View>
       </View>
 

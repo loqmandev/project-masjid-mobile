@@ -35,6 +35,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
 import { useActiveCheckin } from "@/hooks/use-active-checkin";
 import { useCheckinMasjids } from "@/hooks/use-checkin-masjids";
+import { useCheckinNotification } from "@/hooks/use-checkin-notification";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useLocation } from "@/hooks/use-location";
 import { useAnalytics } from "@/lib/analytics";
@@ -158,6 +159,9 @@ export default function CheckInScreen() {
   const isDemoMode = session?.user?.email
     ? isDemoEmail(session.user.email)
     : false;
+
+  const { scheduleCheckoutReminder, cancelCheckoutReminder } =
+    useCheckinNotification();
 
   // State
   const [isCheckingIn, setIsCheckingIn] = useState(false);
@@ -300,6 +304,18 @@ export default function CheckInScreen() {
     };
   }, [activeVisit]);
 
+  // Restore checkout reminder notification if app restarted with an active check-in
+  useEffect(() => {
+    if (activeVisit && !isActiveCheckinLoading) {
+      scheduleCheckoutReminder(
+        activeVisit.checkInTime,
+        activeVisit.masjidName,
+        MINIMUM_DURATION_MINUTES,
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeVisit?.masjidId, isActiveCheckinLoading]);
+
   // Handle check-in
   const handleCheckIn = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -364,6 +380,12 @@ export default function CheckInScreen() {
         invalidateActiveCheckin();
         // Also invalidate user profile to update points
         queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+        // Schedule a reminder to check out after the minimum duration
+        scheduleCheckoutReminder(
+          new Date(),
+          nearbyMasjid.name,
+          MINIMUM_DURATION_MINUTES,
+        );
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         track("checkin_failed", { reason: result.message ?? "unknown" });
@@ -385,6 +407,7 @@ export default function CheckInScreen() {
     invalidateActiveCheckin,
     queryClient,
     track,
+    scheduleCheckoutReminder,
   ]);
 
   // Handle check-out
@@ -426,6 +449,8 @@ export default function CheckInScreen() {
           is_first_visit: activeCheckin.isFirstVisitToMasjid ?? false,
           isDemo: isDemoMode,
         });
+        // Cancel the checkout reminder since user checked out manually
+        cancelCheckoutReminder();
         // Invalidate queries to refresh data
         invalidateActiveCheckin();
         queryClient.invalidateQueries({ queryKey: ["user-profile"] });
@@ -468,6 +493,7 @@ export default function CheckInScreen() {
     queryClient,
     refetchMasjids,
     track,
+    cancelCheckoutReminder,
   ]);
 
   // Handle explore
@@ -853,6 +879,18 @@ export default function CheckInScreen() {
                   </Text>
                   <Text style={[styles.pointsValue, { color: colors.success }]}>
                     +{pointsPreview.bonusPointsBreakdown.prayerTime.points} pts
+                  </Text>
+                </View>
+              )}
+
+              {/* Qiam bonus */}
+              {pointsPreview.bonusPointsBreakdown.qiamBonus && (
+                <View style={styles.pointsRow}>
+                  <Text style={[styles.pointsLabel, { color: colors.text }]}>
+                    Qiam bonus
+                  </Text>
+                  <Text style={[styles.pointsValue, { color: colors.success }]}>
+                    +{pointsPreview.bonusPointsBreakdown.qiamBonus.points} pts
                   </Text>
                 </View>
               )}
