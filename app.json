@@ -17,9 +17,7 @@
         "NSCameraUsageDescription": "This allows you to take photos to upload and share with the community. For example, you can capture photos of a masjid during your visit.",
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": [
-              "jejakmasjidmobile"
-            ]
+            "CFBundleURLSchemes": ["jejakmasjidmobile"]
           }
         ]
       },
@@ -50,9 +48,7 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-apple-authentication"
-      ],
+      ["expo-apple-authentication"],
       [
         "expo-splash-screen",
         {
@@ -76,7 +72,8 @@
       [
         "expo-notifications",
         {
-          "color": "#00A9A5"
+          "color": "#00A9A5",
+          "enableBackgroundRemoteNotifications": false
         }
       ],
       [
@@ -94,6 +91,7 @@
       [
         "expo-widgets",
         {
+          "enablePushNotifications": false,
           "bundleIdentifier": "my.lonasoft.jejakmasjidmobile.widgets",
           "groupIdentifier": "group.my.lonasoft.jejakmasjidmobile",
           "widgets": [

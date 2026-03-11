@@ -507,7 +507,7 @@ export default function ProfileScreen() {
     <>
       <Stack.Screen options={{ title: "Profile", headerShown: false }} />
       {process.env.EXPO_OS === "ios" && (
-        <Stack.Toolbar placement="bottom">
+        <Stack.Toolbar placement="right">
           <Stack.Toolbar.Spacer />
           {!isGuest && (
             <Stack.Toolbar.Button
