@@ -41,6 +41,11 @@ import { MasjidResponse } from "@/lib/api";
 import { useSession } from "@/lib/auth-client";
 import { DEMO_LOCATION, isDemoEmail } from "@/lib/demo-mode";
 import { getDisplayName } from "@/lib/utils";
+import {
+  updateNearbyMasjidWidget,
+  updateProfileSummaryWidget,
+  updateStreakWidget,
+} from "@/lib/widget-bridge";
 
 // Create animated components
 const AnimatedTouchableOpacity =
@@ -206,6 +211,59 @@ export default function HomeScreen() {
   const isLoadingMasjids =
     isLocationLoading || isCheckinLoading || isNearbyLoading;
   const hasMasjidError = locationError || checkinError;
+
+  // Update iOS widgets when data changes
+  useEffect(() => {
+    if (displayMasjids.length > 0) {
+      const top = displayMasjids[0];
+      updateNearbyMasjidWidget({
+        masjidName: top.name,
+        distanceM: top.distanceM,
+        district: top.districtName ?? "",
+        canCheckin: top.canCheckin,
+        isEmpty: false,
+        emptyReason: "",
+      });
+    } else {
+      updateNearbyMasjidWidget({
+        masjidName: "",
+        distanceM: 0,
+        district: "",
+        canCheckin: false,
+        isEmpty: true,
+        emptyReason: locationError ? "no_location" : "no_masjids",
+      });
+    }
+  }, [displayMasjids, locationError]);
+
+  useEffect(() => {
+    if (userProfile?.profile) {
+      updateProfileSummaryWidget({
+        level,
+        currentXP,
+        nextLevelXP,
+        totalPoints,
+        uniqueMasjidsVisited,
+        currentStreak,
+        achievementCount,
+      });
+      updateStreakWidget({
+        currentStreak,
+        longestStreak,
+        lastVisitDate: userProfile.profile.lastVisitDate ?? "",
+      });
+    }
+  }, [
+    userProfile,
+    level,
+    currentXP,
+    nextLevelXP,
+    totalPoints,
+    uniqueMasjidsVisited,
+    currentStreak,
+    longestStreak,
+    achievementCount,
+  ]);
 
   // Handle achievement unlock from route params (triggered after checkout)
   useEffect(() => {
