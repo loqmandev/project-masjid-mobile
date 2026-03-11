@@ -4,11 +4,11 @@
  * Uses a simple colored View border instead of ChromaRing for reliable capture
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import {
   BorderRadius,
   gold,
@@ -24,7 +24,7 @@ interface ShareableProfileCardProps {
   level?: number;
   totalPoints: number;
   uniqueMasjidsVisited: number;
-  achievementsUnlocked: number;
+  totalCheckins: number;
   currentStreak: number;
   last30DaysMasjids?: { name: string }[];
   last30DaysCount?: number;
@@ -35,29 +35,6 @@ function formatPoints(points: number): string {
     return (points / 1000).toFixed(1).replace(/\.0$/, "") + "k";
   }
   return points.toLocaleString();
-}
-
-// Cross-platform icon: SF Symbols on iOS, Ionicons fallback on Android/Web
-function PlatformIcon({
-  sfSymbol,
-  ionicon,
-  size,
-  color,
-}: {
-  sfSymbol: string;
-  ionicon: keyof typeof Ionicons.glyphMap;
-  size: number;
-  color: string;
-}) {
-  if (process.env.EXPO_OS === "ios") {
-    return (
-      <ExpoImage
-        source={`sf:${sfSymbol}`}
-        style={{ width: size, height: size, tintColor: color }}
-      />
-    );
-  }
-  return <Ionicons name={ionicon} size={size} color={color} />;
 }
 
 export const ShareableProfileCard = React.forwardRef<
@@ -71,7 +48,7 @@ export const ShareableProfileCard = React.forwardRef<
       level = 0,
       totalPoints,
       uniqueMasjidsVisited,
-      achievementsUnlocked,
+      totalCheckins,
       currentStreak,
       last30DaysMasjids = [],
       last30DaysCount = 0,
@@ -84,29 +61,25 @@ export const ShareableProfileCard = React.forwardRef<
 
     const stats = [
       {
-        sfSymbol: "star.fill",
-        ionicon: "star" as const,
+        icon: "star.fill" as const,
         value: formatPoints(totalPoints),
         label: "Points",
         color: gold[600],
       },
       {
-        sfSymbol: "location.fill",
-        ionicon: "business-outline" as const,
+        icon: "location.fill" as const,
         value: uniqueMasjidsVisited.toString(),
         label: "Masjids",
         color: primary[500],
       },
       {
-        sfSymbol: "rosette",
-        ionicon: "ribbon" as const,
-        value: achievementsUnlocked.toString(),
-        label: "Achievements",
+        icon: "pin.circle.fill" as const,
+        value: totalCheckins.toString(),
+        label: "Check-ins",
         color: primary[500],
       },
       {
-        sfSymbol: "flame.fill",
-        ionicon: "flame" as const,
+        icon: "flame.fill" as const,
         value: currentStreak.toString(),
         label: "Streak",
         color: "#FF6B35",
@@ -158,9 +131,8 @@ export const ShareableProfileCard = React.forwardRef<
                       },
                     ]}
                   >
-                    <PlatformIcon
-                      sfSymbol="person.fill"
-                      ionicon="person"
+                    <IconSymbol
+                      name="person.fill"
                       size={32}
                       color={primary[500]}
                     />
@@ -180,9 +152,8 @@ export const ShareableProfileCard = React.forwardRef<
                 <React.Fragment key={stat.label}>
                   <View style={styles.statItem}>
                     <View style={styles.statIconValue}>
-                      <PlatformIcon
-                        sfSymbol={stat.sfSymbol}
-                        ionicon={stat.ionicon}
+                      <IconSymbol
+                        name={stat.icon}
                         size={18}
                         color={stat.color}
                       />

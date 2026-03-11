@@ -4,12 +4,12 @@
  * Layout: Vertical stack with level badge in top-right
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/ui/card";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import {
   BorderRadius,
   Colors,
@@ -20,29 +20,6 @@ import {
 } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { UserLimitedBadge } from "@/types/limited-event";
-
-// Cross-platform icon: SF Symbols on iOS, Ionicons fallback on Android/Web
-function PlatformIcon({
-  sfSymbol,
-  ionicon,
-  size,
-  color,
-}: {
-  sfSymbol: string;
-  ionicon: keyof typeof Ionicons.glyphMap;
-  size: number;
-  color: string;
-}) {
-  if (process.env.EXPO_OS === "ios") {
-    return (
-      <ExpoImage
-        source={`sf:${sfSymbol}`}
-        style={{ width: size, height: size, tintColor: color }}
-      />
-    );
-  }
-  return <Ionicons name={ionicon} size={size} color={color} />;
-}
 
 interface ProfileHeaderCardProps {
   displayName: string;
@@ -81,29 +58,25 @@ export function ProfileHeaderCard({
 
   const stats = [
     {
-      sfSymbol: "star.fill",
-      ionicon: "star" as const,
+      icon: "star.fill" as const,
       value: formatPoints(totalPoints),
       label: "Points",
       color: isDark ? gold[400] : gold[600],
     },
     {
-      sfSymbol: "location.fill",
-      ionicon: "business-outline" as const,
+      icon: "building.2.fill" as const,
       value: uniqueMasjidsVisited.toString(),
       label: "Masjids",
       color: colors.primary,
     },
     {
-      sfSymbol: "pin.circle.fill",
-      ionicon: "location-outline" as const,
+      icon: "pin.circle.fill" as const,
       value: totalCheckins.toString(),
       label: "Check-ins",
       color: colors.primary,
     },
     {
-      sfSymbol: "flame.fill",
-      ionicon: "flame" as const,
+      icon: "flame.fill" as const,
       value: currentStreak.toString(),
       label: "Streak",
       color: "#FF6B35",
@@ -157,9 +130,8 @@ export function ProfileHeaderCard({
                   },
                 ]}
               >
-                <PlatformIcon
-                  sfSymbol="person.fill"
-                  ionicon="person"
+                <IconSymbol
+                  name="person.fill"
                   size={32}
                   color={colors.primary}
                 />
@@ -179,12 +151,7 @@ export function ProfileHeaderCard({
             <React.Fragment key={stat.label}>
               <View style={styles.statItem}>
                 <View style={styles.statIconValue}>
-                  <PlatformIcon
-                    sfSymbol={stat.sfSymbol}
-                    ionicon={stat.ionicon}
-                    size={18}
-                    color={stat.color}
-                  />
+                  <IconSymbol name={stat.icon} size={18} color={stat.color} />
                   <Text
                     style={[styles.statValue, { color: stat.color }]}
                     selectable

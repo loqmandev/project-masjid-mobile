@@ -825,8 +825,10 @@ export default function ProfileScreen() {
           level={Math.floor(totalPoints / 100)}
           totalPoints={totalPoints}
           uniqueMasjidsVisited={uniqueMasjidsVisited}
-          achievementsUnlocked={
-            achievements.filter((a) => a.progress?.isUnlocked).length
+          totalCheckins={
+            isGuest
+              ? DUMMY_TOTAL_CHECKINS
+              : (profileData?.profile?.totalCheckIns ?? recentVisits.length)
           }
           currentStreak={profileData?.profile?.currentStreak ?? 0}
           last30DaysMasjids={filterLast30DaysMasjids(
