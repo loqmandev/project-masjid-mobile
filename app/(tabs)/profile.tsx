@@ -505,45 +505,27 @@ export default function ProfileScreen() {
   }
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerRight: () => (
-            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
-              {!isGuest && (
-                <TouchableOpacity
-                  onPress={shareProfile}
-                  disabled={isSharing}
-                  style={{ padding: Spacing.sm }}
-                >
-                  {isSharing ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <IconSymbol
-                      name="square.and.arrow.up"
-                      size={24}
-                      color={colors.primary}
-                    />
-                  )}
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                onPress={() => handleMenuPress("/settings")}
-                style={{ padding: Spacing.sm }}
-              >
-                <IconSymbol
-                  name="gearshape.fill"
-                  size={26}
-                  color={colors.primary}
-                />
-              </TouchableOpacity>
-            </View>
-          ),
-        }}
-      />
+      <Stack.Screen options={{ title: "Profile", headerShown: false }} />
+      {process.env.EXPO_OS === "ios" && (
+        <Stack.Toolbar placement="bottom">
+          <Stack.Toolbar.Spacer />
+          {!isGuest && (
+            <Stack.Toolbar.Button
+              icon="square.and.arrow.up"
+              onPress={shareProfile}
+              disabled={isSharing}
+            />
+          )}
+          <Stack.Toolbar.Button
+            icon="gearshape.fill"
+            onPress={() => handleMenuPress("/settings")}
+          />
+        </Stack.Toolbar>
+      )}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        // contentInsetAdjustmentBehavior="never"
+        contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -815,6 +797,42 @@ export default function ProfileScreen() {
           </View>
         </Animated.View>
       )}
+      {/* Floating action buttons — Android only, rendered after overlay to stay on top */}
+      {process.env.EXPO_OS === "android" && (
+        <Animated.View entering={FadeIn} style={styles.floatingRow}>
+          {!isGuest && (
+            <TouchableOpacity
+              onPress={shareProfile}
+              disabled={isSharing}
+              style={[styles.fab, { backgroundColor: colors.primary }]}
+              activeOpacity={0.85}
+              accessible={true}
+              accessibilityLabel="Share profile"
+              accessibilityRole="button"
+            >
+              {isSharing ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <IconSymbol
+                  name="square.and.arrow.up"
+                  size={22}
+                  color="#FFFFFF"
+                />
+              )}
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={() => handleMenuPress("/settings")}
+            style={[styles.fab, { backgroundColor: colors.primary }]}
+            activeOpacity={0.85}
+            accessible={true}
+            accessibilityLabel="Open settings"
+            accessibilityRole="button"
+          >
+            <IconSymbol name="gearshape.fill" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
       {/* Badge Selector Modal */}
       <BadgeSelectorModal
         visible={showBadgeSelector}
@@ -860,9 +878,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: Spacing.md,
+    paddingTop: Spacing.xl,
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.xxl,
+  },
+  floatingRow: {
+    position: "absolute",
+    bottom: Spacing.lg,
+    right: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderCurve: "continuous",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0px 6px 16px rgba(0, 169, 165, 0.35)",
   },
   loadingContainer: {
     flex: 1,

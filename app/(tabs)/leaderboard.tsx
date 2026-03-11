@@ -1,3 +1,4 @@
+import { Stack } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -375,13 +376,14 @@ export default function LeaderboardScreen() {
 
   return (
     <>
+      <Stack.Screen options={{ title: "Ranks" }} />
       <FlatList
         data={topTenData}
         renderItem={renderLeaderboardItem}
         keyExtractor={keyExtractor}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{
-          paddingTop: Spacing.xs,
+          paddingTop: Spacing.xl,
         }}
         ListHeaderComponent={ListHeaderComponent}
         ListFooterComponent={ListFooterComponent}

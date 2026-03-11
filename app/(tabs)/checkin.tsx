@@ -1,5 +1,5 @@
 import * as Haptics from "expo-haptics";
-import { router, Stack } from "expo-router";
+import { router } from "expo-router";
 import React, {
   memo,
   useCallback,
@@ -151,9 +151,19 @@ export default function CheckInScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
   const queryClient = useQueryClient();
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
   const { track, screen } = useAnalytics();
   const hasTrackedView = useRef(false);
+
+  // Redirect to login if unauthenticated
+  useEffect(() => {
+    if (!isPending && !session) {
+      router.replace({
+        pathname: "/auth/login",
+        params: { returnTo: "/(tabs)/checkin" },
+      });
+    }
+  }, [isPending, session]);
 
   // Check if user is in demo mode
   const isDemoMode = session?.user?.email
@@ -993,12 +1003,6 @@ export default function CheckInScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: "Check In",
-          headerLargeTitle: true,
-        }}
-      />
       <ScrollView
         style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={[
