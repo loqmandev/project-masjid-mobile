@@ -1,28 +1,37 @@
+import SegmentedControl from "@react-native-segmented-control/segmented-control";
 import * as Haptics from "expo-haptics";
 import { router, Stack, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   FlatList,
+  NativeSyntheticEvent,
   RefreshControl,
   StyleSheet,
   Text,
+  TextInputChangeEventData,
   TouchableOpacity,
-  View,
   useWindowDimensions,
+  View,
 } from "react-native";
 
-import { EventListItem, formatEventDate, formatEventDistance, formatEventTime } from "@/components/explore/event-list-item";
+import {
+  EventListItem,
+  formatEventDate,
+  formatEventDistance,
+  formatEventTime,
+} from "@/components/explore/event-list-item";
 import { MasjidListItem } from "@/components/explore/masjid-list-item";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { DemoBanner } from "@/components/ui/demo-banner";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import {
-  BorderRadius,
-  Colors,
-  Spacing,
-  Typography
-} from "@/constants/theme";
+import { BorderRadius, Colors, Spacing, Typography } from "@/constants/theme";
 import { useBottomSheet } from "@/hooks/use-bottom-sheet";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useEvents } from "@/hooks/use-events";
@@ -152,7 +161,11 @@ export default function ExploreScreen() {
         const districtLower = masjid.districtName.toLowerCase();
         const stateLower = masjid.stateName.toLowerCase();
 
-        if (nameLower.includes(query) || districtLower.includes(query) || stateLower.includes(query)) {
+        if (
+          nameLower.includes(query) ||
+          districtLower.includes(query) ||
+          stateLower.includes(query)
+        ) {
           results.push(masjid);
         }
       }
@@ -170,7 +183,11 @@ export default function ExploreScreen() {
       const districtLower = masjid.districtName.toLowerCase();
       const stateLower = masjid.stateName.toLowerCase();
 
-      if (nameLower.includes(query) || districtLower.includes(query) || stateLower.includes(query)) {
+      if (
+        nameLower.includes(query) ||
+        districtLower.includes(query) ||
+        stateLower.includes(query)
+      ) {
         results.push(masjid);
       }
     }
@@ -178,7 +195,8 @@ export default function ExploreScreen() {
   }, [nearbyMasjids, searchQuery, showDemoData]);
 
   // Determine which data to display: search results or nearby masjids
-  const displayData = isSearching && searchResults ? searchResults : filteredMasjids;
+  const displayData =
+    isSearching && searchResults ? searchResults : filteredMasjids;
 
   // Calculate distances for events and pre-format date/time strings
   // Pre-formatting date/time avoids formatting on every render
@@ -186,7 +204,12 @@ export default function ExploreScreen() {
     if (!events || events.length === 0) return [];
     if (!location) {
       // Still format date/time even without location
-      const results: (MasjidEvent & { distanceM?: number; formattedDate: string; formattedTime: string; formattedDistance: string | null })[] = [];
+      const results: (MasjidEvent & {
+        distanceM?: number;
+        formattedDate: string;
+        formattedTime: string;
+        formattedDistance: string | null;
+      })[] = [];
       for (const event of events) {
         const eventDate = new Date(event.startDateTime);
         results.push({
@@ -200,7 +223,12 @@ export default function ExploreScreen() {
       return results;
     }
 
-    const results: (MasjidEvent & { distanceM?: number; formattedDate: string; formattedTime: string; formattedDistance: string | null })[] = [];
+    const results: (MasjidEvent & {
+      distanceM?: number;
+      formattedDate: string;
+      formattedTime: string;
+      formattedDistance: string | null;
+    })[] = [];
     for (const event of events) {
       const distanceM = getDistanceInMeters(
         location.latitude,
@@ -235,7 +263,14 @@ export default function ExploreScreen() {
       return isEventsLoading ? [] : (eventsWithFormattedData ?? []);
     }
     return isLoading && !isSearchLoading ? [] : displayData;
-  }, [activeTab, isEventsLoading, eventsWithFormattedData, isLoading, isSearchLoading, displayData]);
+  }, [
+    activeTab,
+    isEventsLoading,
+    eventsWithFormattedData,
+    isLoading,
+    isSearchLoading,
+    displayData,
+  ]);
 
   // Pre-compute common styles based on color scheme
   const checkinIndicatorBg = colors.success + "20";
@@ -244,10 +279,13 @@ export default function ExploreScreen() {
   const filterItemSelectedLight = colors.primary + "20";
   const filterItemSelectedDark = colors.primary + "30";
 
-  // Handle search input changes
-  const handleSearchChange = useCallback((text: string) => {
-    setSearchQuery(text);
-  }, []);
+  // Handle native search bar changes
+  const handleSearchChange = useCallback(
+    (e: NativeSyntheticEvent<TextInputChangeEventData>) => {
+      setSearchQuery(e.nativeEvent.text);
+    },
+    [],
+  );
 
   // Handle masjid press with haptic feedback
   const handleMasjidPress = useCallback((masjidId: string) => {
@@ -324,12 +362,19 @@ export default function ExploreScreen() {
         onPress={handleMasjidPress}
       />
     ),
-    [colors.text, colors.textSecondary, colors.textTertiary, colors.success, checkinIndicatorBg, handleMasjidPress],
+    [
+      colors.text,
+      colors.textSecondary,
+      colors.textTertiary,
+      colors.success,
+      checkinIndicatorBg,
+      handleMasjidPress,
+    ],
   );
 
   // Render event list item using memoized component
   const renderEventItem = useCallback(
-    ({ item }: { item: typeof eventsWithFormattedData[number] }) => (
+    ({ item }: { item: (typeof eventsWithFormattedData)[number] }) => (
       <EventListItem
         id={item.id}
         name={item.name}
@@ -352,46 +397,20 @@ export default function ExploreScreen() {
     return (
       <View>
         {isDemoMode && <DemoBanner />}
-        {showDemoData &&
-          (!nearbyMasjids || nearbyMasjids.length === 0) && (
-            <View
-              style={[
-                styles.demoBanner,
-                { backgroundColor: demoBannerBg },
-              ]}
-            >
-              <IconSymbol
-                name="star.fill"
-                size={14}
-                color={colors.primary}
-              />
-              <Text
-                style={[
-                  styles.demoBannerText,
-                  { color: colors.primary },
-                ]}
-              >
-                Demo mode - showing sample masjids
-              </Text>
-            </View>
-          )}
-        <Text
-          style={[styles.resultsCount, { color: colors.textSecondary }]}
-        >
-          {activeTab === "events"
-            ? `${eventsWithFormattedData?.length ?? 0} upcoming event${(eventsWithFormattedData?.length ?? 0) !== 1 ? "s" : ""}`
-            : isSearching
-              ? `${displayData.length} search result${displayData.length !== 1 ? "s" : ""} found`
-              : `${filteredMasjids.length} masjids ${showDemoData && (!nearbyMasjids || nearbyMasjids.length === 0) ? "(demo)" : "within 5km"}${selectedFacilities.size > 0 ? ` • ${selectedFacilities.size} filter${selectedFacilities.size > 1 ? "s" : ""} applied` : ""}`}
-        </Text>
+        {showDemoData && (!nearbyMasjids || nearbyMasjids.length === 0) && (
+          <View style={[styles.demoBanner, { backgroundColor: demoBannerBg }]}>
+            <IconSymbol name="star.fill" size={14} color={colors.primary} />
+            <Text style={[styles.demoBannerText, { color: colors.primary }]}>
+              Demo mode - showing sample masjids
+            </Text>
+          </View>
+        )}
         {activeTab === "masjids" && (
           <TouchableOpacity
             onPress={handleReportPress}
             style={styles.reportLinkContainer}
           >
-            <Text
-              style={[styles.reportLink, { color: colors.primary }]}
-            >
+            <Text style={[styles.reportLink, { color: colors.primary }]}>
               Incorrect information? Report here
             </Text>
           </TouchableOpacity>
@@ -424,12 +443,7 @@ export default function ExploreScreen() {
         {(isLoading || isSearchLoading) && (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text
-              style={[
-                styles.loadingText,
-                { color: colors.textSecondary },
-              ]}
-            >
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
               {isSearchLoading
                 ? "Searching..."
                 : isLocationLoading
@@ -455,10 +469,7 @@ export default function ExploreScreen() {
                   refetchMasjids();
                 }
               }}
-              style={[
-                styles.retryButton,
-                { backgroundColor: colors.primary },
-              ]}
+              style={[styles.retryButton, { backgroundColor: colors.primary }]}
               accessible={true}
               accessibilityLabel={
                 activeTab === "events"
@@ -482,10 +493,7 @@ export default function ExploreScreen() {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 setSearchQuery(searchQuery);
               }}
-              style={[
-                styles.retryButton,
-                { backgroundColor: colors.primary },
-              ]}
+              style={[styles.retryButton, { backgroundColor: colors.primary }]}
               accessible={true}
               accessibilityLabel="Retry search"
               accessibilityRole="button"
@@ -527,10 +535,7 @@ export default function ExploreScreen() {
                   : "No masjids found"}
               </Text>
               <Text
-                style={[
-                  styles.emptySubtext,
-                  { color: colors.textSecondary },
-                ]}
+                style={[styles.emptySubtext, { color: colors.textSecondary }]}
               >
                 {activeTab === "events"
                   ? "Check back later for new events"
@@ -566,100 +571,63 @@ export default function ExploreScreen() {
 
   return (
     <>
+      <Stack.SearchBar
+        placeholder="Search..."
+        onChangeText={handleSearchChange}
+        onCancelButtonPress={() => setSearchQuery("")}
+        autoCapitalize="none"
+        obscureBackground={false}
+        hideWhenScrolling={false}
+      />
       <Stack.Screen
         options={{
-          headerLargeTitle: true,
-          headerLargeTitleShadowVisible: false,
-          headerSearchBarOptions: {
-            placeholder: "Search masjid name...",
-            onChangeText: (event) => handleSearchChange(event.nativeEvent.text),
-            onSearchButtonPress: (event) =>
-              handleSearchChange(event.nativeEvent.text),
-            onCancelButtonPress: () => handleSearchChange(""),
-          },
+          headerTitle: () => (
+            <SegmentedControl
+              values={["Masjids", "Events"]}
+              selectedIndex={activeTab === "masjids" ? 0 : 1}
+              onChange={({ nativeEvent }) => {
+                setActiveTab(
+                  nativeEvent.selectedSegmentIndex === 0 ? "masjids" : "events",
+                );
+              }}
+              style={{ width: 200 }}
+            />
+          ),
+          headerRight:
+            activeTab === "masjids"
+              ? () => (
+                  <TouchableOpacity
+                    onPress={handleOpenFilters}
+                    accessible={true}
+                    accessibilityLabel="Filter masjids by facilities"
+                    accessibilityRole="button"
+                  >
+                    <IconSymbol
+                      name="line.3.horizontal.decrease.circle.fill"
+                      size={24}
+                      color={
+                        selectedFacilities.size > 0
+                          ? colors.primary
+                          : colors.textSecondary
+                      }
+                    />
+                  </TouchableOpacity>
+                )
+              : undefined,
         }}
       />
       <View style={styles.container}>
-        {/* Tab Container - always visible */}
-        <View
-          style={{
-            flexDirection: "row",
-            marginHorizontal: Spacing.md,
-            padding: 4,
-            borderRadius: 14,
-            marginBottom: Spacing.md,
-            backgroundColor: colors.backgroundSecondary,
-          }}
-        >
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              paddingVertical: Spacing.md,
-              minHeight: 44,
-              alignItems: "center",
-              borderRadius: 10,
-              backgroundColor: activeTab === "masjids" ? colors.card : "transparent",
-              boxShadow: activeTab === "masjids" ? "0 1px 3px rgba(0, 0, 0, 0.1)" : "none",
-            }}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setActiveTab("masjids");
-            }}
-            accessible={true}
-            accessibilityLabel="Masjids tab"
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === "masjids" }}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={{
-                fontSize: 14,
-                fontWeight: "600",
-                color: activeTab === "masjids" ? colors.primary : colors.textSecondary,
-              }}
-            >
-              Masjids
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              paddingVertical: Spacing.md,
-              minHeight: 44,
-              alignItems: "center",
-              borderRadius: 10,
-              backgroundColor: activeTab === "events" ? colors.card : "transparent",
-              boxShadow: activeTab === "events" ? "0 1px 3px rgba(0, 0, 0, 0.1)" : "none",
-            }}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setActiveTab("events");
-            }}
-            accessible={true}
-            accessibilityLabel="Events tab"
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === "events" }}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={{
-                fontSize: 14,
-                fontWeight: "600",
-                color: activeTab === "events" ? colors.primary : colors.textSecondary,
-              }}
-            >
-              Events
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Masjid List - always rendered for iOS large title collapse */}
+        {/* List */}
         <FlatList
-          data={listData as (MasjidResponse | MasjidSearchResult | MasjidEvent)[]}
+          data={
+            listData as (MasjidResponse | MasjidSearchResult | MasjidEvent)[]
+          }
           renderItem={
-            (activeTab === "events" ? renderEventItem : renderMasjidItem) as (
-              info: { item: MasjidResponse | MasjidSearchResult | MasjidEvent }
-            ) => React.ReactElement | null
+            (activeTab === "events"
+              ? renderEventItem
+              : renderMasjidItem) as (info: {
+              item: MasjidResponse | MasjidSearchResult | MasjidEvent;
+            }) => React.ReactElement | null
           }
           keyExtractor={(item) => {
             if (item && "id" in item) return item.id;
@@ -667,6 +635,7 @@ export default function ExploreScreen() {
           }}
           contentContainerStyle={styles.listContent}
           contentInsetAdjustmentBehavior="automatic"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
           removeClippedSubviews={true}
           maxToRenderPerBatch={10}
@@ -685,34 +654,6 @@ export default function ExploreScreen() {
           ListEmptyComponent={listEmptyComponent}
         />
 
-        {/* Floating Filter Button - hide when searching or on events tab */}
-        {!isSearching && activeTab === "masjids" && (
-          <TouchableOpacity
-            onPress={handleOpenFilters}
-            style={[styles.fab, { backgroundColor: colors.primary }]}
-            activeOpacity={0.85}
-            accessible={true}
-            accessibilityLabel="Open filters"
-            accessibilityHint="Filter masjids by facilities"
-            accessibilityRole="button"
-            accessibilityState={{ expanded: false }}
-          >
-            <IconSymbol
-              name="line.3.horizontal.decrease.circle.fill"
-              size={22}
-              color="#FFFFFF"
-            />
-            {selectedFacilities.size > 0 && (
-              <View
-                style={[styles.fabBadge, { backgroundColor: colors.card }]}
-              >
-                <Text style={[styles.fabBadgeText, { color: colors.primary }]}>
-                  {selectedFacilities.size}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* Filter Bottom Sheet */}
@@ -814,36 +755,6 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  // FAB styles with modern design
-  fab: {
-    position: "absolute",
-    right: Spacing.lg,
-    bottom: Spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderCurve: "continuous",
-    alignItems: "center",
-    justifyContent: "center",
-    // Modern CSS boxShadow with primary color tint
-    boxShadow: "0px 6px 16px rgba(0, 169, 165, 0.35)",
-  },
-  fabBadge: {
-    position: "absolute",
-    top: -4,
-    right: -4,
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 6,
-    borderCurve: "continuous",
-  },
-  fabBadgeText: {
-    fontSize: 12,
-    fontWeight: "700",
   },
   demoBanner: {
     flexDirection: "row",

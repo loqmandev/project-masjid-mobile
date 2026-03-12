@@ -15,7 +15,6 @@ export interface ActiveCheckinData {
 export function useActiveCheckin() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
-
   const query = useQuery<ActiveCheckinData | null, Error>({
     queryKey: ['active-checkin'],
     queryFn: getActiveCheckin,

@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: BorderRadius.xl,
     borderCurve: "continuous",
-    borderWidth: 1,
+    borderWidth: 2,
   },
   // Light mode - default (subtle border)
   defaultLight: {
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   outlinedLight: {
     backgroundColor: "#FFFFFF",
     borderColor: "#E0E0E0",
-    borderLeftWidth: 3,
+    borderLeftWidth: 2,
   },
   // Dark mode - outlined
   outlinedDark: {
@@ -87,33 +87,33 @@ const styles = StyleSheet.create({
   primary: {
     backgroundColor: "#FFFFFF",
     borderColor: primary[500],
-    borderLeftWidth: 4,
+    borderLeftWidth: 2,
   },
   primaryDark: {
     backgroundColor: "#1C1E1F",
     borderColor: primary[800],
-    borderLeftWidth: 4,
+    borderLeftWidth: 2,
   },
   // Gold variant (for achievements)
   gold: {
     backgroundColor: "#FFFBF0",
     borderColor: gold[300],
-    borderLeftWidth: 4,
+    borderLeftWidth: 2,
   },
   goldDark: {
     backgroundColor: "#1C1E1F",
     borderColor: gold[400],
-    borderLeftWidth: 4,
+    borderLeftWidth: 2,
   },
   // Error variant (for error states)
   error: {
     backgroundColor: "#FEF2F2",
     borderColor: semantic.error,
-    borderLeftWidth: 4,
+    borderLeftWidth: 2,
   },
   errorDark: {
     backgroundColor: "#1C1E1F",
     borderColor: semantic.error,
-    borderLeftWidth: 4,
+    borderLeftWidth: 2,
   },
 });

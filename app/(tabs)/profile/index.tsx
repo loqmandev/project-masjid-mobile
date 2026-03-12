@@ -51,7 +51,6 @@ import {
 } from "@/lib/storage";
 import { filterLast30DaysMasjids, getDisplayName } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 // Cache validity duration (5 minutes)
 const PROFILE_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
@@ -491,50 +490,44 @@ export default function ProfileScreen() {
   // Show loading state
   if (isLoading) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
             Loading profile...
           </Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
   return (
     <>
       <Stack.Screen
         options={{
+          title: "Profile",
           headerRight: () => (
-            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.md }}>
               {!isGuest && (
                 <TouchableOpacity
                   onPress={shareProfile}
                   disabled={isSharing}
-                  style={{ padding: Spacing.sm }}
+                  accessible
+                  accessibilityLabel="Share profile"
+                  accessibilityRole="button"
                 >
-                  {isSharing ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <IconSymbol
-                      name="square.and.arrow.up"
-                      size={24}
-                      color={colors.primary}
-                    />
-                  )}
+                  {isSharing
+                    ? <ActivityIndicator size="small" color={colors.primary} />
+                    : <IconSymbol name="square.and.arrow.up" size={22} color={colors.primary} />
+                  }
                 </TouchableOpacity>
               )}
               <TouchableOpacity
                 onPress={() => handleMenuPress("/settings")}
-                style={{ padding: Spacing.sm }}
+                accessible
+                accessibilityLabel="Open settings"
+                accessibilityRole="button"
               >
-                <IconSymbol
-                  name="gearshape.fill"
-                  size={26}
-                  color={colors.primary}
-                />
+                <IconSymbol name="gearshape.fill" size={22} color={colors.primary} />
               </TouchableOpacity>
             </View>
           ),
@@ -543,7 +536,7 @@ export default function ProfileScreen() {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        // contentInsetAdjustmentBehavior="never"
+        contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -780,7 +773,7 @@ export default function ProfileScreen() {
         )}
         {/* App Version */}
         <Text style={[styles.versionText, { color: colors.textTertiary }]}>
-          Jejak Masjid v1.0.0
+          Jejak Masjid v1.1.0
         </Text>
       </ScrollView>
       {/* Sign Up Overlay - Only for guest users */}
@@ -860,7 +853,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: Spacing.md,
+    paddingTop: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.xxl,
   },
