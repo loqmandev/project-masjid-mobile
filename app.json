@@ -88,34 +88,6 @@
       "expo-image",
       "expo-sharing",
       "expo-web-browser",
-      [
-        "expo-widgets",
-        {
-          "enablePushNotifications": false,
-          "bundleIdentifier": "my.lonasoft.jejakmasjidmobile.widgets",
-          "groupIdentifier": "group.my.lonasoft.jejakmasjidmobile",
-          "widgets": [
-            {
-              "name": "NearbyMasjidWidget",
-              "displayName": "Nearby Masjid",
-              "description": "Shows the closest masjid and check-in status",
-              "supportedFamilies": ["systemSmall", "systemMedium"]
-            },
-            {
-              "name": "ProfileSummaryWidget",
-              "displayName": "Profile Summary",
-              "description": "Your level, points, and visit stats at a glance",
-              "supportedFamilies": ["systemSmall", "systemMedium"]
-            },
-            {
-              "name": "StreakWidget",
-              "displayName": "Visit Streak",
-              "description": "Track your daily masjid visit streak",
-              "supportedFamilies": ["systemSmall"]
-            }
-          ]
-        }
-      ]
     ],
     "experiments": {
       "typedRoutes": true,

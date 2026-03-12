@@ -1,3 +1,4 @@
+import SegmentedControl from "@react-native-segmented-control/segmented-control";
 import { Stack } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -264,72 +265,6 @@ export default function LeaderboardScreen() {
     </View>
   );
 
-  const ListHeaderComponent = useCallback(
-    () => (
-      <View
-        style={{
-          flexDirection: "row",
-          marginHorizontal: Spacing.md,
-          padding: 4,
-          borderRadius: 14,
-          marginBottom: Spacing.md,
-          backgroundColor: colors.backgroundSecondary,
-        }}
-      >
-        <Pressable
-          onPress={() => setActiveTab("monthly")}
-          style={{
-            flex: 1,
-            paddingVertical: Spacing.md,
-            minHeight: 44,
-            alignItems: "center",
-            borderRadius: 10,
-            backgroundColor:
-              activeTab === "monthly" ? colors.card : "transparent",
-            boxShadow:
-              activeTab === "monthly" ? "0 1px 3px rgba(0, 0, 0, 0.1)" : "none",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 14,
-              fontWeight: "600",
-              color:
-                activeTab === "monthly" ? colors.primary : colors.textSecondary,
-            }}
-          >
-            Monthly
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setActiveTab("alltime")}
-          style={{
-            flex: 1,
-            paddingVertical: Spacing.md,
-            minHeight: 44,
-            alignItems: "center",
-            borderRadius: 10,
-            backgroundColor:
-              activeTab === "alltime" ? colors.card : "transparent",
-            boxShadow:
-              activeTab === "alltime" ? "0 1px 3px rgba(0, 0, 0, 0.1)" : "none",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 14,
-              fontWeight: "600",
-              color:
-                activeTab === "alltime" ? colors.primary : colors.textSecondary,
-            }}
-          >
-            All Time
-          </Text>
-        </Pressable>
-      </View>
-    ),
-    [activeTab, colors],
-  );
 
   const ListFooterComponent = useCallback(() => {
     // Add extra padding when floating card is shown to prevent overlap
@@ -376,16 +311,30 @@ export default function LeaderboardScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Ranks" }} />
+      <Stack.Screen
+        options={{
+          headerTitle: () => (
+            <SegmentedControl
+              values={["Monthly", "All Time"]}
+              selectedIndex={activeTab === "monthly" ? 0 : 1}
+              onChange={({ nativeEvent }) => {
+                setActiveTab(
+                  nativeEvent.selectedSegmentIndex === 0 ? "monthly" : "alltime",
+                );
+              }}
+              style={{ width: 200 }}
+            />
+          ),
+        }}
+      />
       <FlatList
         data={topTenData}
         renderItem={renderLeaderboardItem}
         keyExtractor={keyExtractor}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{
-          paddingTop: Spacing.xl,
+          paddingTop: Spacing.sm,
         }}
-        ListHeaderComponent={ListHeaderComponent}
         ListFooterComponent={ListFooterComponent}
         ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
         showsVerticalScrollIndicator={false}

@@ -42,11 +42,6 @@ import { useAnalytics } from "@/lib/analytics";
 import { checkinToMasjid, checkoutFromMasjid } from "@/lib/api";
 import { useSession } from "@/lib/auth-client";
 import { DEMO_LOCATION, DEMO_MASJIDS, isDemoEmail } from "@/lib/demo-mode";
-import {
-  endCheckinLiveActivity,
-  startCheckinLiveActivity,
-  updateCheckinLiveActivity,
-} from "@/lib/widget-bridge";
 import { useQueryClient } from "@tanstack/react-query";
 
 type VisitState = "idle" | "nearby" | "checked_in";
@@ -297,18 +292,6 @@ export default function CheckInScreen() {
       const remaining = Math.max(0, Math.floor((target - now) / 1000));
       setTimeRemaining(remaining);
 
-      // Update Live Activity with current countdown
-      if (activeVisit) {
-        updateCheckinLiveActivity({
-          masjidName: activeVisit.masjidName,
-          remainingSeconds: remaining,
-          isPrayerTime: activeCheckin?.isPrayerTime ?? false,
-          prayerName: activeCheckin?.prayerName ?? "",
-          estimatedPoints: pointsPreview?.estimatedTotal ?? 10,
-          isReadyToCheckout: remaining === 0,
-        });
-      }
-
       // Stop interval when timer reaches zero to save resources
       if (remaining === 0 && intervalRef.current !== null) {
         clearInterval(intervalRef.current);
@@ -413,15 +396,6 @@ export default function CheckInScreen() {
           nearbyMasjid.name,
           MINIMUM_DURATION_MINUTES,
         );
-        // Start Live Activity for check-in countdown
-        startCheckinLiveActivity({
-          masjidName: nearbyMasjid.name,
-          remainingSeconds: MINIMUM_DURATION_MINUTES * 60,
-          isPrayerTime: false,
-          prayerName: "",
-          estimatedPoints: 10,
-          isReadyToCheckout: false,
-        });
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         track("checkin_failed", { reason: result.message ?? "unknown" });
@@ -487,8 +461,6 @@ export default function CheckInScreen() {
         });
         // Cancel the checkout reminder since user checked out manually
         cancelCheckoutReminder();
-        // End Live Activity
-        endCheckinLiveActivity();
         // Invalidate queries to refresh data
         invalidateActiveCheckin();
         queryClient.invalidateQueries({ queryKey: ["user-profile"] });
@@ -1121,7 +1093,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.md,
-    paddingBottom: Spacing.xxl,
     flexGrow: 1,
   },
   scrollContentWithFloatingButton: {

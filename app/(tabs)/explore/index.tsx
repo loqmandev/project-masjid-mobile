@@ -1,5 +1,6 @@
+import SegmentedControl from "@react-native-segmented-control/segmented-control";
 import * as Haptics from "expo-haptics";
-import { router, useFocusEffect } from "expo-router";
+import { router, Stack, useFocusEffect } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -10,19 +11,15 @@ import React, {
 import {
   ActivityIndicator,
   FlatList,
-  Keyboard,
+  NativeSyntheticEvent,
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
+  TextInputChangeEventData,
   TouchableOpacity,
   useWindowDimensions,
   View,
 } from "react-native";
-import Animated, {
-  useAnimatedKeyboard,
-  useAnimatedStyle,
-} from "react-native-reanimated";
 
 import {
   EventListItem,
@@ -62,7 +59,6 @@ export default function ExploreScreen() {
 
   // Track component mount state for async operations
   const isMountedRef = useRef(true);
-  const searchInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -85,7 +81,6 @@ export default function ExploreScreen() {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showDemoData, setShowDemoData] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // Selected facilities for filtering
   const [selectedFacilities, setSelectedFacilities] = useState<Set<string>>(
@@ -277,12 +272,6 @@ export default function ExploreScreen() {
     displayData,
   ]);
 
-  // Keyboard-aware animation for floating elements
-  const keyboard = useAnimatedKeyboard();
-  const floatingAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -keyboard.height.value }],
-  }));
-
   // Pre-compute common styles based on color scheme
   const checkinIndicatorBg = colors.success + "20";
   const demoBannerBg = colors.primary + "15";
@@ -290,10 +279,13 @@ export default function ExploreScreen() {
   const filterItemSelectedLight = colors.primary + "20";
   const filterItemSelectedDark = colors.primary + "30";
 
-  // Handle search input changes
-  const handleSearchChange = useCallback((text: string) => {
-    setSearchQuery(text);
-  }, []);
+  // Handle native search bar changes
+  const handleSearchChange = useCallback(
+    (e: NativeSyntheticEvent<TextInputChangeEventData>) => {
+      setSearchQuery(e.nativeEvent.text);
+    },
+    [],
+  );
 
   // Handle masjid press with haptic feedback
   const handleMasjidPress = useCallback((masjidId: string) => {
@@ -357,19 +349,6 @@ export default function ExploreScreen() {
     router.push("/masjid-report");
   }, []);
 
-  const handleOpenSearch = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsSearchOpen(true);
-    setTimeout(() => searchInputRef.current?.focus(), 50);
-  }, []);
-
-  const handleCloseSearch = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsSearchOpen(false);
-    setSearchQuery("");
-    Keyboard.dismiss();
-  }, []);
-
   // Render masjid list item using memoized component
   const renderMasjidItem = useCallback(
     ({ item }: { item: MasjidResponse | MasjidSearchResult }) => (
@@ -426,13 +405,6 @@ export default function ExploreScreen() {
             </Text>
           </View>
         )}
-        <Text style={[styles.resultsCount, { color: colors.textSecondary }]}>
-          {activeTab === "events"
-            ? `${eventsWithFormattedData?.length ?? 0} upcoming event${(eventsWithFormattedData?.length ?? 0) !== 1 ? "s" : ""}`
-            : isSearching
-              ? `${displayData.length} search result${displayData.length !== 1 ? "s" : ""} found`
-              : `${filteredMasjids.length} masjids ${showDemoData && (!nearbyMasjids || nearbyMasjids.length === 0) ? "(demo)" : "within 5km"}${selectedFacilities.size > 0 ? ` • ${selectedFacilities.size} filter${selectedFacilities.size > 1 ? "s" : ""} applied` : ""}`}
-        </Text>
         {activeTab === "masjids" && (
           <TouchableOpacity
             onPress={handleReportPress}
@@ -599,95 +571,53 @@ export default function ExploreScreen() {
 
   return (
     <>
+      <Stack.SearchBar
+        placeholder="Search..."
+        onChangeText={handleSearchChange}
+        onCancelButtonPress={() => setSearchQuery("")}
+        autoCapitalize="none"
+        obscureBackground={false}
+        hideWhenScrolling={false}
+      />
+      <Stack.Screen
+        options={{
+          headerTitle: () => (
+            <SegmentedControl
+              values={["Masjids", "Events"]}
+              selectedIndex={activeTab === "masjids" ? 0 : 1}
+              onChange={({ nativeEvent }) => {
+                setActiveTab(
+                  nativeEvent.selectedSegmentIndex === 0 ? "masjids" : "events",
+                );
+              }}
+              style={{ width: 200 }}
+            />
+          ),
+          headerRight:
+            activeTab === "masjids"
+              ? () => (
+                  <TouchableOpacity
+                    onPress={handleOpenFilters}
+                    accessible={true}
+                    accessibilityLabel="Filter masjids by facilities"
+                    accessibilityRole="button"
+                  >
+                    <IconSymbol
+                      name="line.3.horizontal.decrease.circle.fill"
+                      size={24}
+                      color={
+                        selectedFacilities.size > 0
+                          ? colors.primary
+                          : colors.textSecondary
+                      }
+                    />
+                  </TouchableOpacity>
+                )
+              : undefined,
+        }}
+      />
       <View style={styles.container}>
-        {/* Tab Container - always visible */}
-        <View
-          style={{
-            flexDirection: "row",
-            marginHorizontal: Spacing.md,
-            padding: 4,
-            borderRadius: 14,
-            marginBottom: Spacing.md,
-            backgroundColor: colors.backgroundSecondary,
-          }}
-        >
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              paddingVertical: Spacing.md,
-              minHeight: 44,
-              alignItems: "center",
-              borderRadius: 10,
-              backgroundColor:
-                activeTab === "masjids" ? colors.card : "transparent",
-              boxShadow:
-                activeTab === "masjids"
-                  ? "0 1px 3px rgba(0, 0, 0, 0.1)"
-                  : "none",
-            }}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setActiveTab("masjids");
-            }}
-            accessible={true}
-            accessibilityLabel="Masjids tab"
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === "masjids" }}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={{
-                fontSize: 14,
-                fontWeight: "600",
-                color:
-                  activeTab === "masjids"
-                    ? colors.primary
-                    : colors.textSecondary,
-              }}
-            >
-              Masjids
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              paddingVertical: Spacing.md,
-              minHeight: 44,
-              alignItems: "center",
-              borderRadius: 10,
-              backgroundColor:
-                activeTab === "events" ? colors.card : "transparent",
-              boxShadow:
-                activeTab === "events"
-                  ? "0 1px 3px rgba(0, 0, 0, 0.1)"
-                  : "none",
-            }}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setActiveTab("events");
-            }}
-            accessible={true}
-            accessibilityLabel="Events tab"
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === "events" }}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={{
-                fontSize: 14,
-                fontWeight: "600",
-                color:
-                  activeTab === "events"
-                    ? colors.primary
-                    : colors.textSecondary,
-              }}
-            >
-              Events
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Masjid List - always rendered for iOS large title collapse */}
+        {/* List */}
         <FlatList
           data={
             listData as (MasjidResponse | MasjidSearchResult | MasjidEvent)[]
@@ -724,93 +654,6 @@ export default function ExploreScreen() {
           ListEmptyComponent={listEmptyComponent}
         />
 
-        {/* Floating Search + Filter */}
-        <Animated.View style={[styles.floatingRow, floatingAnimStyle]}>
-          {isSearchOpen ? (
-            <View
-              style={[
-                styles.searchBarContainer,
-                { backgroundColor: colors.card },
-              ]}
-            >
-              <IconSymbol
-                name="magnifyingglass"
-                size={18}
-                color={colors.textSecondary}
-              />
-              <TextInput
-                ref={searchInputRef}
-                style={[styles.searchInput, { color: colors.text }]}
-                placeholder="Search masjid name..."
-                placeholderTextColor={colors.textTertiary}
-                value={searchQuery}
-                onChangeText={handleSearchChange}
-                returnKeyType="search"
-                autoCorrect={false}
-                autoCapitalize="none"
-                onSubmitEditing={() => Keyboard.dismiss()}
-              />
-              <TouchableOpacity
-                onPress={handleCloseSearch}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessible={true}
-                accessibilityLabel="Close search"
-                accessibilityRole="button"
-              >
-                <IconSymbol
-                  name="xmark.circle.fill"
-                  size={20}
-                  color={colors.textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              <TouchableOpacity
-                onPress={handleOpenSearch}
-                style={[styles.fab, { backgroundColor: colors.primary }]}
-                activeOpacity={0.85}
-                accessible={true}
-                accessibilityLabel="Open search"
-                accessibilityRole="button"
-              >
-                <IconSymbol name="magnifyingglass" size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-              {activeTab === "masjids" && (
-                <TouchableOpacity
-                  onPress={handleOpenFilters}
-                  style={[styles.fab, { backgroundColor: colors.primary }]}
-                  activeOpacity={0.85}
-                  accessible={true}
-                  accessibilityLabel="Open filters"
-                  accessibilityHint="Filter masjids by facilities"
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: false }}
-                >
-                  <IconSymbol
-                    name="line.3.horizontal.decrease.circle.fill"
-                    size={22}
-                    color="#FFFFFF"
-                  />
-                  {selectedFacilities.size > 0 && (
-                    <View
-                      style={[
-                        styles.fabBadge,
-                        { backgroundColor: colors.card },
-                      ]}
-                    >
-                      <Text
-                        style={[styles.fabBadgeText, { color: colors.primary }]}
-                      >
-                        {selectedFacilities.size}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              )}
-            </>
-          )}
-        </Animated.View>
       </View>
 
       {/* Filter Bottom Sheet */}
@@ -912,62 +755,6 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: Spacing.xl,
-  },
-  // Floating row container (search + filter FABs)
-  floatingRow: {
-    position: "absolute",
-    bottom: Spacing.lg,
-    left: Spacing.lg,
-    right: Spacing.lg,
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  // Search bar (shown when search is open)
-  searchBarContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    height: 56,
-    borderRadius: 28,
-    borderCurve: "continuous",
-    paddingHorizontal: Spacing.md,
-    gap: Spacing.xs,
-    boxShadow: "0px 4px 16px rgba(0, 0, 0, 0.15)",
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 0,
-  },
-  // FAB styles with modern design
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderCurve: "continuous",
-    alignItems: "center",
-    justifyContent: "center",
-    // Modern CSS boxShadow with primary color tint
-    boxShadow: "0px 6px 16px rgba(0, 169, 165, 0.35)",
-  },
-  fabBadge: {
-    position: "absolute",
-    top: -4,
-    right: -4,
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 6,
-    borderCurve: "continuous",
-  },
-  fabBadgeText: {
-    fontSize: 12,
-    fontWeight: "700",
   },
   demoBanner: {
     flexDirection: "row",
