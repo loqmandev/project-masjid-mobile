@@ -156,12 +156,16 @@ export default function CheckInScreen() {
   const hasTrackedView = useRef(false);
 
   // Redirect to login if unauthenticated
+  // Deferred to next frame to avoid Android Fabric batch mount crash
   useEffect(() => {
     if (!isPending && !session) {
-      router.replace({
-        pathname: "/auth/login",
-        params: { returnTo: "/(tabs)/checkin" },
+      const id = requestAnimationFrame(() => {
+        router.replace({
+          pathname: "/auth/login",
+          params: { returnTo: "/(tabs)/checkin" },
+        });
       });
+      return () => cancelAnimationFrame(id);
     }
   }, [isPending, session]);
 

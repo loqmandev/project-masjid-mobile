@@ -265,7 +265,6 @@ export default function LeaderboardScreen() {
     </View>
   );
 
-
   const ListFooterComponent = useCallback(() => {
     // Add extra padding when floating card is shown to prevent overlap
     const extraPadding =
@@ -319,7 +318,9 @@ export default function LeaderboardScreen() {
               selectedIndex={activeTab === "monthly" ? 0 : 1}
               onChange={({ nativeEvent }) => {
                 setActiveTab(
-                  nativeEvent.selectedSegmentIndex === 0 ? "monthly" : "alltime",
+                  nativeEvent.selectedSegmentIndex === 0
+                    ? "monthly"
+                    : "alltime",
                 );
               }}
               style={{ width: 200 }}
