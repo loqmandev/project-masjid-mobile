@@ -323,7 +323,12 @@ export default function LeaderboardScreen() {
                     : "alltime",
                 );
               }}
-              style={{ width: 200, marginBottom: Spacing.lg }}
+              style={[
+                { width: 200 },
+                process.env.EXPO_OS === "ios"
+                  ? { marginBottom: Spacing.lg }
+                  : {},
+              ]}
             />
           ),
         }}

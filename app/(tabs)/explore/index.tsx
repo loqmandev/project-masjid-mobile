@@ -18,7 +18,7 @@ import {
   TextInputChangeEventData,
   TouchableOpacity,
   useWindowDimensions,
-  View,
+  View
 } from "react-native";
 
 import {
@@ -590,7 +590,12 @@ export default function ExploreScreen() {
                   nativeEvent.selectedSegmentIndex === 0 ? "masjids" : "events",
                 );
               }}
-              style={{ width: 200, marginBottom: Spacing.lg }}
+              style={[
+                { width: 200 },
+                process.env.EXPO_OS === "ios"
+                  ? { marginBottom: Spacing.lg }
+                  : {},
+              ]}
             />
           ),
           headerRight:
@@ -653,7 +658,6 @@ export default function ExploreScreen() {
           ListHeaderComponent={listHeaderComponent}
           ListEmptyComponent={listEmptyComponent}
         />
-
       </View>
 
       {/* Filter Bottom Sheet */}
