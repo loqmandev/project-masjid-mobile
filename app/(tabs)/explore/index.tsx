@@ -590,7 +590,7 @@ export default function ExploreScreen() {
                   nativeEvent.selectedSegmentIndex === 0 ? "masjids" : "events",
                 );
               }}
-              style={{ width: 200 }}
+              style={{ width: 200, marginBottom: Spacing.lg }}
             />
           ),
           headerRight:

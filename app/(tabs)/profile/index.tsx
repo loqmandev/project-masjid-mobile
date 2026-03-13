@@ -14,6 +14,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ViewStyle,
 } from "react-native";
 import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
 
@@ -302,6 +303,36 @@ function getTierBadgeVariant(
   };
   return tierMap[tier.toLowerCase()] || "bronze";
 }
+function HeaderButton({
+  onPress,
+  disabled,
+  accessibilityLabel,
+  children,
+}: {
+  onPress: () => void;
+  disabled?: boolean;
+  accessibilityLabel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      accessible
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      style={headerButtonStyle}
+    >
+      {children}
+    </TouchableOpacity>
+  );
+}
+
+const headerButtonStyle: ViewStyle = {
+  padding: Spacing.xs,
+  borderRadius: BorderRadius.sm,
+};
+
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
@@ -463,9 +494,9 @@ export default function ProfileScreen() {
   const displayName = isGuest
     ? DUMMY_DISPLAY_NAME
     : getDisplayName(
-        profileData?.user?.name || user?.name || null,
-        profileData?.user?.email || user?.email,
-      );
+      profileData?.user?.name || user?.name || null,
+      profileData?.user?.email || user?.email,
+    );
   const avatarUrl = profileData?.user?.image || user?.image || null;
   const totalPoints =
     profileData?.profile?.totalPoints ?? (isGuest ? DUMMY_TOTAL_POINTS : 0);
@@ -506,29 +537,25 @@ export default function ProfileScreen() {
         options={{
           title: "Profile",
           headerRight: () => (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.md }}>
+            <View style={styles.headerRight}>
               {!isGuest && (
-                <TouchableOpacity
+                <HeaderButton
                   onPress={shareProfile}
                   disabled={isSharing}
-                  accessible
                   accessibilityLabel="Share profile"
-                  accessibilityRole="button"
                 >
                   {isSharing
                     ? <ActivityIndicator size="small" color={colors.primary} />
-                    : <IconSymbol name="square.and.arrow.up" size={22} color={colors.primary} />
+                    : <IconSymbol name="square.and.arrow.up" size={24} color={colors.textSecondary} />
                   }
-                </TouchableOpacity>
+                </HeaderButton>
               )}
-              <TouchableOpacity
+              <HeaderButton
                 onPress={() => handleMenuPress("/settings")}
-                accessible
                 accessibilityLabel="Open settings"
-                accessibilityRole="button"
               >
-                <IconSymbol name="gearshape.fill" size={22} color={colors.primary} />
-              </TouchableOpacity>
+                <IconSymbol name="gearshape.fill" size={24} color={colors.textSecondary} />
+              </HeaderButton>
             </View>
           ),
         }}
@@ -848,6 +875,12 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
   },
   scrollView: {
     flex: 1,

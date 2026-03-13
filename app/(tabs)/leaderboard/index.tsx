@@ -323,7 +323,7 @@ export default function LeaderboardScreen() {
                     : "alltime",
                 );
               }}
-              style={{ width: 200 }}
+              style={{ width: 200, marginBottom: Spacing.lg }}
             />
           ),
         }}
